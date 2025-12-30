@@ -1,6 +1,6 @@
 
 # PLC Ladder Logic Visualizer  
-
+ 
 A TypeScript module for parsing and visualizing Allen-Bradley/Rockwell PLC export data. This tool transforms raw controller JSON exports into interactive, human-readable visualizations.
 
 ---
