@@ -69,10 +69,15 @@ export default function App() {
 
   return (
     <div style={styles.app}>
-      {/* Header */}
+      {/* Header - Studio 5000 style compact toolbar */}
       <header style={styles.header}>
-        <h1 style={styles.title}>PLC Ladder Logic Visualizer</h1>
-        <p style={styles.subtitle}>Allen-Bradley/Rockwell Controller Export Viewer</p>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <h1 style={styles.title}>Ladder Logic Visualizer</h1>
+          <span style={styles.subtitle}>│ Allen-Bradley/Rockwell</span>
+        </div>
+        <div style={{ fontSize: '11px', opacity: 0.8 }}>
+          {controller.modified_date && `Last Modified: ${controller.modified_date}`}
+        </div>
       </header>
 
       {/* Tab Navigation */}
@@ -81,19 +86,19 @@ export default function App() {
           style={activeTab === 'ladder' ? styles.tabActive : styles.tab}
           onClick={() => setActiveTab('ladder')}
         >
-          Ladder Diagram
+          📊 Ladder Diagram
         </button>
         <button
           style={activeTab === 'tags' ? styles.tabActive : styles.tab}
           onClick={() => setActiveTab('tags')}
         >
-          Tags ({controller.tags.length})
+          🏷️ Tags ({controller.tags.length})
         </button>
         <button
           style={activeTab === 'info' ? styles.tabActive : styles.tab}
           onClick={() => setActiveTab('info')}
         >
-          Controller Info
+          ⚙️ Controller Info
         </button>
       </nav>
 
@@ -104,6 +109,7 @@ export default function App() {
             {/* Sidebar */}
             <aside style={styles.sidebar}>
               <ProgramNavigator
+                controller={controller}
                 programs={controller.programs}
                 selectedRoutine={selectedRoutine ?? undefined}
                 onRoutineSelect={handleRoutineSelect}
@@ -114,24 +120,25 @@ export default function App() {
             <div style={styles.diagramContainer}>
               {parsedRoutine ? (
                 <>
-                  <h2 style={styles.routineTitle}>
-                    {parsedRoutine.name}
+                  <div style={styles.routineTitle}>
+                    <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
                     <span style={styles.routineBadge}>{parsedRoutine.type}</span>
                     <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
-                  </h2>
-                  <LadderDiagram
-                    routine={parsedRoutine}
-                    width={1000}
-                    style={{ maxHeight: 'calc(100vh - 250px)' }}
-                  />
+                  </div>
+                  <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
+                    <LadderDiagram
+                      routine={parsedRoutine}
+                      width={900}
+                      style={{ minHeight: '100%' }}
+                    />
+                  </div>
                 </>
               ) : (
-                <p style={styles.noSelection}>Select a routine from the sidebar</p>
+                <p style={styles.noSelection}>Select a routine from the Controller Organizer</p>
               )}
             </div>
           </div>
         )}
-
         {activeTab === 'tags' && (
           <div style={styles.contentPanel}>
             <h2 style={styles.sectionTitle}>Controller Tags</h2>
@@ -149,112 +156,140 @@ export default function App() {
   );
 }
 
+// Studio 5000-inspired color scheme
+const colors = {
+  primary: '#2b579a',        // Deep blue (Studio 5000 accent)
+  primaryDark: '#1e3f6f',    // Darker blue for header
+  secondary: '#4a7c59',      // Green accent (for controller icon)
+  background: '#e8e8e8',     // Light gray background
+  surface: '#ffffff',        // White surface
+  border: '#c0c0c0',         // Gray border
+  text: '#333333',           // Dark text
+  textLight: '#666666',      // Light text
+};
+
 const styles: Record<string, React.CSSProperties> = {
   app: {
     minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
   header: {
-    backgroundColor: '#1976d2',
+    backgroundColor: colors.primaryDark,
     color: 'white',
-    padding: '16px 24px',
+    padding: '8px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottom: `2px solid ${colors.primary}`,
   },
   title: {
     margin: 0,
-    fontSize: '24px',
+    fontSize: '16px',
     fontWeight: 600,
   },
   subtitle: {
-    margin: '4px 0 0 0',
-    fontSize: '14px',
-    opacity: 0.9,
+    margin: '0 0 0 12px',
+    fontSize: '12px',
+    opacity: 0.8,
   },
   nav: {
     display: 'flex',
     gap: '0',
-    backgroundColor: '#fff',
-    borderBottom: '1px solid #e0e0e0',
-    padding: '0 24px',
+    backgroundColor: colors.surface,
+    borderBottom: `1px solid ${colors.border}`,
+    padding: '0 8px',
   },
   tab: {
-    padding: '12px 20px',
+    padding: '8px 16px',
     border: 'none',
     background: 'none',
-    fontSize: '14px',
+    fontSize: '12px',
     cursor: 'pointer',
-    color: '#666',
+    color: colors.textLight,
     borderBottom: '2px solid transparent',
   },
   tabActive: {
-    padding: '12px 20px',
+    padding: '8px 16px',
     border: 'none',
     background: 'none',
-    fontSize: '14px',
+    fontSize: '12px',
     cursor: 'pointer',
-    color: '#1976d2',
+    color: colors.primary,
     fontWeight: 600,
-    borderBottom: '2px solid #1976d2',
+    borderBottom: `2px solid ${colors.primary}`,
   },
   main: {
-    padding: '24px',
+    padding: '8px',
+    height: 'calc(100vh - 90px)',
+    overflow: 'hidden',
   },
   ladderLayout: {
     display: 'flex',
-    gap: '24px',
+    gap: '8px',
+    height: '100%',
   },
   sidebar: {
-    width: '280px',
+    width: '260px',
     flexShrink: 0,
+    overflow: 'auto',
   },
   diagramContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: '8px',
-    padding: '16px',
-    border: '1px solid #e0e0e0',
+    backgroundColor: colors.surface,
+    border: `1px solid ${colors.border}`,
+    overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
   },
   routineTitle: {
-    marginTop: 0,
-    marginBottom: '16px',
-    fontSize: '18px',
+    margin: 0,
+    padding: '8px 12px',
+    fontSize: '13px',
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '8px',
+    backgroundColor: '#f5f5f5',
+    borderBottom: `1px solid ${colors.border}`,
   },
   routineBadge: {
-    fontSize: '12px',
-    padding: '2px 8px',
-    backgroundColor: '#e3f2fd',
-    color: '#1976d2',
-    borderRadius: '4px',
+    fontSize: '10px',
+    padding: '2px 6px',
+    backgroundColor: colors.primary,
+    color: 'white',
+    borderRadius: '2px',
   },
   routineCount: {
-    fontSize: '12px',
-    color: '#666',
+    fontSize: '11px',
+    color: colors.textLight,
+    marginLeft: 'auto',
   },
   noSelection: {
-    color: '#999',
+    color: colors.textLight,
     textAlign: 'center',
     padding: '40px',
+    fontSize: '13px',
   },
   contentPanel: {
-    backgroundColor: '#fff',
-    borderRadius: '8px',
-    padding: '24px',
-    border: '1px solid #e0e0e0',
+    backgroundColor: colors.surface,
+    padding: '16px',
+    border: `1px solid ${colors.border}`,
+    height: '100%',
+    overflow: 'auto',
   },
   sectionTitle: {
     marginTop: 0,
-    marginBottom: '16px',
-    fontSize: '18px',
+    marginBottom: '12px',
+    fontSize: '14px',
+    fontWeight: 600,
   },
   loadingContainer: {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: '100vh',
-    fontSize: '18px',
-    color: '#666',
+    fontSize: '14px',
+    color: colors.textLight,
   },
   errorContainer: {
     display: 'flex',
@@ -269,8 +304,9 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '16px',
   },
   errorMessage: {
-    color: '#666',
+    color: colors.textLight,
     maxWidth: '600px',
     textAlign: 'center',
+    fontSize: '13px',
   },
 };

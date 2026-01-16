@@ -1,6 +1,6 @@
 /**
  * SVG symbol definitions for ladder logic coils (OTE, OTL, OTU)
- * Vendor-style parentheses coils like RSLogix
+ * Studio 5000 style parentheses coils with energized state support
  */
 
 /** Coil symbol dimensions */
@@ -8,33 +8,46 @@ export const COIL_WIDTH = 30;
 export const COIL_HEIGHT = 20;
 export const COIL_CENTER_Y = 10;
 
+/** Colors for different states */
+const WIRE_COLOR = '#333';
+const ENERGIZED_COLOR = '#00aa00';
+const ENERGIZED_FILL = '#90EE90';
+
 /**
- * Create a vendor-style coil symbol with parentheses arcs
+ * Create a Studio 5000-style coil symbol with parentheses arcs
  * The arc style matches RSLogix/Studio 5000
  */
-function createCoilBase(innerText?: string): string {
+function createCoilBase(innerText?: string, energized: boolean = false): string {
   const centerX = 15;
   const centerY = COIL_CENTER_Y;
-  const arcRadius = 6;
   const arcHeight = 8;
   
+  const strokeColor = energized ? ENERGIZED_COLOR : WIRE_COLOR;
+  const strokeWidth = energized ? '2' : '1.5';
+  const fillColor = energized ? ENERGIZED_FILL : 'transparent';
+  
   // Left arc: curved line like (
-  const leftArcX = centerX - 4;
+  const leftArcX = centerX - 5;
   // Right arc: curved line like )
-  const rightArcX = centerX + 4;
+  const rightArcX = centerX + 5;
   
   let textElement = '';
   if (innerText) {
-    textElement = `<text x="${centerX}" y="${centerY + 3}" text-anchor="middle" font-size="8" font-weight="bold" fill="currentColor">${innerText}</text>`;
+    textElement = `<text x="${centerX}" y="${centerY + 3}" text-anchor="middle" font-size="8" font-weight="bold" fill="${strokeColor}">${innerText}</text>`;
   }
   
+  // Background rect for energized state
+  const bgRect = energized ? 
+    `<rect x="5" y="0" width="20" height="20" fill="${fillColor}" rx="10"/>` : '';
+  
   return `
-  <g>
-    <line x1="0" y1="${centerY}" x2="7" y2="${centerY}" stroke="currentColor" stroke-width="1"/>
-    <path d="M ${leftArcX} ${centerY - arcHeight} Q ${leftArcX - arcRadius} ${centerY} ${leftArcX} ${centerY + arcHeight}" fill="none" stroke="currentColor" stroke-width="1"/>
-    <path d="M ${rightArcX} ${centerY - arcHeight} Q ${rightArcX + arcRadius} ${centerY} ${rightArcX} ${centerY + arcHeight}" fill="none" stroke="currentColor" stroke-width="1"/>
+  <g class="coil ${energized ? 'energized' : ''}">
+    ${bgRect}
+    <line x1="0" y1="${centerY}" x2="6" y2="${centerY}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+    <path d="M ${leftArcX} ${centerY - arcHeight} Q ${leftArcX - 5} ${centerY} ${leftArcX} ${centerY + arcHeight}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+    <path d="M ${rightArcX} ${centerY - arcHeight} Q ${rightArcX + 5} ${centerY} ${rightArcX} ${centerY + arcHeight}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
     ${textElement}
-    <line x1="23" y1="${centerY}" x2="30" y2="${centerY}" stroke="currentColor" stroke-width="1"/>
+    <line x1="24" y1="${centerY}" x2="30" y2="${centerY}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
   </g>
 `;
 }
@@ -45,9 +58,19 @@ function createCoilBase(innerText?: string): string {
 export const CoilOTE = createCoilBase();
 
 /**
+ * OTE Energized
+ */
+export const CoilOTEEnergized = createCoilBase(undefined, true);
+
+/**
  * OTL (Output Latch) symbol: ─(L)─
  */
 export const CoilOTL = createCoilBase('L');
+
+/**
+ * OTL Energized
+ */
+export const CoilOTLEnergized = createCoilBase('L', true);
 
 /**
  * OTU (Output Unlatch) symbol: ─(U)─
@@ -55,17 +78,24 @@ export const CoilOTL = createCoilBase('L');
 export const CoilOTU = createCoilBase('U');
 
 /**
- * Get coil symbol by mnemonic
+ * OTU Energized
  */
-export function getCoilSymbol(mnemonic: string): string {
+export const CoilOTUEnergized = createCoilBase('U', true);
+
+/**
+ * Get coil symbol by mnemonic
+ * @param mnemonic - The instruction mnemonic (OTE, OTL, OTU)
+ * @param energized - Whether the coil is in energized state
+ */
+export function getCoilSymbol(mnemonic: string, energized: boolean = false): string {
   switch (mnemonic) {
     case 'OTE':
-      return CoilOTE;
+      return energized ? CoilOTEEnergized : CoilOTE;
     case 'OTL':
-      return CoilOTL;
+      return energized ? CoilOTLEnergized : CoilOTL;
     case 'OTU':
-      return CoilOTU;
+      return energized ? CoilOTUEnergized : CoilOTU;
     default:
-      return CoilOTE;
+      return energized ? CoilOTEEnergized : CoilOTE;
   }
 }

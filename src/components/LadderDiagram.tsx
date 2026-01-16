@@ -16,7 +16,7 @@ export interface LadderDiagramProps {
 }
 
 /**
- * React component that renders a ladder logic diagram.
+ * React component that renders a ladder logic diagram in Studio 5000 style.
  */
 export function LadderDiagram({
   routine,
@@ -33,7 +33,7 @@ export function LadderDiagram({
 
   const svgHtml = useMemo(() => {
     if (diagramRungs.length === 0) {
-      return '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="100"><text x="400" y="50" text-anchor="middle" fill="#999">No rungs to display</text></svg>';
+      return '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="100"><text x="400" y="50" text-anchor="middle" fill="#999" font-family="Segoe UI, sans-serif" font-size="13">No rungs to display</text></svg>';
     }
     return renderLadderDiagram(diagramRungs, { width });
   }, [diagramRungs, width]);
@@ -44,8 +44,6 @@ export function LadderDiagram({
       style={{
         overflow: 'auto',
         backgroundColor: '#fff',
-        border: '1px solid #e0e0e0',
-        borderRadius: '4px',
         ...style,
       }}
       dangerouslySetInnerHTML={{ __html: svgHtml }}

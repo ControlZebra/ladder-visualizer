@@ -16,8 +16,14 @@ import {
 // CONSTANTS
 // ============================================================================
 
+/** Rung number cell width (Studio 5000 style) */
+export const RUNG_NUMBER_WIDTH = 30;
+
 /** Power rail X offset from edge */
-export const RAIL_WIDTH = 20;
+export const RAIL_WIDTH = 8;
+
+/** Power rail visual width */
+export const RAIL_VISUAL_WIDTH = 4;
 
 /** Minimum rung height */
 export const MIN_RUNG_HEIGHT = 80;
@@ -27,6 +33,9 @@ const INSTRUCTION_GAP = 0;
 
 /** Label offset above contacts/coils */
 const LABEL_OFFSET = 18;
+
+/** Address label offset below contacts/coils */
+const ADDRESS_LABEL_OFFSET = 12;
 
 /** Vertical padding for rungs */
 const RUNG_PADDING = 15;
@@ -42,6 +51,23 @@ const BRANCH_VERTICAL_GAP = 5;
 
 /** Horizontal padding at branch start/end for vertical connectors */
 const BRANCH_CONNECTOR_OFFSET = 10;
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Format a tag name as a Studio 5000-style address
+ * In Studio 5000, addresses appear as <Local:1:I.Data.0> format
+ */
+function formatTagAsAddress(tagName: string): string {
+  // If it's already in address format, return as-is
+  if (tagName.includes(':') || tagName.includes('.')) {
+    return `<${tagName}>`;
+  }
+  // For simple tag names, just show as tag reference
+  return '';
+}
 
 // ============================================================================
 // INSTRUCTION CLASSIFICATION
@@ -654,7 +680,15 @@ function renderInstruction(instruction: Instruction, x: number, wireY: number): 
     const label = instruction.operands[0] || '';
     const labelX = x + dims.width / 2;
     const labelY = instrY - 5;
-    svg += `<text x="${labelX}" y="${labelY}" text-anchor="middle" font-size="10" fill="currentColor" class="instruction-label">${label}</text>`;
+    
+    // Tag name above (Studio 5000 style)
+    svg += `<text x="${labelX}" y="${labelY}" text-anchor="middle" font-size="10" fill="#333" font-weight="500" class="instruction-label">${label}</text>`;
+    
+    // Address below (Studio 5000 style - shows as <address>)
+    // For now, show a placeholder address format
+    const addressY = instrY + dims.height + ADDRESS_LABEL_OFFSET;
+    const displayAddress = formatTagAsAddress(label);
+    svg += `<text x="${labelX}" y="${addressY}" text-anchor="middle" font-size="8" fill="#666" class="instruction-address">${displayAddress}</text>`;
 
     // Add connecting wires to fill the gap from centering
     if (symbolOffset > 0) {
@@ -765,8 +799,8 @@ function renderRungLine(
   prevWireY: number | null,
   nextWireY: number | null
 ): string {
-  const leftRailX = RAIL_WIDTH;
-  const rightRailX = diagramWidth - RAIL_WIDTH;
+  const leftRailX = RUNG_NUMBER_WIDTH + RAIL_WIDTH + RAIL_VISUAL_WIDTH;
+  const rightRailX = diagramWidth - RAIL_WIDTH - RAIL_VISUAL_WIDTH;
   const conditionsStartX = leftRailX + INSTRUCTION_GAP;
 
   // Separate conditions and operations for this line
@@ -779,7 +813,7 @@ function renderRungLine(
   let svg = '';
 
   // Wire from left rail to start of conditions
-  svg += `<line x1="${leftRailX}" y1="${wireY}" x2="${conditionsStartX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+  svg += `<line x1="${leftRailX}" y1="${wireY}" x2="${conditionsStartX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
 
   // Render conditions (left-aligned)
   let currentX = conditionsStartX;
@@ -798,7 +832,7 @@ function renderRungLine(
 
     // Wire between conditions and operations
     if (operationsStartX > conditionsEndX) {
-      svg += `<line x1="${conditionsEndX}" y1="${wireY}" x2="${operationsStartX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+      svg += `<line x1="${conditionsEndX}" y1="${wireY}" x2="${operationsStartX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
     }
 
     // Render operations (right-aligned)
@@ -811,23 +845,23 @@ function renderRungLine(
 
     // Wire from operations to right rail
     const operationsFinalX = operationsStartX + operationsWidth + INSTRUCTION_GAP;
-    svg += `<line x1="${operationsFinalX}" y1="${wireY}" x2="${rightRailX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+    svg += `<line x1="${operationsFinalX}" y1="${wireY}" x2="${rightRailX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
   } else {
     // Not the last line: draw continuation
     // Draw wire from end of conditions to continuation point at right
     const continuationX = rightRailX - INSTRUCTION_GAP;
-    svg += `<line x1="${conditionsEndX}" y1="${wireY}" x2="${continuationX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+    svg += `<line x1="${conditionsEndX}" y1="${wireY}" x2="${continuationX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
 
     // Draw vertical connector to next line
     if (nextWireY !== null) {
-      svg += `<line x1="${continuationX}" y1="${wireY}" x2="${continuationX}" y2="${nextWireY}" stroke="currentColor" stroke-width="1"/>`;
+      svg += `<line x1="${continuationX}" y1="${wireY}" x2="${continuationX}" y2="${nextWireY}" stroke="#333" stroke-width="1"/>`;
     }
   }
 
   // For lines after the first, draw vertical connector from previous line
   if (lineIndex > 0 && prevWireY !== null) {
     // Connect from left side
-    svg += `<line x1="${conditionsStartX}" y1="${prevWireY}" x2="${conditionsStartX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+    svg += `<line x1="${conditionsStartX}" y1="${prevWireY}" x2="${conditionsStartX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
   }
 
   return svg;
@@ -844,8 +878,8 @@ function renderElementLine(
   prevWireY: number | null,
   nextWireY: number | null
 ): string {
-  const leftRailX = RAIL_WIDTH;
-  const rightRailX = diagramWidth - RAIL_WIDTH;
+  const leftRailX = RUNG_NUMBER_WIDTH + RAIL_WIDTH + RAIL_VISUAL_WIDTH;
+  const rightRailX = diagramWidth - RAIL_WIDTH - RAIL_VISUAL_WIDTH;
   const conditionsStartX = leftRailX + INSTRUCTION_GAP;
 
   // Separate conditions and operations for this line
@@ -874,7 +908,7 @@ function renderElementLine(
   let svg = '';
 
   // Wire from left rail to start of conditions
-  svg += `<line x1="${leftRailX}" y1="${wireY}" x2="${conditionsStartX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+  svg += `<line x1="${leftRailX}" y1="${wireY}" x2="${conditionsStartX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
 
   // Render conditions (left-aligned)
   let currentX = conditionsStartX;
@@ -898,7 +932,7 @@ function renderElementLine(
 
     // Wire between conditions and operations
     if (operationsStartX > conditionsEndX) {
-      svg += `<line x1="${conditionsEndX}" y1="${wireY}" x2="${operationsStartX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+      svg += `<line x1="${conditionsEndX}" y1="${wireY}" x2="${operationsStartX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
     }
 
     // Render operations (right-aligned)
@@ -915,21 +949,21 @@ function renderElementLine(
     }
 
     // Wire from operations to right rail
-    svg += `<line x1="${currentX}" y1="${wireY}" x2="${rightRailX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+    svg += `<line x1="${currentX}" y1="${wireY}" x2="${rightRailX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
   } else {
     // Not the last line: draw continuation
     const continuationX = rightRailX - INSTRUCTION_GAP;
-    svg += `<line x1="${conditionsEndX}" y1="${wireY}" x2="${continuationX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+    svg += `<line x1="${conditionsEndX}" y1="${wireY}" x2="${continuationX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
 
     // Draw vertical connector to next line
     if (nextWireY !== null) {
-      svg += `<line x1="${continuationX}" y1="${wireY}" x2="${continuationX}" y2="${nextWireY}" stroke="currentColor" stroke-width="1"/>`;
+      svg += `<line x1="${continuationX}" y1="${wireY}" x2="${continuationX}" y2="${nextWireY}" stroke="#333" stroke-width="1"/>`;
     }
   }
 
   // For lines after the first, draw vertical connector from previous line
   if (lineIndex > 0 && prevWireY !== null) {
-    svg += `<line x1="${conditionsStartX}" y1="${prevWireY}" x2="${conditionsStartX}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+    svg += `<line x1="${conditionsStartX}" y1="${prevWireY}" x2="${conditionsStartX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
   }
 
   return svg;
@@ -961,15 +995,16 @@ export function renderRung(
   }
 
   // Use multi-line layout for branched rungs
-  const availableWidth = diagramWidth - 2 * RAIL_WIDTH - 2 * INSTRUCTION_GAP;
+  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_WIDTH - 2 * INSTRUCTION_GAP;
   const lines = splitElementsIntoLines(elements, availableWidth);
 
   // Handle empty rung
   if (lines.length === 0) {
     const wireY = yOffset + MIN_RUNG_HEIGHT / 2;
+    const leftRailX = RUNG_NUMBER_WIDTH + RAIL_WIDTH + RAIL_VISUAL_WIDTH;
+    const rightRailX = diagramWidth - RAIL_WIDTH - RAIL_VISUAL_WIDTH;
     let svg = '';
-    svg += `<text x="5" y="${wireY + 4}" font-size="11" fill="#666" class="rung-number">${rungIndex}</text>`;
-    svg += `<line x1="${RAIL_WIDTH}" y1="${wireY}" x2="${diagramWidth - RAIL_WIDTH}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+    svg += `<line x1="${leftRailX}" y1="${wireY}" x2="${rightRailX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
     return svg;
   }
 
@@ -983,10 +1018,7 @@ export function renderRung(
 
   let svg = '';
 
-  // Rung number (positioned at first line)
-  svg += `<text x="5" y="${wireYPositions[0] + 4}" font-size="11" fill="#666" class="rung-number">${rungIndex}</text>`;
-
-  // Render each line
+  // Render each line (rung number is now rendered separately in renderLadderDiagram)
   for (let i = 0; i < lines.length; i++) {
     const prevWireY = i > 0 ? wireYPositions[i - 1] : null;
     const nextWireY = i < lines.length - 1 ? wireYPositions[i + 1] : null;
@@ -1009,19 +1041,20 @@ export function renderRung(
  */
 function renderRungLegacy(
   rung: Rung,
-  rungIndex: number,
+  _rungIndex: number,
   yOffset: number,
   diagramWidth: number
 ): string {
-  const availableWidth = diagramWidth - 2 * RAIL_WIDTH - 2 * INSTRUCTION_GAP;
+  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_WIDTH - 2 * INSTRUCTION_GAP;
   const lines = splitInstructionsIntoLines(rung.instructions, availableWidth);
 
   // Handle empty rung
   if (lines.length === 0) {
     const wireY = yOffset + MIN_RUNG_HEIGHT / 2;
+    const leftRailX = RUNG_NUMBER_WIDTH + RAIL_WIDTH + RAIL_VISUAL_WIDTH;
+    const rightRailX = diagramWidth - RAIL_WIDTH - RAIL_VISUAL_WIDTH;
     let svg = '';
-    svg += `<text x="5" y="${wireY + 4}" font-size="11" fill="#666" class="rung-number">${rungIndex}</text>`;
-    svg += `<line x1="${RAIL_WIDTH}" y1="${wireY}" x2="${diagramWidth - RAIL_WIDTH}" y2="${wireY}" stroke="currentColor" stroke-width="1"/>`;
+    svg += `<line x1="${leftRailX}" y1="${wireY}" x2="${rightRailX}" y2="${wireY}" stroke="#333" stroke-width="1"/>`;
     return svg;
   }
 
@@ -1035,10 +1068,7 @@ function renderRungLegacy(
 
   let svg = '';
 
-  // Rung number (positioned at first line)
-  svg += `<text x="5" y="${wireYPositions[0] + 4}" font-size="11" fill="#666" class="rung-number">${rungIndex}</text>`;
-
-  // Render each line
+  // Render each line (rung number is now rendered separately in renderLadderDiagram)
   for (let i = 0; i < lines.length; i++) {
     const prevWireY = i > 0 ? wireYPositions[i - 1] : null;
     const nextWireY = i < lines.length - 1 ? wireYPositions[i + 1] : null;
@@ -1066,10 +1096,11 @@ function renderRungLegacy(
 function calculateLayout(
   rungs: Rung[],
   diagramWidth: number
-): { totalHeight: number; rungOffsets: number[] } {
-  const availableWidth = diagramWidth - 2 * RAIL_WIDTH - 2 * INSTRUCTION_GAP;
-  let totalHeight = RUNG_PADDING;
+): { totalHeight: number; rungOffsets: number[]; rungHeights: number[] } {
+  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_WIDTH - 2 * INSTRUCTION_GAP;
+  let totalHeight = 0;
   const rungOffsets: number[] = [];
+  const rungHeights: number[] = [];
 
   for (const rung of rungs) {
     rungOffsets.push(totalHeight);
@@ -1089,30 +1120,108 @@ function calculateLayout(
       rungHeight = lines.length > 0 ? calculateMultiLineRungHeight(lines) : MIN_RUNG_HEIGHT;
     }
     
+    rungHeights.push(rungHeight);
     totalHeight += rungHeight;
   }
 
-  totalHeight += RUNG_PADDING;
-  return { totalHeight, rungOffsets };
+  return { totalHeight, rungOffsets, rungHeights };
 }
 
 /**
- * Render complete ladder diagram SVG
+ * Render Studio 5000-style rung number cell
+ */
+function renderRungNumberCell(
+  rungIndex: number,
+  yOffset: number,
+  rungHeight: number,
+  isSelected: boolean = false
+): string {
+  const bgColor = isSelected ? '#3366cc' : (rungIndex % 2 === 0 ? '#f0f0f0' : '#e8e8e8');
+  const textColor = isSelected ? '#ffffff' : '#333333';
+  
+  let svg = '';
+  
+  // Rung number cell background
+  svg += `<rect x="0" y="${yOffset}" width="${RUNG_NUMBER_WIDTH}" height="${rungHeight}" fill="${bgColor}" class="rung-number-cell"/>`;
+  
+  // Border
+  svg += `<line x1="${RUNG_NUMBER_WIDTH}" y1="${yOffset}" x2="${RUNG_NUMBER_WIDTH}" y2="${yOffset + rungHeight}" stroke="#c0c0c0" stroke-width="1"/>`;
+  svg += `<line x1="0" y1="${yOffset + rungHeight}" x2="${RUNG_NUMBER_WIDTH}" y2="${yOffset + rungHeight}" stroke="#c0c0c0" stroke-width="1"/>`;
+  
+  // Rung number text (centered in cell)
+  const textY = yOffset + rungHeight / 2 + 4;
+  svg += `<text x="${RUNG_NUMBER_WIDTH / 2}" y="${textY}" text-anchor="middle" font-size="11" font-weight="500" fill="${textColor}" class="rung-number">${rungIndex}</text>`;
+  
+  return svg;
+}
+
+/**
+ * Render Studio 5000-style power rails
+ */
+function renderPowerRails(
+  width: number,
+  totalHeight: number
+): string {
+  let svg = '';
+  
+  // Left power rail (solid blue bar - Studio 5000 style)
+  const leftRailX = RUNG_NUMBER_WIDTH;
+  svg += `<rect x="${leftRailX}" y="0" width="${RAIL_VISUAL_WIDTH}" height="${totalHeight}" fill="#3366cc" class="power-rail left-rail"/>`;
+  
+  // Right power rail (solid blue bar - Studio 5000 style)
+  const rightRailX = width - RAIL_VISUAL_WIDTH;
+  svg += `<rect x="${rightRailX}" y="0" width="${RAIL_VISUAL_WIDTH}" height="${totalHeight}" fill="#3366cc" class="power-rail right-rail"/>`;
+  
+  return svg;
+}
+
+/**
+ * Render complete ladder diagram SVG with Studio 5000 styling
  */
 export function renderLadderDiagram(rungs: Rung[], options: { width?: number } = {}): string {
   const width = options.width || 800;
-  const { totalHeight, rungOffsets } = calculateLayout(rungs, width);
+  const { totalHeight, rungOffsets, rungHeights } = calculateLayout(rungs, width);
+  
+  // Ensure minimum height
+  const finalHeight = Math.max(totalHeight, MIN_RUNG_HEIGHT);
 
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}" class="ladder-diagram">`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${finalHeight}" viewBox="0 0 ${width} ${finalHeight}" class="ladder-diagram" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">`;
+  
+  // Definitions for gradients and filters
+  svg += `
+    <defs>
+      <linearGradient id="railGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" style="stop-color:#2255aa"/>
+        <stop offset="50%" style="stop-color:#3366cc"/>
+        <stop offset="100%" style="stop-color:#2255aa"/>
+      </linearGradient>
+      <filter id="energizedGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+        <feMerge>
+          <feMergeNode in="coloredBlur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
+  `;
 
   // Background
-  svg += `<rect width="${width}" height="${totalHeight}" fill="white"/>`;
+  svg += `<rect width="${width}" height="${finalHeight}" fill="#ffffff"/>`;
+  
+  // Render rung number cells and backgrounds
+  for (let i = 0; i < rungs.length; i++) {
+    const rungHeight = rungHeights[i] || MIN_RUNG_HEIGHT;
+    
+    // Alternating row background
+    const rowBg = i % 2 === 0 ? '#ffffff' : '#fafafa';
+    svg += `<rect x="${RUNG_NUMBER_WIDTH}" y="${rungOffsets[i]}" width="${width - RUNG_NUMBER_WIDTH}" height="${rungHeight}" fill="${rowBg}" class="rung-background"/>`;
+    
+    // Rung number cell
+    svg += renderRungNumberCell(i, rungOffsets[i], rungHeight);
+  }
 
-  // Left power rail
-  svg += `<line x1="${RAIL_WIDTH}" y1="0" x2="${RAIL_WIDTH}" y2="${totalHeight}" stroke="currentColor" stroke-width="2" class="power-rail left-rail"/>`;
-
-  // Right power rail
-  svg += `<line x1="${width - RAIL_WIDTH}" y1="0" x2="${width - RAIL_WIDTH}" y2="${totalHeight}" stroke="currentColor" stroke-width="2" class="power-rail right-rail"/>`;
+  // Power rails
+  svg += renderPowerRails(width, finalHeight);
 
   // Render each rung
   for (let i = 0; i < rungs.length; i++) {
