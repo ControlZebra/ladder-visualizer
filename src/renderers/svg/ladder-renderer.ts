@@ -12,6 +12,11 @@ import {
   createCounterSymbol,
 } from './symbols';
 
+// Import the new layout engine for the refactored API
+import { LayoutEngine, createLayoutEngine } from '../layout';
+import type { DiagramLayout, LayoutOptions } from '../layout';
+import { SVGRenderer, createSVGRenderer } from './svg-renderer';
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -51,6 +56,66 @@ const BRANCH_VERTICAL_GAP = 5;
 
 /** Horizontal padding at branch start/end for vertical connectors */
 const BRANCH_CONNECTOR_OFFSET = 10;
+
+// ============================================================================
+// NEW DECOUPLED API
+// ============================================================================
+
+/**
+ * Options for diagram rendering
+ */
+export interface RenderDiagramOptions {
+  /** Total diagram width */
+  width?: number;
+  /** Whether to use the legacy renderer (default: false) */
+  useLegacyRenderer?: boolean;
+}
+
+/**
+ * Render a ladder diagram using the decoupled layout engine and SVG renderer.
+ * This is the new recommended API that separates layout calculation from rendering.
+ * 
+ * @param rungs - The rungs to render
+ * @param options - Rendering options
+ * @returns Object containing the SVG string and the computed layout
+ */
+export function renderDiagram(
+  rungs: Rung[],
+  options: RenderDiagramOptions = {}
+): { svg: string; layout: DiagramLayout } {
+  const { width = 800, useLegacyRenderer = false } = options;
+
+  if (useLegacyRenderer) {
+    // Fall back to legacy rendering
+    const svg = renderLadderDiagram(rungs, { width });
+    // Create a minimal layout for compatibility
+    const layoutEngine = createLayoutEngine({ width });
+    const layout = layoutEngine.calculateDiagramLayout(rungs);
+    return { svg, layout };
+  }
+
+  // Use the new decoupled architecture
+  const layoutEngine = createLayoutEngine({ width });
+  const layout = layoutEngine.calculateDiagramLayout(rungs);
+  
+  const svgRenderer = createSVGRenderer();
+  const svg = svgRenderer.render(layout);
+
+  return { svg, layout };
+}
+
+/**
+ * Calculate layout only, without rendering.
+ * Useful for custom renderers or for getting layout information.
+ */
+export function calculateLayout(rungs: Rung[], options: LayoutOptions = {}): DiagramLayout {
+  const layoutEngine = createLayoutEngine(options);
+  return layoutEngine.calculateDiagramLayout(rungs);
+}
+
+// Re-export the layout engine and SVG renderer for direct use
+export { LayoutEngine, createLayoutEngine, SVGRenderer, createSVGRenderer };
+export type { DiagramLayout, LayoutOptions };
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -1092,8 +1157,9 @@ function renderRungLegacy(
 
 /**
  * Calculate total height and offsets for all rungs, accounting for multi-line rungs and branches
+ * (Legacy internal function - use the exported calculateLayout for the new API)
  */
-function calculateLayout(
+function calculateLegacyLayout(
   rungs: Rung[],
   diagramWidth: number
 ): { totalHeight: number; rungOffsets: number[]; rungHeights: number[] } {
@@ -1180,7 +1246,7 @@ function renderPowerRails(
  */
 export function renderLadderDiagram(rungs: Rung[], options: { width?: number } = {}): string {
   const width = options.width || 800;
-  const { totalHeight, rungOffsets, rungHeights } = calculateLayout(rungs, width);
+  const { totalHeight, rungOffsets, rungHeights } = calculateLegacyLayout(rungs, width);
   
   // Ensure minimum height
   const finalHeight = Math.max(totalHeight, MIN_RUNG_HEIGHT);

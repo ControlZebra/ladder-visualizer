@@ -23,7 +23,7 @@ export function ContactSymbol({ mnemonic, energized = false }: ContactSymbolProp
         {energized && <rect x="6" y="0" width="18" height="20" fill={fillColor} rx="2" />}
         <line x1="0" y1="10" x2="8" y2="10" stroke={strokeColor} strokeWidth={strokeWidth} />
         <line x1="8" y1="2" x2="8" y2="18" stroke={strokeColor} strokeWidth={strokeWidth} />
-        <line x1="10" y1="18" x2="20" y2="2" stroke={strokeColor} strokeWidth="1.5" />
+        <line x1="10" y1="18" x2="20" y2="2" stroke={strokeColor} strokeWidth={strokeWidth} />
         <line x1="22" y1="2" x2="22" y2="18" stroke={strokeColor} strokeWidth={strokeWidth} />
         <line x1="22" y1="10" x2="30" y2="10" stroke={strokeColor} strokeWidth={strokeWidth} />
       </g>

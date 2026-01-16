@@ -458,7 +458,6 @@ interface RungRendererProps {
   rung: Rung;
   rungIndex: number;
   yOffset: number;
-  rungHeight: number;
   diagramWidth: number;
 }
 
@@ -768,7 +767,6 @@ export function VirtualizedLadderDiagram({
                 rung={rung}
                 rungIndex={actualIndex}
                 yOffset={layout.offset}
-                rungHeight={layout.height}
                 diagramWidth={width}
               />
             </g>
