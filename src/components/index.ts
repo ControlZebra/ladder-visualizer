@@ -1,6 +1,19 @@
 // Ladder Diagram
 export { LadderDiagram, type LadderDiagramProps } from './LadderDiagram';
 
+// Virtualized Ladder Diagram (React SVG with windowed rendering)
+export { VirtualizedLadderDiagram, type VirtualizedLadderDiagramProps } from './svg';
+
+// SVG Symbol Components
+export {
+  ContactSymbol,
+  CoilSymbol,
+  BoxSymbol,
+  type ContactSymbolProps,
+  type CoilSymbolProps,
+  type BoxSymbolProps,
+} from './svg';
+
 // Tag Table
 export { TagTable, type TagTableProps } from './TagTable';
 

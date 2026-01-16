@@ -3,6 +3,7 @@ import {
   parseControllerExport,
   parseRoutine,
   LadderDiagram,
+  VirtualizedLadderDiagram,
   TagTable,
   ControllerInfo,
   ProgramNavigator,
@@ -18,6 +19,7 @@ export default function App() {
   const [controller, setController] = useState<ControllerExport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('ladder');
+  const [useVirtualized, setUseVirtualized] = useState(true);
   const [selectedRoutine, setSelectedRoutine] = useState<{
     programIndex: number;
     routineIndex: number;
@@ -124,13 +126,32 @@ export default function App() {
                     <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
                     <span style={styles.routineBadge}>{parsedRoutine.type}</span>
                     <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
+                    <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={useVirtualized}
+                        onChange={(e) => setUseVirtualized(e.target.checked)}
+                      />
+                      Use Virtualized (React SVG)
+                    </label>
                   </div>
-                  <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
-                    <LadderDiagram
-                      routine={parsedRoutine}
-                      width={900}
-                      style={{ minHeight: '100%' }}
-                    />
+                  <div style={{ flex: 1, overflow: 'hidden', padding: '0' }}>
+                    {useVirtualized ? (
+                      <VirtualizedLadderDiagram
+                        routine={parsedRoutine}
+                        width={900}
+                        height={500}
+                        style={{ minHeight: '100%' }}
+                      />
+                    ) : (
+                      <div style={{ overflow: 'auto', height: '100%' }}>
+                        <LadderDiagram
+                          routine={parsedRoutine}
+                          width={900}
+                          style={{ minHeight: '100%' }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
