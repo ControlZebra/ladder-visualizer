@@ -2,93 +2,25 @@
  * SVG symbol definitions for boxed instructions (timers, counters, math, compare)
  */
 
+import { globalInstructionRegistry } from '../../../types/instruction-registry';
+
 const LINE_HEIGHT = 16;
 const CHAR_WIDTH = 7; // Approximate character width for monospace-like fonts
 const PADDING = 10;
 const CONNECTOR_LENGTH = 10;
 
 /**
- * Full instruction names mapping
- */
-const INSTRUCTION_NAMES: Record<string, string> = {
-  // Compare
-  'EQU': 'Equal',
-  'NEQ': 'Not Equal',
-  'GEQ': 'Greater Than or Eql (A>=B)',
-  'LEQ': 'Less Than or Eql (A<=B)',
-  'GRT': 'Greater Than (A>B)',
-  'LES': 'Less Than (A<B)',
-  'LIM': 'Limit',
-  // Math
-  'ADD': 'Add',
-  'SUB': 'Subtract',
-  'MUL': 'Multiply',
-  'DIV': 'Divide',
-  'MOV': 'Move',
-  'CPT': 'Compute',
-  'ATN': 'Arc Tangent',
-  'XPY': 'X To Power of Y',
-  'SQR': 'Square Root',
-  // Timer
-  'TON': 'Timer On Delay',
-  'TOF': 'Timer Off Delay',
-  'RTO': 'Retentive Timer On',
-  // Counter
-  'CTU': 'Count Up',
-  'CTD': 'Count Down',
-  'RES': 'Reset',
-  // Other
-  'NOP': 'No Operation',
-  'ONS': 'One Shot',
-  'JSR': 'Jump to Subroutine',
-  'RET': 'Return',
-  'AFI': 'Always False',
-};
-
-/**
- * Parameter labels for different instruction types
- */
-const PARAM_LABELS: Record<string, string[]> = {
-  // Compare instructions - Source A, Source B
-  'EQU': ['Source A', 'Source B'],
-  'NEQ': ['Source A', 'Source B'],
-  'GEQ': ['Source A', 'Source B'],
-  'LEQ': ['Source A', 'Source B'],
-  'GRT': ['Source A', 'Source B'],
-  'LES': ['Source A', 'Source B'],
-  'LIM': ['Low Limit', 'Test', 'High Limit'],
-  // Math instructions
-  'ADD': ['Source A', 'Source B', 'Dest'],
-  'SUB': ['Source A', 'Source B', 'Dest'],
-  'MUL': ['Source A', 'Source B', 'Dest'],
-  'DIV': ['Source A', 'Source B', 'Dest'],
-  'MOV': ['Source', 'Dest'],
-  'CPT': ['Dest', 'Expression'],
-  'ATN': ['Source', 'Dest'],
-  'XPY': ['Source A', 'Source B', 'Dest'],
-  'SQR': ['Source', 'Dest'],
-  // Timer instructions
-  'TON': ['Timer', 'Preset', 'Accum'],
-  'TOF': ['Timer', 'Preset', 'Accum'],
-  'RTO': ['Timer', 'Preset', 'Accum'],
-  // Counter instructions
-  'CTU': ['Counter', 'Preset', 'Accum'],
-  'CTD': ['Counter', 'Preset', 'Accum'],
-  'RES': ['Structure'],
-};
-
-/**
- * Get full instruction name
+ * Get full instruction name from registry
  */
 function getInstructionName(mnemonic: string): string {
-  return INSTRUCTION_NAMES[mnemonic] || mnemonic;
+  return globalInstructionRegistry.getDisplayName(mnemonic);
 }
 
 /**
- * Get parameter labels for an instruction
+ * Get parameter labels for an instruction from registry
  */
 function getParamLabels(mnemonic: string): string[] {
-  return PARAM_LABELS[mnemonic] || [];
+  return globalInstructionRegistry.getParameterLabels(mnemonic);
 }
 
 /**

@@ -20,7 +20,30 @@ export type {
   BranchGroup,
   RungElement,
 } from './instructions';
-export { getInstructionCategory, isBranchGroup } from './instructions';
+export { getInstructionCategory, getInstructionDisplayName, getInstructionParameterLabels, isBranchGroup } from './instructions';
+
+// Instruction Registry
+export type {
+  InstructionCategory,
+  InstructionDefinition,
+  RegistrationOptions,
+  SymbolType,
+} from './instruction-registry';
+export {
+  InstructionRegistry,
+  globalInstructionRegistry,
+  getInstructionRegistry,
+  createInstructionRegistry,
+  createEmptyInstructionRegistry,
+  DEFAULT_INSTRUCTIONS,
+  CONTACT_INSTRUCTIONS,
+  COIL_INSTRUCTIONS,
+  COMPARE_INSTRUCTIONS,
+  MATH_INSTRUCTIONS,
+  TIMER_INSTRUCTIONS,
+  COUNTER_INSTRUCTIONS,
+  OTHER_INSTRUCTIONS,
+} from './instruction-registry';
 
 // Devices
 export type { MapDevice } from './devices';

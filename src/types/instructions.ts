@@ -74,24 +74,30 @@ export type InstructionMnemonic =
   | TimerInstruction
   | CounterInstruction;
 
+import { globalInstructionRegistry } from './instruction-registry';
+
 /**
- * Map instruction mnemonic to category
+ * Map instruction mnemonic to category.
+ * Uses the global instruction registry for extensible lookups.
  */
 export function getInstructionCategory(
   mnemonic: string
 ): Instruction['category'] {
-  const contacts: string[] = ['XIC', 'XIO'];
-  const coils: string[] = ['OTE', 'OTL', 'OTU'];
-  const compares: string[] = ['EQU', 'NEQ', 'GEQ', 'LEQ', 'GRT', 'LES', 'LIM'];
-  const math: string[] = ['ADD', 'SUB', 'MUL', 'DIV', 'MOV', 'CPT', 'ATN', 'XPY', 'SQR'];
-  const timers: string[] = ['TON', 'TOF', 'RTO'];
-  const counters: string[] = ['CTU', 'CTD', 'RES'];
+  return globalInstructionRegistry.getCategory(mnemonic);
+}
 
-  if (contacts.includes(mnemonic)) return 'input';
-  if (coils.includes(mnemonic)) return 'output';
-  if (compares.includes(mnemonic)) return 'compare';
-  if (math.includes(mnemonic)) return 'math';
-  if (timers.includes(mnemonic)) return 'timer';
-  if (counters.includes(mnemonic)) return 'counter';
-  return 'other';
+/**
+ * Get the display name for an instruction mnemonic.
+ * Uses the global instruction registry.
+ */
+export function getInstructionDisplayName(mnemonic: string): string {
+  return globalInstructionRegistry.getDisplayName(mnemonic);
+}
+
+/**
+ * Get the parameter labels for an instruction mnemonic.
+ * Uses the global instruction registry.
+ */
+export function getInstructionParameterLabels(mnemonic: string): string[] {
+  return globalInstructionRegistry.getParameterLabels(mnemonic);
 }

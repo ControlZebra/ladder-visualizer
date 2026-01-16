@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import type { Program, Routine, ControllerExport } from '../types';
+import React, { useState, useMemo } from 'react';
+import type { Program, Routine, ControllerExport, DataType } from '../types';
 
 // ============================================================================
 // SVG ICONS (Studio 5000 Style)
@@ -59,6 +59,12 @@ const Icons = {
       <text x="8" y="11" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold">DT</text>
     </svg>
   ),
+  dataType: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="3" y="3" width="10" height="10" rx="1" fill="#FFE4C4" stroke="#DEB887" strokeWidth="0.5"/>
+      <text x="8" y="10" textAnchor="middle" fontSize="6" fill="#8B4513" fontWeight="bold">T</text>
+    </svg>
+  ),
   io: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <rect x="2" y="3" width="12" height="10" rx="1" fill="#708090" stroke="#2F4F4F" strokeWidth="0.5"/>
@@ -68,6 +74,27 @@ const Icons = {
       <rect x="4" y="9" width="2" height="2" fill="#333"/>
       <rect x="7" y="9" width="2" height="2" fill="#333"/>
       <rect x="10" y="9" width="2" height="2" fill="#333"/>
+    </svg>
+  ),
+  ioModule: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="3" y="4" width="10" height="8" rx="1" fill="#B0C4DE" stroke="#4682B4" strokeWidth="0.5"/>
+      <circle cx="6" cy="7" r="1" fill="#32CD32"/>
+      <circle cx="10" cy="7" r="1" fill="#32CD32"/>
+      <rect x="5" y="9" width="2" height="2" fill="#333"/>
+      <rect x="9" y="9" width="2" height="2" fill="#333"/>
+    </svg>
+  ),
+  motionGroup: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="5" fill="#87CEEB" stroke="#4169E1" strokeWidth="0.5"/>
+      <path d="M8 5V8L10 10" stroke="#4169E1" strokeWidth="1" strokeLinecap="round"/>
+    </svg>
+  ),
+  aoi: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="2" width="12" height="12" rx="2" fill="#DDA0DD" stroke="#9932CC" strokeWidth="0.5"/>
+      <text x="8" y="11" textAnchor="middle" fontSize="7" fill="#4B0082" fontWeight="bold">AOI</text>
     </svg>
   ),
   chevronRight: (
@@ -194,6 +221,16 @@ export interface ProgramNavigatorProps {
   selectedRoutine?: { programIndex: number; routineIndex: number };
   /** Callback when a routine is selected */
   onRoutineSelect?: (programIndex: number, routineIndex: number, routine: Routine) => void;
+  /** Callback when Controller Tags is selected */
+  onControllerTagsSelect?: () => void;
+  /** Callback when Program Tags is selected */
+  onProgramTagsSelect?: (programIndex: number) => void;
+  /** Callback when Controller info is selected (clicking controller node) */
+  onControllerInfoSelect?: () => void;
+  /** Callback when a data type is selected */
+  onDataTypeSelect?: (dataType: DataType) => void;
+  /** Callback when an I/O device is selected */
+  onIODeviceSelect?: (deviceId: number) => void;
   /** Optional CSS class name */
   className?: string;
 }
@@ -206,11 +243,16 @@ export function ProgramNavigator({
   programs,
   selectedRoutine,
   onRoutineSelect,
+  onControllerTagsSelect,
+  onProgramTagsSelect,
+  onControllerInfoSelect,
+  onDataTypeSelect,
+  onIODeviceSelect,
   className = '',
 }: ProgramNavigatorProps) {
   // Expansion state for tree nodes
   const [expanded, setExpanded] = useState<Set<string>>(
-    new Set(['tasks', 'mainTask', 'program-0'])
+    new Set(['controller', 'tasks', 'mainTask', 'program-0'])
   );
 
   const toggleExpanded = (key: string) => {
@@ -225,12 +267,44 @@ export function ProgramNavigator({
     });
   };
 
+  // Categorize data types
+  const dataTypeCategories = useMemo(() => {
+    if (!controller) return null;
+    
+    const userDefined: DataType[] = [];
+    const strings: DataType[] = [];
+    const predefined: DataType[] = [];
+    const addOnDefined: DataType[] = [];
+    const moduleDefined: DataType[] = [];
+
+    for (const dt of controller.data_types) {
+      if (dt.cls === 'User') {
+        // Check if it's a module-defined type (contains colon like "AB:1769_IF4:I:0")
+        if (dt.name.includes(':')) {
+          moduleDefined.push(dt);
+        } else {
+          userDefined.push(dt);
+        }
+      } else {
+        // ProductDefined
+        if (dt.family === 'StringFamily') {
+          strings.push(dt);
+        } else {
+          predefined.push(dt);
+        }
+      }
+    }
+
+    return { userDefined, strings, addOnDefined, predefined, moduleDefined };
+  }, [controller]);
+
   const containerStyle: React.CSSProperties = {
     backgroundColor: '#fafafa',
     border: '1px solid #c0c0c0',
     borderRadius: '0',
     overflow: 'auto',
     fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
+    height: '100%',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -265,6 +339,7 @@ export function ProgramNavigator({
           isExpandable={true}
           isExpanded={expanded.has('controller')}
           onToggle={() => toggleExpanded('controller')}
+          onClick={onControllerInfoSelect}
         />
 
         {expanded.has('controller') && (
@@ -275,6 +350,7 @@ export function ProgramNavigator({
               label="Controller Tags"
               depth={1}
               badge={controller ? `${controller.tags.length}` : undefined}
+              onClick={onControllerTagsSelect}
             />
 
             {/* Tasks */}
@@ -301,10 +377,7 @@ export function ProgramNavigator({
 
                 {expanded.has('mainTask') && programs.map((program, pIdx) => {
                   const programKey = `program-${pIdx}`;
-                  // Try to extract program name from tags
-                  const programName = program.routines[0]?.name 
-                    ? `MainProgram` 
-                    : `Program_${pIdx + 1}`;
+                  const programName = pIdx === 0 ? 'MainProgram' : `Program_${pIdx + 1}`;
 
                   return (
                     <React.Fragment key={programKey}>
@@ -324,6 +397,7 @@ export function ProgramNavigator({
                             icon={Icons.tags}
                             label="Program Tags"
                             depth={4}
+                            onClick={() => onProgramTagsSelect?.(pIdx)}
                           />
 
                           {/* Routines */}
@@ -349,8 +423,44 @@ export function ProgramNavigator({
                     </React.Fragment>
                   );
                 })}
+
+                {/* Unscheduled Programs */}
+                <TreeItem
+                  icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
+                  label="Unscheduled"
+                  depth={2}
+                  isExpandable={false}
+                />
               </>
             )}
+
+            {/* Motion Groups (unsupported) */}
+            <TreeItem
+              icon={Icons.motionGroup}
+              label="Motion Groups"
+              depth={1}
+              badge="Unsupported"
+            />
+
+            {/* Add-On Instructions */}
+            <TreeItem
+              icon={expanded.has('aois') ? Icons.folderOpen : Icons.folder}
+              label="Add-On Instructions"
+              depth={1}
+              isExpandable={true}
+              isExpanded={expanded.has('aois')}
+              onToggle={() => toggleExpanded('aois')}
+              badge={controller?.aois ? `${controller.aois.length}` : '0'}
+            />
+
+            {expanded.has('aois') && controller?.aois?.map((aoi) => (
+              <TreeItem
+                key={aoi.name}
+                icon={Icons.aoi}
+                label={aoi.name}
+                depth={2}
+              />
+            ))}
 
             {/* Data Types */}
             <TreeItem
@@ -363,6 +473,110 @@ export function ProgramNavigator({
               badge={controller ? `${controller.data_types.length}` : undefined}
             />
 
+            {expanded.has('dataTypes') && dataTypeCategories && (
+              <>
+                {/* User Defined */}
+                <TreeItem
+                  icon={expanded.has('dt-user') ? Icons.folderOpen : Icons.folder}
+                  label="User Defined"
+                  depth={2}
+                  isExpandable={dataTypeCategories.userDefined.length > 0}
+                  isExpanded={expanded.has('dt-user')}
+                  onToggle={() => toggleExpanded('dt-user')}
+                  badge={`${dataTypeCategories.userDefined.length}`}
+                />
+                {expanded.has('dt-user') && dataTypeCategories.userDefined.map((dt) => (
+                  <TreeItem
+                    key={dt.name}
+                    icon={Icons.dataType}
+                    label={dt.name}
+                    depth={3}
+                    onClick={() => onDataTypeSelect?.(dt)}
+                  />
+                ))}
+
+                {/* Strings */}
+                <TreeItem
+                  icon={expanded.has('dt-string') ? Icons.folderOpen : Icons.folder}
+                  label="Strings"
+                  depth={2}
+                  isExpandable={dataTypeCategories.strings.length > 0}
+                  isExpanded={expanded.has('dt-string')}
+                  onToggle={() => toggleExpanded('dt-string')}
+                  badge={`${dataTypeCategories.strings.length}`}
+                />
+                {expanded.has('dt-string') && dataTypeCategories.strings.map((dt) => (
+                  <TreeItem
+                    key={dt.name}
+                    icon={Icons.dataType}
+                    label={dt.name}
+                    depth={3}
+                    onClick={() => onDataTypeSelect?.(dt)}
+                  />
+                ))}
+
+                {/* Add-On Defined */}
+                <TreeItem
+                  icon={expanded.has('dt-addon') ? Icons.folderOpen : Icons.folder}
+                  label="Add-On Defined"
+                  depth={2}
+                  isExpandable={dataTypeCategories.addOnDefined.length > 0}
+                  isExpanded={expanded.has('dt-addon')}
+                  onToggle={() => toggleExpanded('dt-addon')}
+                  badge={`${dataTypeCategories.addOnDefined.length}`}
+                />
+                {expanded.has('dt-addon') && dataTypeCategories.addOnDefined.map((dt) => (
+                  <TreeItem
+                    key={dt.name}
+                    icon={Icons.dataType}
+                    label={dt.name}
+                    depth={3}
+                    onClick={() => onDataTypeSelect?.(dt)}
+                  />
+                ))}
+
+                {/* Predefined */}
+                <TreeItem
+                  icon={expanded.has('dt-predefined') ? Icons.folderOpen : Icons.folder}
+                  label="Predefined"
+                  depth={2}
+                  isExpandable={dataTypeCategories.predefined.length > 0}
+                  isExpanded={expanded.has('dt-predefined')}
+                  onToggle={() => toggleExpanded('dt-predefined')}
+                  badge={`${dataTypeCategories.predefined.length}`}
+                />
+                {expanded.has('dt-predefined') && dataTypeCategories.predefined.map((dt) => (
+                  <TreeItem
+                    key={dt.name}
+                    icon={Icons.dataType}
+                    label={dt.name}
+                    depth={3}
+                    onClick={() => onDataTypeSelect?.(dt)}
+                  />
+                ))}
+
+                {/* Module Defined */}
+                <TreeItem
+                  icon={expanded.has('dt-module') ? Icons.folderOpen : Icons.folder}
+                  label="Module Defined"
+                  depth={2}
+                  isExpandable={dataTypeCategories.moduleDefined.length > 0}
+                  isExpanded={expanded.has('dt-module')}
+                  onToggle={() => toggleExpanded('dt-module')}
+                  badge={`${dataTypeCategories.moduleDefined.length}`}
+                />
+                {expanded.has('dt-module') && dataTypeCategories.moduleDefined.map((dt) => (
+                  <TreeItem
+                    key={dt.name}
+                    icon={Icons.dataType}
+                    label={dt.name}
+                    depth={3}
+                    onClick={() => onDataTypeSelect?.(dt)}
+                  />
+                ))}
+              </>
+            )}
+
             {/* I/O Configuration */}
             <TreeItem
               icon={Icons.io}
@@ -371,7 +585,18 @@ export function ProgramNavigator({
               isExpandable={true}
               isExpanded={expanded.has('io')}
               onToggle={() => toggleExpanded('io')}
+              badge={controller ? `${controller.map_devices.length}` : undefined}
             />
+
+            {expanded.has('io') && controller?.map_devices.map((device) => (
+              <TreeItem
+                key={device.module_id}
+                icon={Icons.ioModule}
+                label={`Slot ${device.slot_no} - Module ${device.module_id}`}
+                depth={2}
+                onClick={() => onIODeviceSelect?.(device.module_id)}
+              />
+            ))}
           </>
         )}
       </div>
