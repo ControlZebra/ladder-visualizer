@@ -1,4 +1,5 @@
 import { Instruction, RungElement } from './instructions';
+import { Tag } from './tags';
 
 /**
  * A single rung in a ladder logic routine
@@ -40,5 +41,10 @@ export interface ParsedRoutine {
  * A program containing routines
  */
 export interface Program {
+  /** Program name (optional in some exports) */
+  name?: string;
+  /** Program-scoped tags */
+  tags?: Tag[];
+  /** Routines in this program */
   routines: Routine[];
 }

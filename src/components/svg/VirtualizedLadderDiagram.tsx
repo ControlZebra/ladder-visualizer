@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import type { Instruction, Rung, RungElement, BranchGroup, ParsedRoutine } from '../../types';
 import { isBranchGroup } from '../../types';
 import { ContactSymbol } from './ContactSymbol';
@@ -585,7 +585,7 @@ export interface VirtualizedLadderDiagramProps {
 export function VirtualizedLadderDiagram({
   routine,
   rungs: rungsProp,
-  width = 800,
+  width: widthProp,
   height = 600,
   className = '',
   style,
@@ -599,6 +599,31 @@ export function VirtualizedLadderDiagram({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(widthProp || 800);
+
+  // Use ResizeObserver to track container width
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateWidth = () => {
+      const newWidth = container.clientWidth;
+      if (newWidth > 0) {
+        setContainerWidth(newWidth);
+      }
+    };
+
+    // Initial measurement
+    updateWidth();
+
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // Use prop width if provided, otherwise use measured container width
+  const width = widthProp || containerWidth;
 
   // Calculate layouts for all rungs
   const rungLayouts = useMemo(() => calculateRungLayouts(rungs, width), [rungs, width]);

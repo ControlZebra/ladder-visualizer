@@ -1,29 +1,30 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   parseControllerExport,
   parseRoutine,
-  LadderDiagram,
   VirtualizedLadderDiagram,
   TagTable,
   ControllerInfo,
   ProgramNavigator,
 } from '../src';
-import type { ControllerExport, Routine, ParsedRoutine } from '../src';
+import type { ControllerExport, Routine, ParsedRoutine, DataType } from '../src';
+import { DataTypeTable } from './DataTypeTable';
 
 // Import the sample data
 import controllerData from '../examples/controller_output.json';
 
-type Tab = 'ladder' | 'tags' | 'info';
+type ViewType = 'ladder' | 'controller-tags' | 'program-tags' | 'controller-info' | 'data-type';
 
 export default function App() {
   const [controller, setController] = useState<ControllerExport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('ladder');
-  const [useVirtualized, setUseVirtualized] = useState(true);
+  const [currentView, setCurrentView] = useState<ViewType>('ladder');
   const [selectedRoutine, setSelectedRoutine] = useState<{
     programIndex: number;
     routineIndex: number;
   } | null>(null);
+  const [selectedProgramIndex, setSelectedProgramIndex] = useState<number | null>(null);
+  const [selectedDataType, setSelectedDataType] = useState<DataType | null>(null);
 
   // Parse controller data on mount
   useEffect(() => {
@@ -47,10 +48,38 @@ export default function App() {
     return parseRoutine(routine);
   }, [controller, selectedRoutine]);
 
-  const handleRoutineSelect = (programIndex: number, routineIndex: number, _routine: Routine) => {
+  // Consolidated state reset helper to reduce repetition
+  const resetSelectionState = useCallback(() => {
+    setSelectedRoutine(null);
+    setSelectedDataType(null);
+  }, []);
+
+  const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: Routine) => {
     setSelectedRoutine({ programIndex, routineIndex });
-    setActiveTab('ladder');
-  };
+    setCurrentView('ladder');
+  }, []);
+
+  const handleControllerTagsSelect = useCallback(() => {
+    resetSelectionState();
+    setCurrentView('controller-tags');
+  }, [resetSelectionState]);
+
+  const handleProgramTagsSelect = useCallback((programIndex: number) => {
+    resetSelectionState();
+    setSelectedProgramIndex(programIndex);
+    setCurrentView('program-tags');
+  }, [resetSelectionState]);
+
+  const handleControllerInfoSelect = useCallback(() => {
+    resetSelectionState();
+    setCurrentView('controller-info');
+  }, [resetSelectionState]);
+
+  const handleDataTypeSelect = useCallback((dataType: DataType) => {
+    setSelectedRoutine(null);
+    setSelectedDataType(dataType);
+    setCurrentView('data-type');
+  }, []);
 
   if (error) {
     return (
@@ -69,6 +98,76 @@ export default function App() {
     );
   }
 
+  // Get program tags if viewing program tags - memoized to prevent recalculation
+  const programTags = useMemo(() => {
+    if (selectedProgramIndex === null) return [];
+    return controller.programs[selectedProgramIndex]?.tags || [];
+  }, [controller.programs, selectedProgramIndex]);
+
+  const renderContent = () => {
+    switch (currentView) {
+      case 'controller-tags':
+        return (
+          <div style={styles.contentPanel}>
+            <h2 style={styles.sectionTitle}>Controller Tags</h2>
+            <TagTable tags={controller.tags} />
+          </div>
+        );
+
+      case 'program-tags':
+        const programName = selectedProgramIndex === 0 ? 'MainProgram' : `Program_${(selectedProgramIndex || 0) + 1}`;
+        return (
+          <div style={styles.contentPanel}>
+            <h2 style={styles.sectionTitle}>{programName} Tags</h2>
+            {programTags.length > 0 ? (
+              <TagTable tags={programTags} />
+            ) : (
+              <p style={styles.noSelection}>No program-specific tags defined</p>
+            )}
+          </div>
+        );
+
+      case 'controller-info':
+        return (
+          <div style={styles.contentPanel}>
+            <ControllerInfo controller={controller} />
+          </div>
+        );
+
+      case 'data-type':
+        return selectedDataType ? (
+          <div style={styles.contentPanel}>
+            <DataTypeTable dataType={selectedDataType} allDataTypes={controller.data_types} />
+          </div>
+        ) : (
+          <div style={styles.contentPanel}>
+            <p style={styles.noSelection}>Select a data type from the Controller Organizer</p>
+          </div>
+        );
+
+      case 'ladder':
+      default:
+        return parsedRoutine ? (
+          <>
+            <div style={styles.routineTitle}>
+              <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
+              <span style={styles.routineBadge}>{parsedRoutine.type}</span>
+              <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
+            </div>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <VirtualizedLadderDiagram
+                routine={parsedRoutine}
+                height={500}
+                style={{ width: '100%', minHeight: '100%' }}
+              />
+            </div>
+          </>
+        ) : (
+          <p style={styles.noSelection}>Select a routine from the Controller Organizer</p>
+        );
+    }
+  };
+
   return (
     <div style={styles.app}>
       {/* Header - Studio 5000 style compact toolbar */}
@@ -82,96 +181,28 @@ export default function App() {
         </div>
       </header>
 
-      {/* Tab Navigation */}
-      <nav style={styles.nav}>
-        <button
-          style={activeTab === 'ladder' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('ladder')}
-        >
-          📊 Ladder Diagram
-        </button>
-        <button
-          style={activeTab === 'tags' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('tags')}
-        >
-          🏷️ Tags ({controller.tags.length})
-        </button>
-        <button
-          style={activeTab === 'info' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('info')}
-        >
-          ⚙️ Controller Info
-        </button>
-      </nav>
-
       {/* Main Content */}
       <main style={styles.main}>
-        {activeTab === 'ladder' && (
-          <div style={styles.ladderLayout}>
-            {/* Sidebar */}
-            <aside style={styles.sidebar}>
-              <ProgramNavigator
-                controller={controller}
-                programs={controller.programs}
-                selectedRoutine={selectedRoutine ?? undefined}
-                onRoutineSelect={handleRoutineSelect}
-              />
-            </aside>
+        <div style={styles.ladderLayout}>
+          {/* Sidebar */}
+          <aside style={styles.sidebar}>
+            <ProgramNavigator
+              controller={controller}
+              programs={controller.programs}
+              selectedRoutine={selectedRoutine ?? undefined}
+              onRoutineSelect={handleRoutineSelect}
+              onControllerTagsSelect={handleControllerTagsSelect}
+              onProgramTagsSelect={handleProgramTagsSelect}
+              onControllerInfoSelect={handleControllerInfoSelect}
+              onDataTypeSelect={handleDataTypeSelect}
+            />
+          </aside>
 
-            {/* Diagram */}
-            <div style={styles.diagramContainer}>
-              {parsedRoutine ? (
-                <>
-                  <div style={styles.routineTitle}>
-                    <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
-                    <span style={styles.routineBadge}>{parsedRoutine.type}</span>
-                    <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
-                    <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={useVirtualized}
-                        onChange={(e) => setUseVirtualized(e.target.checked)}
-                      />
-                      Use Virtualized (React SVG)
-                    </label>
-                  </div>
-                  <div style={{ flex: 1, overflow: 'hidden', padding: '0' }}>
-                    {useVirtualized ? (
-                      <VirtualizedLadderDiagram
-                        routine={parsedRoutine}
-                        width={900}
-                        height={500}
-                        style={{ minHeight: '100%' }}
-                      />
-                    ) : (
-                      <div style={{ overflow: 'auto', height: '100%' }}>
-                        <LadderDiagram
-                          routine={parsedRoutine}
-                          width={900}
-                          style={{ minHeight: '100%' }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <p style={styles.noSelection}>Select a routine from the Controller Organizer</p>
-              )}
-            </div>
+          {/* Content Area */}
+          <div style={styles.diagramContainer}>
+            {renderContent()}
           </div>
-        )}
-        {activeTab === 'tags' && (
-          <div style={styles.contentPanel}>
-            <h2 style={styles.sectionTitle}>Controller Tags</h2>
-            <TagTable tags={controller.tags} />
-          </div>
-        )}
-
-        {activeTab === 'info' && (
-          <div style={styles.contentPanel}>
-            <ControllerInfo controller={controller} />
-          </div>
-        )}
+        </div>
       </main>
     </div>
   );
@@ -214,35 +245,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     opacity: 0.8,
   },
-  nav: {
-    display: 'flex',
-    gap: '0',
-    backgroundColor: colors.surface,
-    borderBottom: `1px solid ${colors.border}`,
-    padding: '0 8px',
-  },
-  tab: {
-    padding: '8px 16px',
-    border: 'none',
-    background: 'none',
-    fontSize: '12px',
-    cursor: 'pointer',
-    color: colors.textLight,
-    borderBottom: '2px solid transparent',
-  },
-  tabActive: {
-    padding: '8px 16px',
-    border: 'none',
-    background: 'none',
-    fontSize: '12px',
-    cursor: 'pointer',
-    color: colors.primary,
-    fontWeight: 600,
-    borderBottom: `2px solid ${colors.primary}`,
-  },
   main: {
     padding: '8px',
-    height: 'calc(100vh - 90px)',
+    height: 'calc(100vh - 50px)',
     overflow: 'hidden',
   },
   ladderLayout: {
@@ -251,7 +256,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100%',
   },
   sidebar: {
-    width: '260px',
+    width: '280px',
     flexShrink: 0,
     overflow: 'auto',
   },
