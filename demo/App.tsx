@@ -13,8 +13,8 @@ import { DataTypeTable } from './DataTypeTable';
 // Import the sample data
 import controllerData from '../examples/controller_output.json';
 
-// Panel types for info panel (right side)
-type InfoPanelType = 'controller-tags' | 'program-tags' | 'controller-info' | 'data-type' | null;
+// View types for main content area
+type MainViewType = 'routine' | 'controller-tags' | 'program-tags' | 'controller-info' | 'data-type';
 
 export default function App() {
   const [controller, setController] = useState<ControllerExport | null>(null);
@@ -25,7 +25,7 @@ export default function App() {
   } | null>(null);
   const [selectedProgramIndex, setSelectedProgramIndex] = useState<number | null>(null);
   const [selectedDataType, setSelectedDataType] = useState<DataType | null>(null);
-  const [infoPanelType, setInfoPanelType] = useState<InfoPanelType>(null);
+  const [mainViewType, setMainViewType] = useState<MainViewType>('routine');
 
   // Parse controller data on mount
   useEffect(() => {
@@ -63,30 +63,107 @@ export default function App() {
 
   const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: Routine) => {
     setSelectedRoutine({ programIndex, routineIndex });
-    setInfoPanelType(null); // Close info panel when selecting a routine
+    setMainViewType('routine'); // Switch to routine view when selecting a routine
   }, []);
 
   const handleControllerTagsSelect = useCallback(() => {
-    setInfoPanelType('controller-tags');
+    setMainViewType('controller-tags');
   }, []);
 
   const handleProgramTagsSelect = useCallback((programIndex: number) => {
     setSelectedProgramIndex(programIndex);
-    setInfoPanelType('program-tags');
+    setMainViewType('program-tags');
   }, []);
 
   const handleControllerInfoSelect = useCallback(() => {
-    setInfoPanelType('controller-info');
+    setMainViewType('controller-info');
   }, []);
 
   const handleDataTypeSelect = useCallback((dataType: DataType) => {
     setSelectedDataType(dataType);
-    setInfoPanelType('data-type');
+    setMainViewType('data-type');
   }, []);
 
-  const closeInfoPanel = useCallback(() => {
-    setInfoPanelType(null);
-  }, []);
+  // Render main content based on view type
+  const renderMainContent = () => {
+    if (!controller) return null;
+
+    switch (mainViewType) {
+      case 'controller-tags':
+        return (
+          <>
+            <div style={styles.routineTitle}>
+              <span style={{ fontWeight: 600 }}>Controller Tags</span>
+              <span style={styles.routineCount}>{controller.tags.length} tags</span>
+            </div>
+            <div style={styles.infoPanelContent}>
+              <TagTable tags={controller.tags} />
+            </div>
+          </>
+        );
+      case 'program-tags':
+        return (
+          <>
+            <div style={styles.routineTitle}>
+              <span style={{ fontWeight: 600 }}>{programName} Tags</span>
+              <span style={styles.routineCount}>{programTags.length} tags</span>
+            </div>
+            <div style={styles.infoPanelContent}>
+              {programTags.length > 0 ? (
+                <TagTable tags={programTags} />
+              ) : (
+                <p style={styles.noSelection}>No program-specific tags defined</p>
+              )}
+            </div>
+          </>
+        );
+      case 'controller-info':
+        return (
+          <>
+            <div style={styles.routineTitle}>
+              <span style={{ fontWeight: 600 }}>Controller Info</span>
+            </div>
+            <div style={styles.infoPanelContent}>
+              <ControllerInfo controller={controller} />
+            </div>
+          </>
+        );
+      case 'data-type':
+        if (selectedDataType) {
+          return (
+            <>
+              <div style={styles.routineTitle}>
+                <span style={{ fontWeight: 600 }}>Data Type: {selectedDataType.name}</span>
+              </div>
+              <div style={styles.infoPanelContent}>
+                <DataTypeTable dataType={selectedDataType} allDataTypes={controller.data_types} />
+              </div>
+            </>
+          );
+        }
+        return <p style={styles.noSelection}>Select a data type from the Controller Organizer</p>;
+      case 'routine':
+      default:
+        if (parsedRoutine) {
+          return (
+            <>
+              <div style={styles.routineTitle}>
+                <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
+                <span style={styles.routineBadge}>{parsedRoutine.type}</span>
+                <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
+              </div>
+              <div style={styles.ladderContent}>
+                <VirtualizedLadderDiagram
+                  routine={parsedRoutine}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              </div>
+            </>
+          );
+        }
+        return <p style={styles.noSelection}>Select a routine from the Controller Organizer</p>;
+    }
+  };
 
   if (error) {
     return (
@@ -105,70 +182,8 @@ export default function App() {
     );
   }
 
-  // Render info panel content
-  const renderInfoPanel = () => {
-    if (!controller || !infoPanelType) return null;
-
-    let title = '';
-    let content: React.ReactNode = null;
-
-    switch (infoPanelType) {
-      case 'controller-tags':
-        title = 'Controller Tags';
-        content = <TagTable tags={controller.tags} />;
-        break;
-      case 'program-tags':
-        title = `${programName} Tags`;
-        content = programTags.length > 0 ? (
-          <TagTable tags={programTags} />
-        ) : (
-          <p style={styles.noSelection}>No program-specific tags defined</p>
-        );
-        break;
-      case 'controller-info':
-        title = 'Controller Info';
-        content = <ControllerInfo controller={controller} />;
-        break;
-      case 'data-type':
-        if (selectedDataType) {
-          title = `Data Type: ${selectedDataType.name}`;
-          content = <DataTypeTable dataType={selectedDataType} allDataTypes={controller.data_types} />;
-        }
-        break;
-    }
-
-    return (
-      <div style={styles.infoPanel}>
-        <div style={styles.infoPanelHeader}>
-          <span style={styles.infoPanelTitle}>{title}</span>
-          <button 
-            onClick={closeInfoPanel} 
-            style={styles.closeButton}
-            title="Close panel"
-          >
-            ×
-          </button>
-        </div>
-        <div style={styles.infoPanelContent}>
-          {content}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div style={styles.app}>
-      {/* Header - Studio 5000 style compact toolbar */}
-      <header style={styles.header}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <h1 style={styles.title}>Ladder Logic Visualizer</h1>
-          <span style={styles.subtitle}>│ Allen-Bradley/Rockwell</span>
-        </div>
-        <div style={{ fontSize: '11px', opacity: 0.8 }}>
-          {controller.modified_date && `Last Modified: ${controller.modified_date}`}
-        </div>
-      </header>
-
       {/* Main Content */}
       <main style={styles.main}>
         <div style={styles.ladderLayout}>
@@ -186,29 +201,10 @@ export default function App() {
             />
           </aside>
 
-          {/* Ladder Diagram - Main Content Area */}
+          {/* Main Content Area */}
           <div style={styles.diagramContainer}>
-            {parsedRoutine ? (
-              <>
-                <div style={styles.routineTitle}>
-                  <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
-                  <span style={styles.routineBadge}>{parsedRoutine.type}</span>
-                  <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
-                </div>
-                <div style={styles.ladderContent}>
-                  <VirtualizedLadderDiagram
-                    routine={parsedRoutine}
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                </div>
-              </>
-            ) : (
-              <p style={styles.noSelection}>Select a routine from the Controller Organizer</p>
-            )}
+            {renderMainContent()}
           </div>
-
-          {/* Info Panel (slides in from right) */}
-          {renderInfoPanel()}
         </div>
       </main>
     </div>
@@ -315,37 +311,6 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     padding: '40px',
     fontSize: '13px',
-  },
-  infoPanel: {
-    width: '350px',
-    flexShrink: 0,
-    backgroundColor: colors.surface,
-    border: `1px solid ${colors.border}`,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  infoPanelHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '8px 12px',
-    backgroundColor: '#f5f5f5',
-    borderBottom: `1px solid ${colors.border}`,
-    flexShrink: 0,
-  },
-  infoPanelTitle: {
-    fontWeight: 600,
-    fontSize: '13px',
-  },
-  closeButton: {
-    background: 'none',
-    border: 'none',
-    fontSize: '18px',
-    cursor: 'pointer',
-    color: colors.textLight,
-    padding: '0 4px',
-    lineHeight: 1,
   },
   infoPanelContent: {
     flex: 1,
