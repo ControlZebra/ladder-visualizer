@@ -1,29 +1,31 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   parseControllerExport,
   parseRoutine,
-  LadderDiagram,
   VirtualizedLadderDiagram,
   TagTable,
   ControllerInfo,
   ProgramNavigator,
 } from '../src';
-import type { ControllerExport, Routine, ParsedRoutine } from '../src';
+import type { ControllerExport, Routine, ParsedRoutine, DataType } from '../src';
+import { DataTypeTable } from './DataTypeTable';
 
 // Import the sample data
 import controllerData from '../examples/controller_output.json';
 
-type Tab = 'ladder' | 'tags' | 'info';
+// Panel types for info panel (right side)
+type InfoPanelType = 'controller-tags' | 'program-tags' | 'controller-info' | 'data-type' | null;
 
 export default function App() {
   const [controller, setController] = useState<ControllerExport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('ladder');
-  const [useVirtualized, setUseVirtualized] = useState(true);
   const [selectedRoutine, setSelectedRoutine] = useState<{
     programIndex: number;
     routineIndex: number;
   } | null>(null);
+  const [selectedProgramIndex, setSelectedProgramIndex] = useState<number | null>(null);
+  const [selectedDataType, setSelectedDataType] = useState<DataType | null>(null);
+  const [infoPanelType, setInfoPanelType] = useState<InfoPanelType>(null);
 
   // Parse controller data on mount
   useEffect(() => {
@@ -47,10 +49,44 @@ export default function App() {
     return parseRoutine(routine);
   }, [controller, selectedRoutine]);
 
-  const handleRoutineSelect = (programIndex: number, routineIndex: number, _routine: Routine) => {
+  // Get program tags if viewing program tags - memoized to prevent recalculation
+  const programTags = useMemo(() => {
+    if (selectedProgramIndex === null || !controller) return [];
+    return controller.programs[selectedProgramIndex]?.tags || [];
+  }, [controller, selectedProgramIndex]);
+
+  // Get program name
+  const programName = useMemo(() => {
+    if (selectedProgramIndex === null) return '';
+    return selectedProgramIndex === 0 ? 'MainProgram' : `Program_${selectedProgramIndex + 1}`;
+  }, [selectedProgramIndex]);
+
+  const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: Routine) => {
     setSelectedRoutine({ programIndex, routineIndex });
-    setActiveTab('ladder');
-  };
+    setInfoPanelType(null); // Close info panel when selecting a routine
+  }, []);
+
+  const handleControllerTagsSelect = useCallback(() => {
+    setInfoPanelType('controller-tags');
+  }, []);
+
+  const handleProgramTagsSelect = useCallback((programIndex: number) => {
+    setSelectedProgramIndex(programIndex);
+    setInfoPanelType('program-tags');
+  }, []);
+
+  const handleControllerInfoSelect = useCallback(() => {
+    setInfoPanelType('controller-info');
+  }, []);
+
+  const handleDataTypeSelect = useCallback((dataType: DataType) => {
+    setSelectedDataType(dataType);
+    setInfoPanelType('data-type');
+  }, []);
+
+  const closeInfoPanel = useCallback(() => {
+    setInfoPanelType(null);
+  }, []);
 
   if (error) {
     return (
@@ -69,6 +105,57 @@ export default function App() {
     );
   }
 
+  // Render info panel content
+  const renderInfoPanel = () => {
+    if (!controller || !infoPanelType) return null;
+
+    let title = '';
+    let content: React.ReactNode = null;
+
+    switch (infoPanelType) {
+      case 'controller-tags':
+        title = 'Controller Tags';
+        content = <TagTable tags={controller.tags} />;
+        break;
+      case 'program-tags':
+        title = `${programName} Tags`;
+        content = programTags.length > 0 ? (
+          <TagTable tags={programTags} />
+        ) : (
+          <p style={styles.noSelection}>No program-specific tags defined</p>
+        );
+        break;
+      case 'controller-info':
+        title = 'Controller Info';
+        content = <ControllerInfo controller={controller} />;
+        break;
+      case 'data-type':
+        if (selectedDataType) {
+          title = `Data Type: ${selectedDataType.name}`;
+          content = <DataTypeTable dataType={selectedDataType} allDataTypes={controller.data_types} />;
+        }
+        break;
+    }
+
+    return (
+      <div style={styles.infoPanel}>
+        <div style={styles.infoPanelHeader}>
+          <span style={styles.infoPanelTitle}>{title}</span>
+          <button 
+            onClick={closeInfoPanel} 
+            style={styles.closeButton}
+            title="Close panel"
+          >
+            ×
+          </button>
+        </div>
+        <div style={styles.infoPanelContent}>
+          {content}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={styles.app}>
       {/* Header - Studio 5000 style compact toolbar */}
@@ -82,96 +169,47 @@ export default function App() {
         </div>
       </header>
 
-      {/* Tab Navigation */}
-      <nav style={styles.nav}>
-        <button
-          style={activeTab === 'ladder' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('ladder')}
-        >
-          📊 Ladder Diagram
-        </button>
-        <button
-          style={activeTab === 'tags' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('tags')}
-        >
-          🏷️ Tags ({controller.tags.length})
-        </button>
-        <button
-          style={activeTab === 'info' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('info')}
-        >
-          ⚙️ Controller Info
-        </button>
-      </nav>
-
       {/* Main Content */}
       <main style={styles.main}>
-        {activeTab === 'ladder' && (
-          <div style={styles.ladderLayout}>
-            {/* Sidebar */}
-            <aside style={styles.sidebar}>
-              <ProgramNavigator
-                controller={controller}
-                programs={controller.programs}
-                selectedRoutine={selectedRoutine ?? undefined}
-                onRoutineSelect={handleRoutineSelect}
-              />
-            </aside>
+        <div style={styles.ladderLayout}>
+          {/* Sidebar */}
+          <aside style={styles.sidebar}>
+            <ProgramNavigator
+              controller={controller}
+              programs={controller.programs}
+              selectedRoutine={selectedRoutine ?? undefined}
+              onRoutineSelect={handleRoutineSelect}
+              onControllerTagsSelect={handleControllerTagsSelect}
+              onProgramTagsSelect={handleProgramTagsSelect}
+              onControllerInfoSelect={handleControllerInfoSelect}
+              onDataTypeSelect={handleDataTypeSelect}
+            />
+          </aside>
 
-            {/* Diagram */}
-            <div style={styles.diagramContainer}>
-              {parsedRoutine ? (
-                <>
-                  <div style={styles.routineTitle}>
-                    <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
-                    <span style={styles.routineBadge}>{parsedRoutine.type}</span>
-                    <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
-                    <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={useVirtualized}
-                        onChange={(e) => setUseVirtualized(e.target.checked)}
-                      />
-                      Use Virtualized (React SVG)
-                    </label>
-                  </div>
-                  <div style={{ flex: 1, overflow: 'hidden', padding: '0' }}>
-                    {useVirtualized ? (
-                      <VirtualizedLadderDiagram
-                        routine={parsedRoutine}
-                        width={900}
-                        height={500}
-                        style={{ minHeight: '100%' }}
-                      />
-                    ) : (
-                      <div style={{ overflow: 'auto', height: '100%' }}>
-                        <LadderDiagram
-                          routine={parsedRoutine}
-                          width={900}
-                          style={{ minHeight: '100%' }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <p style={styles.noSelection}>Select a routine from the Controller Organizer</p>
-              )}
-            </div>
+          {/* Ladder Diagram - Main Content Area */}
+          <div style={styles.diagramContainer}>
+            {parsedRoutine ? (
+              <>
+                <div style={styles.routineTitle}>
+                  <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
+                  <span style={styles.routineBadge}>{parsedRoutine.type}</span>
+                  <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
+                </div>
+                <div style={styles.ladderContent}>
+                  <VirtualizedLadderDiagram
+                    routine={parsedRoutine}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                </div>
+              </>
+            ) : (
+              <p style={styles.noSelection}>Select a routine from the Controller Organizer</p>
+            )}
           </div>
-        )}
-        {activeTab === 'tags' && (
-          <div style={styles.contentPanel}>
-            <h2 style={styles.sectionTitle}>Controller Tags</h2>
-            <TagTable tags={controller.tags} />
-          </div>
-        )}
 
-        {activeTab === 'info' && (
-          <div style={styles.contentPanel}>
-            <ControllerInfo controller={controller} />
-          </div>
-        )}
+          {/* Info Panel (slides in from right) */}
+          {renderInfoPanel()}
+        </div>
       </main>
     </div>
   );
@@ -194,6 +232,8 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: '100vh',
     backgroundColor: colors.background,
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    display: 'flex',
+    flexDirection: 'column',
   },
   header: {
     backgroundColor: colors.primaryDark,
@@ -203,6 +243,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottom: `2px solid ${colors.primary}`,
+    flexShrink: 0,
   },
   title: {
     margin: 0,
@@ -214,41 +255,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     opacity: 0.8,
   },
-  nav: {
-    display: 'flex',
-    gap: '0',
-    backgroundColor: colors.surface,
-    borderBottom: `1px solid ${colors.border}`,
-    padding: '0 8px',
-  },
-  tab: {
-    padding: '8px 16px',
-    border: 'none',
-    background: 'none',
-    fontSize: '12px',
-    cursor: 'pointer',
-    color: colors.textLight,
-    borderBottom: '2px solid transparent',
-  },
-  tabActive: {
-    padding: '8px 16px',
-    border: 'none',
-    background: 'none',
-    fontSize: '12px',
-    cursor: 'pointer',
-    color: colors.primary,
-    fontWeight: 600,
-    borderBottom: `2px solid ${colors.primary}`,
-  },
   main: {
+    flex: 1,
     padding: '8px',
-    height: 'calc(100vh - 90px)',
     overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
   },
   ladderLayout: {
     display: 'flex',
     gap: '8px',
-    height: '100%',
+    flex: 1,
+    overflow: 'hidden',
   },
   sidebar: {
     width: '260px',
@@ -259,9 +277,15 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     backgroundColor: colors.surface,
     border: `1px solid ${colors.border}`,
-    overflow: 'auto',
     display: 'flex',
     flexDirection: 'column',
+    overflow: 'hidden',
+    minWidth: 0,
+  },
+  ladderContent: {
+    flex: 1,
+    overflow: 'hidden',
+    display: 'flex',
   },
   routineTitle: {
     margin: 0,
@@ -272,6 +296,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '8px',
     backgroundColor: '#f5f5f5',
     borderBottom: `1px solid ${colors.border}`,
+    flexShrink: 0,
   },
   routineBadge: {
     fontSize: '10px',
@@ -291,18 +316,41 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '40px',
     fontSize: '13px',
   },
-  contentPanel: {
+  infoPanel: {
+    width: '350px',
+    flexShrink: 0,
     backgroundColor: colors.surface,
-    padding: '16px',
     border: `1px solid ${colors.border}`,
-    height: '100%',
-    overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
   },
-  sectionTitle: {
-    marginTop: 0,
-    marginBottom: '12px',
-    fontSize: '14px',
+  infoPanelHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '8px 12px',
+    backgroundColor: '#f5f5f5',
+    borderBottom: `1px solid ${colors.border}`,
+    flexShrink: 0,
+  },
+  infoPanelTitle: {
     fontWeight: 600,
+    fontSize: '13px',
+  },
+  closeButton: {
+    background: 'none',
+    border: 'none',
+    fontSize: '18px',
+    cursor: 'pointer',
+    color: colors.textLight,
+    padding: '0 4px',
+    lineHeight: 1,
+  },
+  infoPanelContent: {
+    flex: 1,
+    overflow: 'auto',
+    padding: '12px',
   },
   loadingContainer: {
     display: 'flex',

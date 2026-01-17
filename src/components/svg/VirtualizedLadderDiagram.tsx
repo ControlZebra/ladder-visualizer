@@ -274,7 +274,7 @@ function calculateMultiLineRungHeight(lines: RungLine[]): number {
 }
 
 function calculateRungLayouts(rungs: Rung[], diagramWidth: number): RungLayout[] {
-  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_WIDTH - 2 * INSTRUCTION_GAP;
+  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_VISUAL_WIDTH - 2 * INSTRUCTION_GAP;
   const layouts: RungLayout[] = [];
   let currentOffset = 0;
 
@@ -462,9 +462,10 @@ interface RungRendererProps {
 }
 
 function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererProps) {
-  const leftRailX = RUNG_NUMBER_WIDTH + RAIL_WIDTH + RAIL_VISUAL_WIDTH;
-  const rightRailX = diagramWidth - RAIL_WIDTH - RAIL_VISUAL_WIDTH;
-  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_WIDTH - 2 * INSTRUCTION_GAP;
+  // Connect wires directly to the power rails (no gap)
+  const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
+  const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
+  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_VISUAL_WIDTH - 2 * INSTRUCTION_GAP;
 
   const lines = splitInstructionsIntoLines(rung.instructions, availableWidth);
 
@@ -586,7 +587,7 @@ export function VirtualizedLadderDiagram({
   routine,
   rungs: rungsProp,
   width: widthProp,
-  height = 600,
+  height: heightProp,
   className = '',
   style,
   overscan = 3,
@@ -600,30 +601,36 @@ export function VirtualizedLadderDiagram({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [containerWidth, setContainerWidth] = useState(widthProp || 800);
+  const [containerHeight, setContainerHeight] = useState(heightProp || 600);
 
-  // Use ResizeObserver to track container width
+  // Use ResizeObserver to track container width and height
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const updateWidth = () => {
+    const updateDimensions = () => {
       const newWidth = container.clientWidth;
+      const newHeight = container.clientHeight;
       if (newWidth > 0) {
         setContainerWidth(newWidth);
+      }
+      if (newHeight > 0) {
+        setContainerHeight(newHeight);
       }
     };
 
     // Initial measurement
-    updateWidth();
+    updateDimensions();
 
-    const resizeObserver = new ResizeObserver(updateWidth);
+    const resizeObserver = new ResizeObserver(updateDimensions);
     resizeObserver.observe(container);
 
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Use prop width if provided, otherwise use measured container width
+  // Use prop width/height if provided, otherwise use measured container dimensions
   const width = widthProp || containerWidth;
+  const height = heightProp || containerHeight;
 
   // Calculate layouts for all rungs
   const rungLayouts = useMemo(() => calculateRungLayouts(rungs, width), [rungs, width]);
@@ -671,11 +678,13 @@ export function VirtualizedLadderDiagram({
   if (rungs.length === 0) {
     return (
       <div
+        ref={containerRef}
         className={`ladder-diagram-container ${className}`}
         style={{
           overflow: 'auto',
           backgroundColor: '#fff',
-          height,
+          flex: 1,
+          minHeight: 0,
           ...style,
         }}
       >
@@ -700,7 +709,8 @@ export function VirtualizedLadderDiagram({
       style={{
         overflow: 'auto',
         backgroundColor: '#fff',
-        height,
+        flex: 1,
+        minHeight: 0,
         ...style,
       }}
       onScroll={handleScroll}
