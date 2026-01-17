@@ -735,12 +735,6 @@ export function VirtualizedLadderDiagram({
         {/* Background */}
         <rect width={width} height={totalHeight} fill="#ffffff" />
 
-        {/* Left power rail */}
-        <rect x={RUNG_NUMBER_WIDTH} y="0" width={RAIL_VISUAL_WIDTH} height={totalHeight} fill="#3366cc" className="power-rail left-rail" />
-
-        {/* Right power rail */}
-        <rect x={width - RAIL_VISUAL_WIDTH} y="0" width={RAIL_VISUAL_WIDTH} height={totalHeight} fill="#3366cc" className="power-rail right-rail" />
-
         {/* Visible rungs */}
         {rungs.slice(visibleRange.startIndex, visibleRange.endIndex + 1).map((rung, idx) => {
           const actualIndex = visibleRange.startIndex + idx;
