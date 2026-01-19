@@ -1,10 +1,8 @@
 export * from './symbols';
 export { 
-  renderLadderDiagram, 
-  renderRung, 
   MIN_RUNG_HEIGHT, 
   RAIL_WIDTH,
-  // New decoupled API
+  // Decoupled API
   renderDiagram,
   calculateLayout,
   LayoutEngine,

@@ -1,6 +1,3 @@
-// Ladder Diagram
-export { LadderDiagram, type LadderDiagramProps } from './LadderDiagram';
-
 // Virtualized Ladder Diagram (React SVG with windowed rendering)
 export { VirtualizedLadderDiagram, type VirtualizedLadderDiagramProps } from './svg';
 
