@@ -4,6 +4,7 @@ import { join } from 'path';
 import { parseControllerExport } from '../../src/parsers/controller-parser';
 import { parseRoutine } from '../../src/parsers/routine-parser';
 import { createTagResolver } from '../../src/parsers/tag-resolver';
+import { parseString, parserRegistry } from '../../src/parsers';
 
 describe('Integration: Real Controller Export', () => {
   const jsonPath = join(__dirname, '../../examples/controller_output.json');
@@ -73,5 +74,67 @@ describe('Integration: Real Controller Export', () => {
       const cptInstr = cptRung.instructions.find((i) => i.mnemonic === 'CPT');
       expect(cptInstr?.operands.length).toBe(2);
     }
+  });
+});
+
+describe('Integration: Unified parseString API', () => {
+  it('should parse JSON format using auto-detection', () => {
+    const jsonPath = join(__dirname, '../../examples/controller_output.json');
+    const jsonContent = readFileSync(jsonPath, 'utf-8');
+
+    const result = parseString(jsonContent);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+    expect(result.data?.vendor).toBe('rockwell');
+    expect(result.data?.sourceFormat).toBe('json');
+    expect(result.data?.programs.length).toBeGreaterThan(0);
+  });
+
+  it('should parse L5X format using auto-detection', () => {
+    const l5xPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+    const l5xContent = readFileSync(l5xPath, 'utf-8');
+
+    const result = parseString(l5xContent);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+    expect(result.data?.vendor).toBe('rockwell');
+    expect(result.data?.sourceFormat).toBe('l5x');
+    expect(result.data?.name).toBe('PLC100_Mashing');
+    expect(result.data?.programs.length).toBeGreaterThan(0);
+    expect(result.data?.dataTypes.length).toBeGreaterThan(0);
+  });
+
+  it('should parse JSON format with explicit format hint', () => {
+    const jsonPath = join(__dirname, '../../examples/controller_output.json');
+    const jsonContent = readFileSync(jsonPath, 'utf-8');
+
+    const result = parseString(jsonContent, 'json');
+
+    expect(result.success).toBe(true);
+    expect(result.data?.sourceFormat).toBe('json');
+  });
+
+  it('should parse L5X format with explicit format hint', () => {
+    const l5xPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+    const l5xContent = readFileSync(l5xPath, 'utf-8');
+
+    const result = parseString(l5xContent, 'l5x');
+
+    expect(result.success).toBe(true);
+    expect(result.data?.sourceFormat).toBe('l5x');
+  });
+
+  it('should have both JSON and L5X parsers registered', () => {
+    const allParsers = parserRegistry.getAllParsers();
+    
+    expect(allParsers.length).toBeGreaterThanOrEqual(2);
+    
+    const jsonParser = parserRegistry.getParser('rockwell-json');
+    expect(jsonParser).toBeDefined();
+    
+    const l5xParser = parserRegistry.getParser('rockwell-l5x');
+    expect(l5xParser).toBeDefined();
   });
 });

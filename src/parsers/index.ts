@@ -22,6 +22,7 @@ export { ParserRegistry, parserRegistry, createParserRegistry } from './parser-r
 
 // Individual parsers
 export { JSONParser, jsonParser, jsonToNormalized } from './json';
+export { L5XParser, l5xParser, l5xToNormalized } from './l5x';
 
 // ============================================
 // Register default parsers
@@ -29,6 +30,7 @@ export { JSONParser, jsonParser, jsonToNormalized } from './json';
 
 import { parserRegistry } from './parser-registry';
 import { jsonParser } from './json';
+import { l5xParser } from './l5x';
 
 /**
  * Register all built-in parsers with the global registry.
@@ -37,6 +39,9 @@ import { jsonParser } from './json';
 export function registerDefaultParsers(): void {
   if (!parserRegistry.getParser('rockwell-json')) {
     parserRegistry.register(jsonParser);
+  }
+  if (!parserRegistry.getParser('rockwell-l5x')) {
+    parserRegistry.register(l5xParser);
   }
 }
 
