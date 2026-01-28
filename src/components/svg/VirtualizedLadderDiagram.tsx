@@ -19,10 +19,11 @@ const ADDRESS_LABEL_OFFSET = 12;
 const RUNG_PADDING = 15;
 const LINE_SPACING = 20;
 const MIN_CONDITION_OPERATION_GAP = 40;
-const BRANCH_VERTICAL_GAP = 5;
+const BRANCH_VERTICAL_GAP = 15;
 const BRANCH_CONNECTOR_OFFSET = 10;
 const SYMBOL_WIDTH = 30;
 const SYMBOL_HEIGHT = 20;
+const POWER_RAIL_COLOR = '#3366cc';
 const CHAR_WIDTH_ESTIMATE = 7;
 const LABEL_PADDING = 10;
 
@@ -56,10 +57,6 @@ function calculateSymbolWidth(label: string): number {
   return Math.max(SYMBOL_WIDTH, textWidth + LABEL_PADDING * 2);
 }
 
-function isCondition(instruction: Instruction): boolean {
-  return instruction.category === 'input' || instruction.category === 'compare';
-}
-
 function isOperation(instruction: Instruction): boolean {
   return (
     instruction.category === 'output' ||
@@ -68,6 +65,14 @@ function isOperation(instruction: Instruction): boolean {
     instruction.category === 'counter' ||
     instruction.category === 'other'
   );
+}
+
+function elementIsOperation(element: RungElement): boolean {
+  if (isBranchGroup(element)) {
+    // A branch is an operation only if ALL legs contain only operations
+    return element.branches.every(leg => leg.length > 0 && leg.every(el => elementIsOperation(el)));
+  }
+  return isOperation(element);
 }
 
 function getDimensions(instruction: Instruction): Dimensions {
@@ -97,7 +102,8 @@ function calculateBranchGroupLayout(branch: BranchGroup): ElementLayout {
 
   const legLayouts = branch.branches.map(leg => calculateLegLayout(leg));
   const maxWidth = Math.max(...legLayouts.map(l => l.width));
-  const totalWidth = maxWidth + 2 * BRANCH_CONNECTOR_OFFSET;
+  // 4 offsets: before left connector, after left connector (content start), before right connector (content end), after right connector
+  const totalWidth = maxWidth + 4 * BRANCH_CONNECTOR_OFFSET;
 
   let totalHeight = 0;
   for (let i = 0; i < legLayouts.length; i++) {
@@ -121,8 +127,17 @@ function calculateLegLayout(elements: RungElement[]): ElementLayout {
 
   for (let i = 0; i < elements.length; i++) {
     const layout = calculateElementLayout(elements[i]);
+    // For contacts/coils, add label space to the height
+    let elementHeight = layout.height;
+    if (!isBranchGroup(elements[i])) {
+      const el = elements[i] as Instruction;
+      if (el.category === 'input' || el.category === 'output') {
+        // Add space for label above and address below
+        elementHeight = layout.height + LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
+      }
+    }
     totalWidth += layout.width;
-    maxHeight = Math.max(maxHeight, layout.height);
+    maxHeight = Math.max(maxHeight, elementHeight);
     if (i < elements.length - 1) {
       totalWidth += INSTRUCTION_GAP;
     }
@@ -131,13 +146,13 @@ function calculateLegLayout(elements: RungElement[]): ElementLayout {
   return { width: totalWidth, height: maxHeight, centerY: maxHeight / 2 };
 }
 
-function calculateTotalWidth(instructions: Instruction[]): number {
-  if (instructions.length === 0) return 0;
+function calculateElementsWidth(elements: RungElement[]): number {
+  if (elements.length === 0) return 0;
   let width = 0;
-  for (const instr of instructions) {
-    width += getDimensions(instr).width;
+  for (const el of elements) {
+    width += calculateElementLayout(el).width;
   }
-  width += (instructions.length - 1) * INSTRUCTION_GAP;
+  width += (elements.length - 1) * INSTRUCTION_GAP;
   return width;
 }
 
@@ -145,113 +160,125 @@ function calculateTotalWidth(instructions: Instruction[]): number {
 // LAYOUT CALCULATION FOR VIRTUALIZATION
 // ============================================================================
 
-interface RungLine {
-  instructions: Instruction[];
-  width: number;
+interface ElementLine {
+  conditionElements: RungElement[];
+  operationElements: RungElement[];
+  conditionsWidth: number;
+  operationsWidth: number;
   height: number;
   isLastLine: boolean;
-  hasOperations: boolean;
 }
 
-function calculateLineHeight(instructions: Instruction[]): number {
+function calculateElementLineHeight(elements: RungElement[]): number {
   let maxHeight = MIN_RUNG_HEIGHT;
-  for (const instr of instructions) {
-    const dims = getDimensions(instr);
-    const labelSpace =
-      instr.category === 'input' || instr.category === 'output' ? LABEL_OFFSET : 0;
-    const totalHeight = dims.height + labelSpace + RUNG_PADDING * 2;
+  for (const el of elements) {
+    const layout = calculateElementLayout(el);
+    let labelSpace = 0;
+    if (!isBranchGroup(el)) {
+      labelSpace = el.category === 'input' || el.category === 'output' ? LABEL_OFFSET + ADDRESS_LABEL_OFFSET : 0;
+    }
+    // For branches, the layout.height already includes all leg heights
+    // Add padding for the overall rung
+    const totalHeight = layout.height + labelSpace + RUNG_PADDING * 2;
     maxHeight = Math.max(maxHeight, totalHeight);
   }
   return maxHeight;
 }
 
-function splitInstructionsIntoLines(instructions: Instruction[], availableWidth: number): RungLine[] {
-  const conditions = instructions.filter(isCondition);
-  const operations = instructions.filter(isOperation);
-  const operationsWidth = calculateTotalWidth(operations);
-  const lines: RungLine[] = [];
+function splitElementsIntoLines(elements: RungElement[], availableWidth: number): ElementLine[] {
+  const conditionElements: RungElement[] = [];
+  const operationElements: RungElement[] = [];
+
+  for (const element of elements) {
+    if (elementIsOperation(element)) {
+      operationElements.push(element);
+    } else {
+      conditionElements.push(element);
+    }
+  }
+
+  const operationsWidth = calculateElementsWidth(operationElements);
+  const lines: ElementLine[] = [];
   const availableForConditionsWithOps = availableWidth - operationsWidth - MIN_CONDITION_OPERATION_GAP;
 
-  let currentLine: Instruction[] = [];
+  let currentLine: RungElement[] = [];
   let currentLineWidth = 0;
 
-  for (let i = 0; i < conditions.length; i++) {
-    const instr = conditions[i];
-    const dims = getDimensions(instr);
-    const instrWidth = dims.width + (currentLine.length > 0 ? INSTRUCTION_GAP : 0);
-    const isLastCondition = i === conditions.length - 1;
-    const remainingConditionsWidth = calculateTotalWidth(conditions.slice(i));
+  for (let i = 0; i < conditionElements.length; i++) {
+    const element = conditionElements[i];
+    const layout = calculateElementLayout(element);
+    const elementWidth = layout.width + (currentLine.length > 0 ? INSTRUCTION_GAP : 0);
+    const isLastCondition = i === conditionElements.length - 1;
+    const remainingWidth = calculateElementsWidth(conditionElements.slice(i));
 
     let maxWidthForLine: number;
-    if (isLastCondition || remainingConditionsWidth + operationsWidth + MIN_CONDITION_OPERATION_GAP <= availableWidth - currentLineWidth) {
+    if (isLastCondition || remainingWidth + operationsWidth + MIN_CONDITION_OPERATION_GAP <= availableWidth - currentLineWidth) {
       maxWidthForLine = availableForConditionsWithOps;
     } else {
       maxWidthForLine = availableWidth;
     }
 
-    if (currentLine.length > 0 && currentLineWidth + instrWidth > maxWidthForLine) {
+    if (currentLine.length > 0 && currentLineWidth + elementWidth > maxWidthForLine) {
       if (currentLine.length > 0) {
         lines.push({
-          instructions: currentLine,
-          width: currentLineWidth,
-          height: calculateLineHeight(currentLine),
+          conditionElements: currentLine,
+          operationElements: [],
+          conditionsWidth: currentLineWidth,
+          operationsWidth: 0,
+          height: calculateElementLineHeight(currentLine),
           isLastLine: false,
-          hasOperations: false,
         });
       }
-      currentLine = [instr];
-      currentLineWidth = dims.width;
+      currentLine = [element];
+      currentLineWidth = layout.width;
     } else {
-      currentLine.push(instr);
-      currentLineWidth += instrWidth;
+      currentLine.push(element);
+      currentLineWidth += elementWidth;
     }
   }
 
-  if (currentLine.length > 0 || operations.length > 0) {
-    const lastLineInstructions = [...currentLine, ...operations];
+  // Add remaining conditions with operations on the last line
+  if (currentLine.length > 0 || operationElements.length > 0) {
     const lastLineConditionsWidth = currentLineWidth;
-    const totalLastLineWidth = lastLineConditionsWidth + (lastLineConditionsWidth > 0 && operationsWidth > 0 ? MIN_CONDITION_OPERATION_GAP : 0) + operationsWidth;
+    const totalLastLineWidth = lastLineConditionsWidth +
+      (lastLineConditionsWidth > 0 && operationsWidth > 0 ? MIN_CONDITION_OPERATION_GAP : 0) +
+      operationsWidth;
 
     if (totalLastLineWidth <= availableWidth) {
+      const allElements = [...currentLine, ...operationElements];
       lines.push({
-        instructions: lastLineInstructions,
-        width: totalLastLineWidth,
-        height: calculateLineHeight(lastLineInstructions),
+        conditionElements: currentLine,
+        operationElements,
+        conditionsWidth: lastLineConditionsWidth,
+        operationsWidth,
+        height: calculateElementLineHeight(allElements),
         isLastLine: true,
-        hasOperations: operations.length > 0,
       });
     } else {
       if (currentLine.length > 0) {
         lines.push({
-          instructions: currentLine,
-          width: currentLineWidth,
-          height: calculateLineHeight(currentLine),
+          conditionElements: currentLine,
+          operationElements: [],
+          conditionsWidth: currentLineWidth,
+          operationsWidth: 0,
+          height: calculateElementLineHeight(currentLine),
           isLastLine: false,
-          hasOperations: false,
         });
       }
-      if (operations.length > 0) {
+      if (operationElements.length > 0) {
         lines.push({
-          instructions: operations,
-          width: operationsWidth,
-          height: calculateLineHeight(operations),
+          conditionElements: [],
+          operationElements,
+          conditionsWidth: 0,
+          operationsWidth,
+          height: calculateElementLineHeight(operationElements),
           isLastLine: true,
-          hasOperations: true,
         });
       }
     }
   }
 
-  if (lines.length === 0 && operations.length > 0) {
-    lines.push({
-      instructions: operations,
-      width: operationsWidth,
-      height: calculateLineHeight(operations),
-      isLastLine: true,
-      hasOperations: true,
-    });
-  }
-
+  // Ensure isLastLine is correct
   if (lines.length > 0) {
     for (let i = 0; i < lines.length; i++) {
       lines[i].isLastLine = i === lines.length - 1;
@@ -261,7 +288,7 @@ function splitInstructionsIntoLines(instructions: Instruction[], availableWidth:
   return lines;
 }
 
-function calculateMultiLineRungHeight(lines: RungLine[]): number {
+function calculateElementLinesHeight(lines: ElementLine[]): number {
   if (lines.length === 0) return MIN_RUNG_HEIGHT;
   let totalHeight = 0;
   for (let i = 0; i < lines.length; i++) {
@@ -279,8 +306,10 @@ function calculateRungLayouts(rungs: Rung[], diagramWidth: number): RungLayout[]
   let currentOffset = 0;
 
   for (const rung of rungs) {
-    const lines = splitInstructionsIntoLines(rung.instructions, availableWidth);
-    const height = lines.length > 0 ? calculateMultiLineRungHeight(lines) : MIN_RUNG_HEIGHT;
+    // Use elements if available (preserves branch structure), otherwise fall back to instructions
+    const elements = rung.elements && rung.elements.length > 0 ? rung.elements : rung.instructions;
+    const lines = splitElementsIntoLines(elements, availableWidth);
+    const height = lines.length > 0 ? calculateElementLinesHeight(lines) : MIN_RUNG_HEIGHT;
     layouts.push({ height, offset: currentOffset });
     currentOffset += height;
   }
@@ -394,15 +423,22 @@ export function BranchRenderer({ branch, x, mainWireY }: BranchRendererProps) {
     }
   }
 
-  const branchStartX = x;
-  const branchEndX = x + maxWidth + 2 * BRANCH_CONNECTOR_OFFSET;
-  const contentStartX = x + BRANCH_CONNECTOR_OFFSET;
+  // Calculate total width (same formula as calculateBranchGroupLayout)
+  const totalWidth = maxWidth + 4 * BRANCH_CONNECTOR_OFFSET;
+  
+  // Add offset before the vertical connector starts (wire from x to branchStartX)
+  const branchStartX = x + BRANCH_CONNECTOR_OFFSET;
+  const branchEndX = x + totalWidth - BRANCH_CONNECTOR_OFFSET;
+  const contentStartX = branchStartX + BRANCH_CONNECTOR_OFFSET;
 
   const topY = legYPositions[0];
   const bottomY = legYPositions[legYPositions.length - 1];
 
   return (
     <g className="branch-group">
+      {/* Horizontal wire leading into the branch */}
+      <line x1={x} y1={mainWireY} x2={branchStartX} y2={mainWireY} stroke="currentColor" strokeWidth="1" />
+      
       {/* Vertical connectors */}
       {branch.branches.length > 1 && (
         <>
@@ -461,13 +497,25 @@ interface RungRendererProps {
   diagramWidth: number;
 }
 
+/**
+ * Helper component to render a single element (instruction or branch)
+ */
+function ElementRenderer({ element, x, wireY }: { element: RungElement; x: number; wireY: number }) {
+  if (isBranchGroup(element)) {
+    return <BranchRenderer branch={element} x={x} mainWireY={wireY} />;
+  }
+  return <InstructionRenderer instruction={element} x={x} wireY={wireY} />;
+}
+
 function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererProps) {
   // Connect wires directly to the power rails (no gap)
   const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
   const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
   const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_VISUAL_WIDTH - 2 * INSTRUCTION_GAP;
 
-  const lines = splitInstructionsIntoLines(rung.instructions, availableWidth);
+  // Use elements if available (preserves branch structure), otherwise fall back to instructions
+  const elements = rung.elements && rung.elements.length > 0 ? rung.elements : rung.instructions;
+  const lines = splitElementsIntoLines(elements, availableWidth);
 
   const wireYPositions: number[] = [];
   let currentY = yOffset;
@@ -492,10 +540,6 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
         const prevWireY = lineIndex > 0 ? wireYPositions[lineIndex - 1] : null;
         const nextWireY = lineIndex < lines.length - 1 ? wireYPositions[lineIndex + 1] : null;
 
-        const conditions = line.instructions.filter(isCondition);
-        const operations = line.instructions.filter(isOperation);
-        const conditionsWidth = calculateTotalWidth(conditions);
-        const operationsWidth = calculateTotalWidth(operations);
         const conditionsStartX = leftRailX + INSTRUCTION_GAP;
 
         return (
@@ -503,22 +547,23 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
             {/* Wire from left rail */}
             <line x1={leftRailX} y1={wireY} x2={conditionsStartX} y2={wireY} stroke="#333" strokeWidth="1" />
 
-            {/* Conditions */}
+            {/* Condition elements */}
             {(() => {
               let currentX = conditionsStartX;
-              return conditions.map((instr, idx) => {
-                const instrX = currentX;
-                currentX += getDimensions(instr).width + INSTRUCTION_GAP;
-                return <InstructionRenderer key={`c-${idx}`} instruction={instr} x={instrX} wireY={wireY} />;
+              return line.conditionElements.map((element, idx) => {
+                const elementX = currentX;
+                const layout = calculateElementLayout(element);
+                currentX += layout.width + INSTRUCTION_GAP;
+                return <ElementRenderer key={`c-${idx}`} element={element} x={elementX} wireY={wireY} />;
               });
             })()}
 
             {/* Wire and Operations */}
-            {line.isLastLine && operations.length > 0 ? (
+            {line.isLastLine && line.operationElements.length > 0 ? (
               (() => {
-                const conditionsEndX = conditionsStartX + conditionsWidth + (conditions.length > 0 ? INSTRUCTION_GAP : 0);
+                const conditionsEndX = conditionsStartX + line.conditionsWidth + (line.conditionElements.length > 0 ? INSTRUCTION_GAP : 0);
                 const operationsEndX = rightRailX - INSTRUCTION_GAP;
-                const operationsStartX = operationsEndX - operationsWidth;
+                const operationsStartX = operationsEndX - line.operationsWidth;
 
                 return (
                   <>
@@ -527,24 +572,25 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
                       <line x1={conditionsEndX} y1={wireY} x2={operationsStartX} y2={wireY} stroke="#333" strokeWidth="1" />
                     )}
 
-                    {/* Operations */}
+                    {/* Operation elements */}
                     {(() => {
                       let currentX = operationsStartX;
-                      return operations.map((instr, idx) => {
-                        const instrX = currentX;
-                        currentX += getDimensions(instr).width + INSTRUCTION_GAP;
-                        return <InstructionRenderer key={`o-${idx}`} instruction={instr} x={instrX} wireY={wireY} />;
+                      return line.operationElements.map((element, idx) => {
+                        const elementX = currentX;
+                        const layout = calculateElementLayout(element);
+                        currentX += layout.width + INSTRUCTION_GAP;
+                        return <ElementRenderer key={`o-${idx}`} element={element} x={elementX} wireY={wireY} />;
                       });
                     })()}
 
                     {/* Wire to right rail */}
-                    <line x1={operationsStartX + operationsWidth + INSTRUCTION_GAP} y1={wireY} x2={rightRailX} y2={wireY} stroke="#333" strokeWidth="1" />
+                    <line x1={operationsStartX + line.operationsWidth + INSTRUCTION_GAP} y1={wireY} x2={rightRailX} y2={wireY} stroke="#333" strokeWidth="1" />
                   </>
                 );
               })()
             ) : (
               (() => {
-                const conditionsEndX = conditionsStartX + conditionsWidth + (conditions.length > 0 ? INSTRUCTION_GAP : 0);
+                const conditionsEndX = conditionsStartX + line.conditionsWidth + (line.conditionElements.length > 0 ? INSTRUCTION_GAP : 0);
                 const continuationX = rightRailX - INSTRUCTION_GAP;
                 return (
                   <>
@@ -801,6 +847,24 @@ export function VirtualizedLadderDiagram({
             </g>
           );
         })}
+
+        {/* Power Rails - rendered after rung backgrounds so they appear on top */}
+        <rect
+          x={RUNG_NUMBER_WIDTH}
+          y={0}
+          width={RAIL_VISUAL_WIDTH}
+          height={totalHeight}
+          fill={POWER_RAIL_COLOR}
+          className="power-rail left-rail"
+        />
+        <rect
+          x={width - RAIL_VISUAL_WIDTH}
+          y={0}
+          width={RAIL_VISUAL_WIDTH}
+          height={totalHeight}
+          fill={POWER_RAIL_COLOR}
+          className="power-rail right-rail"
+        />
       </svg>
     </div>
   );

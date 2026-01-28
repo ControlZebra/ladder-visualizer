@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd /Users/shreyasnikte/Software\\\\ Projects/ladder-visualizer && npm install --save-dev jsdom @types/jsdom$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
