@@ -207,10 +207,6 @@ export default function App() {
       case 'controller-tags':
         return (
           <>
-            <div style={styles.routineTitle}>
-              <span style={{ fontWeight: 600 }}>Controller Tags</span>
-              <span style={styles.routineCount}>{controller.tags.length} tags</span>
-            </div>
             <div style={styles.infoPanelContent}>
               <TagTable tags={controller.tags} />
             </div>
@@ -219,10 +215,6 @@ export default function App() {
       case 'program-tags':
         return (
           <>
-            <div style={styles.routineTitle}>
-              <span style={{ fontWeight: 600 }}>{programName} Tags</span>
-              <span style={styles.routineCount}>{programTags.length} tags</span>
-            </div>
             <div style={styles.infoPanelContent}>
               {programTags.length > 0 ? (
                 <TagTable tags={programTags} />
@@ -235,9 +227,6 @@ export default function App() {
       case 'controller-info':
         return (
           <>
-            <div style={styles.routineTitle}>
-              <span style={{ fontWeight: 600 }}>Controller Info</span>
-            </div>
             <div style={styles.infoPanelContent}>
               <ControllerInfo controller={controller} />
             </div>
@@ -247,9 +236,6 @@ export default function App() {
         if (selectedDataType) {
           return (
             <>
-              <div style={styles.routineTitle}>
-                <span style={{ fontWeight: 600 }}>Data Type: {selectedDataType.name}</span>
-              </div>
               <div style={styles.infoPanelContent}>
                 <DataTypeTable dataType={selectedDataType} allDataTypes={allDataTypes} />
               </div>
@@ -261,11 +247,6 @@ export default function App() {
         if (selectedAOI) {
           return (
             <>
-              <div style={styles.routineTitle}>
-                <span style={{ fontWeight: 600 }}>{selectedAOI.name} Parameters</span>
-                <span style={styles.routineBadge}>AOI</span>
-                <span style={styles.routineCount}>{selectedAOI.parameters.length} parameters</span>
-              </div>
               <div style={styles.infoPanelContent}>
                 <AOIParameterTable parameters={selectedAOI.parameters} />
               </div>
@@ -277,11 +258,6 @@ export default function App() {
         if (selectedAOI) {
           return (
             <>
-              <div style={styles.routineTitle}>
-                <span style={{ fontWeight: 600 }}>{selectedAOI.name} Local Tags</span>
-                <span style={styles.routineBadge}>AOI</span>
-                <span style={styles.routineCount}>{selectedAOI.localTags.length} tags</span>
-              </div>
               <div style={styles.infoPanelContent}>
                 <AOILocalTagTable localTags={selectedAOI.localTags} />
               </div>
@@ -294,16 +270,6 @@ export default function App() {
           const isAOISTRoutine = selectedAOIRoutineData.type === 'ST';
           return (
             <>
-              <div style={styles.routineTitle}>
-                <span style={{ fontWeight: 600 }}>{selectedAOI.name} / {selectedAOIRoutineData.name}</span>
-                <span style={styles.routineBadge}>AOI Routine ({selectedAOIRoutineData.type})</span>
-                <span style={styles.routineCount}>
-                  {isAOISTRoutine
-                    ? `${selectedAOIRoutineData.stContent?.length || 0} lines`
-                    : `${selectedAOIRoutineData.rungs.length} rungs`
-                  }
-                </span>
-              </div>
               <div style={styles.ladderContent}>
                 {isAOISTRoutine ? (
                   <StructuredTextViewer
@@ -328,16 +294,6 @@ export default function App() {
           const isSTRoutine = parsedRoutine.type === 'ST';
           return (
             <>
-              <div style={styles.routineTitle}>
-                <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
-                <span style={styles.routineBadge}>{parsedRoutine.type}</span>
-                <span style={styles.routineCount}>
-                  {isSTRoutine 
-                    ? `${parsedRoutine.stContent?.length || 0} lines`
-                    : `${parsedRoutine.rungs.length} rungs`
-                  }
-                </span>
-              </div>
               <div style={styles.ladderContent}>
                 {isSTRoutine ? (
                   <StructuredTextViewer
