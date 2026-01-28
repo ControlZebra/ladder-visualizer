@@ -89,6 +89,7 @@ interface RungLayoutResult {
 interface RungLayout {
   height: number;
   offset: number;
+  contentWidth: number;  // The actual content width of this rung
 }
 
 // ============================================================================
@@ -265,62 +266,27 @@ interface ElementLine {
 }
 
 /**
- * Step 2.2: Handle Line Wrapping
- * Split elements into multiple lines if content exceeds available width
+ * Step 2.2: No Line Wrapping - All elements on a single line
+ * Horizontal scrolling is used instead of line wrapping
  */
 function splitIntoLines(
   conditions: RungElement[],
-  operations: RungElement[],
-  availableWidth: number
+  operations: RungElement[]
 ): ElementLine[] {
+  const conditionsWidth = calculateTotalWidth(conditions);
   const operationsWidth = calculateTotalWidth(operations);
-  const lines: { conditions: RungElement[]; operations: RungElement[] }[] = [];
-  let currentLine: { conditions: RungElement[]; operations: RungElement[] } = { conditions: [], operations: [] };
-  let currentWidth = 0;
 
-  // Reserve space for operations on the last line
-  const lastLineReserved = operationsWidth + MIN_CONDITION_OPERATION_GAP;
-
-  for (let i = 0; i < conditions.length; i++) {
-    const condition = conditions[i];
-    const dims = calculateElementDimensions(condition);
-    const elementWidth = dims.width + (currentLine.conditions.length > 0 ? INSTRUCTION_GAP : 0);
-    const isLastCondition = i === conditions.length - 1;
-
-    let maxWidth: number;
-    if (isLastCondition) {
-      // This will be on the last line with operations
-      maxWidth = availableWidth - lastLineReserved;
-    } else {
-      maxWidth = availableWidth;
-    }
-
-    if (currentWidth + elementWidth > maxWidth && currentLine.conditions.length > 0) {
-      // Wrap to new line
-      lines.push(currentLine);
-      currentLine = { conditions: [], operations: [] };
-      currentWidth = 0;
-    }
-
-    currentLine.conditions.push(condition);
-    currentWidth += currentLine.conditions.length === 1 ? dims.width : elementWidth;
-  }
-
-  // Add operations to the last line
-  currentLine.operations = operations;
-  lines.push(currentLine);
-
-  // Convert to ElementLine with calculated heights and positions
-  return lines.map((line, index) => ({
-    conditions: line.conditions,
-    operations: line.operations,
-    conditionsWidth: calculateTotalWidth(line.conditions),
-    operationsWidth: index === lines.length - 1 ? operationsWidth : 0,
+  // Always return a single line with all elements
+  return [{
+    conditions,
+    operations,
+    conditionsWidth,
+    operationsWidth,
     height: 0, // Will be calculated in calculateLineMetrics
     wireY: 0,  // Will be calculated in calculateLineMetrics
     yOffset: 0, // Will be calculated in calculateLineMetrics
-    isLastLine: index === lines.length - 1,
-  }));
+    isLastLine: true,
+  }];
 }
 
 /**
@@ -532,13 +498,24 @@ function containsBranches(elements: RungElement[]): boolean {
 }
 
 /**
+ * Calculate the minimum width needed for a rung's content
+ */
+function calculateRungContentWidth(elements: RungElement[]): number {
+  const { conditions, operations } = separateElements(elements);
+  const conditionsWidth = calculateTotalWidth(conditions);
+  const operationsWidth = calculateTotalWidth(operations);
+  
+  // Total width = conditions + gap + operations + padding on both ends
+  return conditionsWidth + MIN_CONDITION_OPERATION_GAP + operationsWidth + 2 * RUNG_START_OFFSET;
+}
+
+/**
  * Calculate complete rung layout
  */
 function calculateRungLayoutComplete(
   rung: Rung,
   rungIndex: number,
   yOffset: number,
-  availableWidth: number,
   leftRailX: number,
   rightRailX: number
 ): RungLayoutResult {
@@ -547,8 +524,8 @@ function calculateRungLayoutComplete(
   // Phase 1: Separate into conditions and operations
   const { conditions, operations } = separateElements(elements);
 
-  // Phase 2: Split into lines if needed
-  const lines = splitIntoLines(conditions, operations, availableWidth);
+  // Phase 2: No line wrapping - all elements on single line
+  const lines = splitIntoLines(conditions, operations);
 
   // Calculate line metrics (heights and wire Y positions)
   const rungHeight = calculateLineMetrics(lines, yOffset);
@@ -594,18 +571,36 @@ function calculateRungLayoutComplete(
 // ============================================================================
 
 /**
+ * Calculate the minimum diagram width based on all rung content
+ */
+function calculateMinDiagramWidth(rungs: Rung[]): number {
+  let maxContentWidth = 0;
+  
+  for (const rung of rungs) {
+    const elements = rung.elements && rung.elements.length > 0 ? rung.elements : rung.instructions;
+    const contentWidth = calculateRungContentWidth(elements);
+    maxContentWidth = Math.max(maxContentWidth, contentWidth);
+  }
+  
+  // Add space for rung number column and both rails
+  return RUNG_NUMBER_WIDTH + 2 * RAIL_VISUAL_WIDTH + maxContentWidth;
+}
+
+/**
  * Calculate layouts for all rungs (used for virtualization)
  */
 function calculateRungLayouts(rungs: Rung[], diagramWidth: number): RungLayout[] {
   const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
   const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
-  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_VISUAL_WIDTH - 2 * RUNG_START_OFFSET;
   const layouts: RungLayout[] = [];
   let currentOffset = 0;
 
   for (let i = 0; i < rungs.length; i++) {
-    const rungLayout = calculateRungLayoutComplete(rungs[i], i, currentOffset, availableWidth, leftRailX, rightRailX);
-    layouts.push({ height: rungLayout.height, offset: currentOffset });
+    const rung = rungs[i];
+    const elements = rung.elements && rung.elements.length > 0 ? rung.elements : rung.instructions;
+    const contentWidth = calculateRungContentWidth(elements) + RUNG_NUMBER_WIDTH + 2 * RAIL_VISUAL_WIDTH;
+    const rungLayout = calculateRungLayoutComplete(rung, i, currentOffset, leftRailX, rightRailX);
+    layouts.push({ height: rungLayout.height, offset: currentOffset, contentWidth });
     currentOffset += rungLayout.height;
   }
 
@@ -783,12 +778,11 @@ interface RungRendererProps {
 function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererProps) {
   const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
   const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
-  const availableWidth = diagramWidth - RUNG_NUMBER_WIDTH - 2 * RAIL_VISUAL_WIDTH - 2 * RUNG_START_OFFSET;
 
   // Calculate complete layout using the new algorithm
   const rungLayout = useMemo(
-    () => calculateRungLayoutComplete(rung, rungIndex, yOffset, availableWidth, leftRailX, rightRailX),
-    [rung, rungIndex, yOffset, availableWidth, leftRailX, rightRailX]
+    () => calculateRungLayoutComplete(rung, rungIndex, yOffset, leftRailX, rightRailX),
+    [rung, rungIndex, yOffset, leftRailX, rightRailX]
   );
 
   if (rungLayout.lines.length === 0) {
@@ -803,12 +797,6 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
   return (
     <g className="rung" data-rung-index={rungIndex}>
       {rungLayout.lines.map((line, lineIndex) => {
-        const prevLine = lineIndex > 0 ? rungLayout.lines[lineIndex - 1] : null;
-        const nextLine = lineIndex < rungLayout.lines.length - 1 ? rungLayout.lines[lineIndex + 1] : null;
-        
-        // Determine if this is a line-wrapped rung (multiple lines but NO branches)
-        const isLineWrapped = rungLayout.lines.length > 1 && !rungLayout.hasBranches;
-
         // Calculate conditions end position
         let conditionsEndX = line.conditionsStartX;
         for (const condLayout of line.conditions) {
@@ -829,7 +817,7 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
             ))}
 
             {/* Wire and Operations */}
-            {line.isLastLine && line.operations.length > 0 ? (
+            {line.operations.length > 0 ? (
               <>
                 {/* Wire between conditions and operations */}
                 {line.operationsStartX > conditionsEndX && (
@@ -851,49 +839,338 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
                 })()}
               </>
             ) : (
-              <>
-                {/* Wire to right rail (line wrapping - no vertical connector) */}
-                <line x1={conditionsEndX} y1={line.wireY} x2={rightRailX} y2={line.wireY} stroke="#333" strokeWidth="1" />
-                
-                {/* Continuation arrow symbol for line wrapping (only for non-branch line wrapping) */}
-                {isLineWrapped && nextLine && (
-                  <g className="continuation-symbol">
-                    {/* Arrow pointing down-right to indicate continuation */}
-                    <path
-                      d={`M ${rightRailX - 20} ${line.wireY - 8} 
-                          L ${rightRailX - 12} ${line.wireY} 
-                          L ${rightRailX - 20} ${line.wireY + 8}`}
-                      fill="none"
-                      stroke="#666"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </g>
-                )}
-              </>
-            )}
-            
-            {/* Continuation from symbol for line wrapping (only for non-branch line wrapping) */}
-            {isLineWrapped && prevLine && (
-              <g className="continuation-from-symbol">
-                {/* Arrow pointing right to indicate continuation from previous line */}
-                <path
-                  d={`M ${leftRailX + 5} ${line.wireY - 8} 
-                      L ${leftRailX + 13} ${line.wireY} 
-                      L ${leftRailX + 5} ${line.wireY + 8}`}
-                  fill="none"
-                  stroke="#666"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </g>
+              /* Wire to right rail when no operations */
+              <line x1={conditionsEndX} y1={line.wireY} x2={rightRailX} y2={line.wireY} stroke="#333" strokeWidth="1" />
             )}
           </g>
         );
       })}
     </g>
+  );
+}
+
+// ============================================================================
+// SCROLLABLE RUNG ROW COMPONENT
+// ============================================================================
+
+interface ScrollableRungRowProps {
+  rung: Rung;
+  rungIndex: number;
+  layout: RungLayout;
+  containerWidth: number;
+  rowBg: string;
+  cellBg: string;
+}
+
+/**
+ * Renders a single rung row with optional horizontal scrolling
+ * If content fits, renders normally. If content overflows, adds scroll with indicators.
+ */
+function ScrollableRungRow({ rung, rungIndex, layout, containerWidth, rowBg, cellBg }: ScrollableRungRowProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [maxScroll, setMaxScroll] = useState(0);
+  
+  // Drag-to-scroll state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
+
+  const contentWidth = layout.contentWidth;
+  const availableWidth = containerWidth;
+  const needsScroll = contentWidth > availableWidth;
+  const rungWidth = needsScroll ? contentWidth : availableWidth;
+
+  // Update max scroll on mount and when dimensions change
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container && needsScroll) {
+      setMaxScroll(container.scrollWidth - container.clientWidth);
+    }
+  }, [needsScroll, contentWidth, availableWidth]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    setScrollLeft(container.scrollLeft);
+    setMaxScroll(container.scrollWidth - container.clientWidth);
+  }, []);
+
+  const handleScrollLeft = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollBy({ left: -150, behavior: 'smooth' });
+    }
+  }, []);
+
+  const handleScrollRight = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollBy({ left: 150, behavior: 'smooth' });
+    }
+  }, []);
+
+  // Drag-to-scroll handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!needsScroll) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    setIsDragging(true);
+    setDragStartX(e.pageX);
+    setDragStartScrollLeft(container.scrollLeft);
+    container.style.cursor = 'grabbing';
+    container.style.userSelect = 'none';
+  }, [needsScroll]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    e.preventDefault();
+    const deltaX = e.pageX - dragStartX;
+    container.scrollLeft = dragStartScrollLeft - deltaX;
+  }, [isDragging, dragStartX, dragStartScrollLeft]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDragging) return;
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.style.cursor = needsScroll ? 'grab' : 'default';
+      container.style.userSelect = '';
+    }
+    setIsDragging(false);
+  }, [isDragging, needsScroll]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (isDragging) {
+      handleMouseUp();
+    }
+  }, [isDragging, handleMouseUp]);
+
+  const showLeftIndicator = needsScroll && scrollLeft > 5;
+  const showRightIndicator = needsScroll && scrollLeft < maxScroll - 5;
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        height: layout.height,
+        width: availableWidth,
+        backgroundColor: rowBg,
+      }}
+    >
+      {/* Fixed rung number cell */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: RUNG_NUMBER_WIDTH,
+          height: layout.height,
+          backgroundColor: cellBg,
+          borderRight: '1px solid #c0c0c0',
+          borderBottom: '1px solid #c0c0c0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 11,
+          fontWeight: 500,
+          color: '#333',
+          zIndex: 2,
+        }}
+      >
+        {rungIndex}
+      </div>
+
+      {/* Scrollable content area */}
+      <div
+        ref={scrollContainerRef}
+        onScroll={needsScroll ? handleScroll : undefined}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          position: 'absolute',
+          left: RUNG_NUMBER_WIDTH,
+          top: 0,
+          right: 0,
+          height: layout.height,
+          overflowX: needsScroll ? 'auto' : 'hidden',
+          overflowY: 'hidden',
+          scrollbarWidth: 'none', // Firefox
+          msOverflowStyle: 'none', // IE/Edge
+          cursor: needsScroll ? 'grab' : 'default',
+        }}
+        className="rung-scroll-container"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={rungWidth - RUNG_NUMBER_WIDTH}
+          height={layout.height}
+          viewBox={`${RUNG_NUMBER_WIDTH} 0 ${rungWidth - RUNG_NUMBER_WIDTH} ${layout.height}`}
+          style={{ 
+            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            display: 'block',
+          }}
+        >
+          {/* Background */}
+          <rect x={RUNG_NUMBER_WIDTH} y={0} width={rungWidth - RUNG_NUMBER_WIDTH} height={layout.height} fill={rowBg} />
+          
+          {/* Left power rail */}
+          <rect
+            x={RUNG_NUMBER_WIDTH}
+            y={0}
+            width={RAIL_VISUAL_WIDTH}
+            height={layout.height}
+            fill={POWER_RAIL_COLOR}
+          />
+          
+          {/* Right power rail */}
+          <rect
+            x={rungWidth - RAIL_VISUAL_WIDTH}
+            y={0}
+            width={RAIL_VISUAL_WIDTH}
+            height={layout.height}
+            fill={POWER_RAIL_COLOR}
+          />
+
+          {/* Rung content */}
+          <RungRenderer
+            rung={rung}
+            rungIndex={rungIndex}
+            yOffset={0}
+            diagramWidth={rungWidth}
+          />
+        </svg>
+      </div>
+
+      {/* Left overflow indicator */}
+      {showLeftIndicator && (
+        <div
+          onClick={handleScrollLeft}
+          style={{
+            position: 'absolute',
+            left: RUNG_NUMBER_WIDTH,
+            top: 0,
+            width: 48,
+            height: layout.height,
+            background: 'linear-gradient(to right, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.03) 40%, rgba(183, 183, 183, 0) 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            paddingLeft: 6,
+            cursor: 'pointer',
+            zIndex: 1,
+            borderLeft: '3px solid rgba(60, 60, 60, 0.7)',
+            transition: 'background 0.2s ease',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'linear-gradient(to right, rgba(60, 60, 60, 0.45) 0%, rgba(80, 80, 80, 0.25) 40%, rgba(255, 255, 255, 0) 100%)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'linear-gradient(to right, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.2) 40%, rgba(255, 255, 255, 0) 100%)'}
+        >
+          <svg 
+            width="18" 
+            height="18" 
+            viewBox="0 0 16 16" 
+            fill="none"
+            className="pulse-arrow-left"
+          >
+            <path
+              d="M10 12L6 8L10 4"
+              stroke="#444"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      )}
+
+      {/* Right overflow indicator */}
+      {showRightIndicator && (
+        <div
+          onClick={handleScrollRight}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 48,
+            height: layout.height,
+            background: 'linear-gradient(to left, rgba(80, 80, 80, 0.35) 0%, rgba(100, 100, 100, 0.2) 40%, rgba(255, 255, 255, 0) 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: 6,
+            cursor: 'pointer',
+            zIndex: 1,
+            borderRight: '3px solid rgba(60, 60, 60, 0.7)',
+            transition: 'background 0.2s ease',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'linear-gradient(to left, rgba(60, 60, 60, 0.45) 0%, rgba(80, 80, 80, 0.25) 40%, rgba(255, 255, 255, 0) 100%)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'linear-gradient(to left, rgba(80, 80, 80, 0.35) 0%, rgba(100, 100, 100, 0.2) 40%, rgba(255, 255, 255, 0) 100%)'}
+        >
+          <svg 
+            width="18" 
+            height="18" 
+            viewBox="0 0 16 16" 
+            fill="none"
+            className="pulse-arrow-right"
+          >
+            <path
+              d="M6 4L10 8L6 12"
+              stroke="#444"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      )}
+
+      {/* CSS to hide scrollbar and pulse animation */}
+      <style>{`
+        .rung-scroll-container::-webkit-scrollbar {
+          display: none;
+        }
+        
+        @keyframes pulseLeft {
+          0%, 100% {
+            opacity: 0.4;
+            transform: translateX(0);
+          }
+          50% {
+            opacity: 1;
+            transform: translateX(-3px);
+          }
+        }
+        
+        @keyframes pulseRight {
+          0%, 100% {
+            opacity: 0.4;
+            transform: translateX(0);
+          }
+          50% {
+            opacity: 1;
+            transform: translateX(3px);
+          }
+        }
+        
+        .pulse-arrow-left {
+          animation: pulseLeft 1.5s ease-in-out infinite;
+        }
+        
+        .pulse-arrow-right {
+          animation: pulseRight 1.5s ease-in-out infinite;
+        }
+        
+        .pulse-arrow-left:hover,
+        .pulse-arrow-right:hover {
+          animation: none;
+          opacity: 1;
+        }
+      `}</style>
+    </div>
   );
 }
 
@@ -957,12 +1234,14 @@ export function VirtualizedLadderDiagram({
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Use prop width/height if provided, otherwise use measured container dimensions
-  const width = widthProp || containerWidth;
+  // Use prop height if provided, otherwise use measured container height
   const height = heightProp || containerHeight;
+  
+  // Use container width for layout calculations (not inflated by content)
+  const displayWidth = widthProp || containerWidth;
 
-  // Calculate layouts for all rungs
-  const rungLayouts = useMemo(() => calculateRungLayouts(rungs, width), [rungs, width]);
+  // Calculate layouts using the max of display width and content width for proper positioning
+  const rungLayouts = useMemo(() => calculateRungLayouts(rungs, Math.max(displayWidth, calculateMinDiagramWidth(rungs))), [rungs, displayWidth]);
   const totalHeight = useMemo(() => {
     if (rungLayouts.length === 0) return MIN_RUNG_HEIGHT;
     const lastLayout = rungLayouts[rungLayouts.length - 1];
@@ -1017,16 +1296,19 @@ export function VirtualizedLadderDiagram({
           ...style,
         }}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width={width}
-          height={100}
-          style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 100,
+            color: '#999',
+            fontSize: 13,
+            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+          }}
         >
-          <text x={width / 2} y={50} textAnchor="middle" fill="#999" fontSize="13">
-            No rungs to display
-          </text>
-        </svg>
+          No rungs to display
+        </div>
       </div>
     );
   }
@@ -1037,33 +1319,24 @@ export function VirtualizedLadderDiagram({
       className={`ladder-diagram-container virtualized ${className}`}
       style={{
         overflow: 'auto',
+        overflowX: 'hidden',
+        overflowY: 'auto',
         backgroundColor: '#fff',
         flex: 1,
         minHeight: 0,
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
         ...style,
       }}
       onScroll={handleScroll}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={width}
-        height={totalHeight}
-        viewBox={`0 0 ${width} ${totalHeight}`}
-        className="ladder-diagram"
-        style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}
+      {/* Virtualized content wrapper */}
+      <div
+        style={{
+          position: 'relative',
+          height: totalHeight,
+          width: displayWidth,
+        }}
       >
-        {/* Definitions */}
-        <defs>
-          <linearGradient id="railGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#2255aa" />
-            <stop offset="50%" stopColor="#3366cc" />
-            <stop offset="100%" stopColor="#2255aa" />
-          </linearGradient>
-        </defs>
-
-        {/* Background */}
-        <rect width={width} height={totalHeight} fill="#ffffff" />
-
         {/* Visible rungs */}
         {rungs.slice(visibleRange.startIndex, visibleRange.endIndex + 1).map((rung, idx) => {
           const actualIndex = visibleRange.startIndex + idx;
@@ -1072,83 +1345,27 @@ export function VirtualizedLadderDiagram({
           const cellBg = actualIndex % 2 === 0 ? '#f0f0f0' : '#e8e8e8';
 
           return (
-            <g key={actualIndex} className="rung-container">
-              {/* Row background */}
-              <rect
-                x={RUNG_NUMBER_WIDTH}
-                y={layout.offset}
-                width={width - RUNG_NUMBER_WIDTH}
-                height={layout.height}
-                fill={rowBg}
-                className="rung-background"
-              />
-
-              {/* Rung number cell */}
-              <rect
-                x="0"
-                y={layout.offset}
-                width={RUNG_NUMBER_WIDTH}
-                height={layout.height}
-                fill={cellBg}
-                className="rung-number-cell"
-              />
-              <line
-                x1={RUNG_NUMBER_WIDTH}
-                y1={layout.offset}
-                x2={RUNG_NUMBER_WIDTH}
-                y2={layout.offset + layout.height}
-                stroke="#c0c0c0"
-                strokeWidth="1"
-              />
-              <line
-                x1="0"
-                y1={layout.offset + layout.height}
-                x2={RUNG_NUMBER_WIDTH}
-                y2={layout.offset + layout.height}
-                stroke="#c0c0c0"
-                strokeWidth="1"
-              />
-              <text
-                x={RUNG_NUMBER_WIDTH / 2}
-                y={layout.offset + layout.height / 2 + 4}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="500"
-                fill="#333"
-                className="rung-number"
-              >
-                {actualIndex}
-              </text>
-
-              {/* Rung content */}
-              <RungRenderer
+            <div
+              key={actualIndex}
+              style={{
+                position: 'absolute',
+                top: layout.offset,
+                left: 0,
+                width: displayWidth,
+              }}
+            >
+              <ScrollableRungRow
                 rung={rung}
                 rungIndex={actualIndex}
-                yOffset={layout.offset}
-                diagramWidth={width}
+                layout={layout}
+                containerWidth={displayWidth}
+                rowBg={rowBg}
+                cellBg={cellBg}
               />
-            </g>
+            </div>
           );
         })}
-
-        {/* Power Rails - rendered after rung backgrounds so they appear on top */}
-        <rect
-          x={RUNG_NUMBER_WIDTH}
-          y={0}
-          width={RAIL_VISUAL_WIDTH}
-          height={totalHeight}
-          fill={POWER_RAIL_COLOR}
-          className="power-rail left-rail"
-        />
-        <rect
-          x={width - RAIL_VISUAL_WIDTH}
-          y={0}
-          width={RAIL_VISUAL_WIDTH}
-          height={totalHeight}
-          fill={POWER_RAIL_COLOR}
-          className="power-rail right-rail"
-        />
-      </svg>
+      </div>
     </div>
   );
 }
