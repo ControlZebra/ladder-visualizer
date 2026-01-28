@@ -11,14 +11,295 @@ import type {
   NormalizedController,
   NormalizedRoutine,
   NormalizedDataType,
+  NormalizedAOI,
+  AOIParameter,
+  AOILocalTag,
 } from '../src';
 import { DataTypeTable } from './DataTypeTable';
 
 // Import the sample data
 import controllerData from '../examples/controller_output.json';
 
+// ============================================================================
+// AOI PARAMETER TABLE COMPONENT
+// ============================================================================
+
+interface AOIParameterTableProps {
+  parameters: AOIParameter[];
+}
+
+function AOIParameterTable({ parameters }: AOIParameterTableProps) {
+  const [filter, setFilter] = useState('');
+  const [sortBy, setSortBy] = useState<keyof AOIParameter>('name');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const filteredAndSorted = useMemo(() => {
+    let result = parameters;
+
+    if (filter) {
+      const lowerFilter = filter.toLowerCase();
+      result = result.filter(
+        (param) =>
+          param.name.toLowerCase().includes(lowerFilter) ||
+          param.dataType.toLowerCase().includes(lowerFilter) ||
+          param.usage.toLowerCase().includes(lowerFilter)
+      );
+    }
+
+    result = [...result].sort((a, b) => {
+      const aVal = a[sortBy] ?? '';
+      const bVal = b[sortBy] ?? '';
+      if (aVal < bVal) return sortAsc ? -1 : 1;
+      if (aVal > bVal) return sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [parameters, filter, sortBy, sortAsc]);
+
+  const handleSort = (column: keyof AOIParameter) => {
+    if (sortBy === column) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortBy(column);
+      setSortAsc(true);
+    }
+  };
+
+  const getSortIndicator = (column: keyof AOIParameter) => {
+    if (sortBy !== column) return '';
+    return sortAsc ? ' ▲' : ' ▼';
+  };
+
+  const headerStyle: React.CSSProperties = {
+    padding: '8px 12px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    backgroundColor: '#f5f5f5',
+    borderBottom: '2px solid #ddd',
+    fontWeight: 600,
+    userSelect: 'none',
+  };
+
+  const cellStyle: React.CSSProperties = {
+    padding: '8px 12px',
+    borderBottom: '1px solid #eee',
+  };
+
+  const usageBadgeStyle = (usage: string): React.CSSProperties => ({
+    padding: '2px 6px',
+    borderRadius: '3px',
+    fontSize: '11px',
+    fontWeight: 500,
+    backgroundColor: usage === 'Input' ? '#e8f5e9' : usage === 'Output' ? '#ffebee' : '#e3f2fd',
+    color: usage === 'Input' ? '#2e7d32' : usage === 'Output' ? '#c62828' : '#1565c0',
+  });
+
+  return (
+    <div>
+      <div style={{ marginBottom: '12px' }}>
+        <input
+          type="text"
+          placeholder="Filter parameters..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            width: '100%',
+            maxWidth: '300px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            fontSize: '14px',
+          }}
+        />
+        <span style={{ marginLeft: '12px', color: '#666', fontSize: '14px' }}>
+          {filteredAndSorted.length} of {parameters.length} parameters
+        </span>
+      </div>
+
+      <div style={{ overflow: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead>
+            <tr>
+              <th style={headerStyle} onClick={() => handleSort('name')}>
+                Name{getSortIndicator('name')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('dataType')}>
+                Data Type{getSortIndicator('dataType')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('usage')}>
+                Usage{getSortIndicator('usage')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('required')}>
+                Required{getSortIndicator('required')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('visible')}>
+                Visible{getSortIndicator('visible')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('externalAccess')}>
+                Access{getSortIndicator('externalAccess')}
+              </th>
+              <th style={headerStyle}>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAndSorted.map((param) => (
+              <tr key={param.name}>
+                <td style={{ ...cellStyle, fontFamily: 'monospace', fontWeight: 500 }}>{param.name}</td>
+                <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{param.dataType}</td>
+                <td style={cellStyle}>
+                  <span style={usageBadgeStyle(param.usage)}>{param.usage}</span>
+                </td>
+                <td style={cellStyle}>{param.required ? '✓' : '-'}</td>
+                <td style={cellStyle}>{param.visible ? '✓' : '-'}</td>
+                <td style={cellStyle}>{param.externalAccess ?? '-'}</td>
+                <td style={{ ...cellStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {param.description ?? '-'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// AOI LOCAL TAG TABLE COMPONENT
+// ============================================================================
+
+interface AOILocalTagTableProps {
+  localTags: AOILocalTag[];
+}
+
+function AOILocalTagTable({ localTags }: AOILocalTagTableProps) {
+  const [filter, setFilter] = useState('');
+  const [sortBy, setSortBy] = useState<keyof AOILocalTag>('name');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const filteredAndSorted = useMemo(() => {
+    let result = localTags;
+
+    if (filter) {
+      const lowerFilter = filter.toLowerCase();
+      result = result.filter(
+        (tag) =>
+          tag.name.toLowerCase().includes(lowerFilter) ||
+          tag.dataType.toLowerCase().includes(lowerFilter)
+      );
+    }
+
+    result = [...result].sort((a, b) => {
+      const aVal = a[sortBy] ?? '';
+      const bVal = b[sortBy] ?? '';
+      if (aVal < bVal) return sortAsc ? -1 : 1;
+      if (aVal > bVal) return sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [localTags, filter, sortBy, sortAsc]);
+
+  const handleSort = (column: keyof AOILocalTag) => {
+    if (sortBy === column) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortBy(column);
+      setSortAsc(true);
+    }
+  };
+
+  const getSortIndicator = (column: keyof AOILocalTag) => {
+    if (sortBy !== column) return '';
+    return sortAsc ? ' ▲' : ' ▼';
+  };
+
+  const headerStyle: React.CSSProperties = {
+    padding: '8px 12px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    backgroundColor: '#f5f5f5',
+    borderBottom: '2px solid #ddd',
+    fontWeight: 600,
+    userSelect: 'none',
+  };
+
+  const cellStyle: React.CSSProperties = {
+    padding: '8px 12px',
+    borderBottom: '1px solid #eee',
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom: '12px' }}>
+        <input
+          type="text"
+          placeholder="Filter local tags..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            width: '100%',
+            maxWidth: '300px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            fontSize: '14px',
+          }}
+        />
+        <span style={{ marginLeft: '12px', color: '#666', fontSize: '14px' }}>
+          {filteredAndSorted.length} of {localTags.length} local tags
+        </span>
+      </div>
+
+      <div style={{ overflow: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead>
+            <tr>
+              <th style={headerStyle} onClick={() => handleSort('name')}>
+                Name{getSortIndicator('name')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('dataType')}>
+                Data Type{getSortIndicator('dataType')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('dimensions')}>
+                Dimensions{getSortIndicator('dimensions')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('radix')}>
+                Radix{getSortIndicator('radix')}
+              </th>
+              <th style={headerStyle} onClick={() => handleSort('externalAccess')}>
+                Access{getSortIndicator('externalAccess')}
+              </th>
+              <th style={headerStyle}>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAndSorted.map((tag) => (
+              <tr key={tag.name}>
+                <td style={{ ...cellStyle, fontFamily: 'monospace', fontWeight: 500 }}>{tag.name}</td>
+                <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{tag.dataType}</td>
+                <td style={cellStyle}>{tag.dimensions ? `[${tag.dimensions}]` : '-'}</td>
+                <td style={cellStyle}>{tag.radix ?? '-'}</td>
+                <td style={cellStyle}>{tag.externalAccess ?? '-'}</td>
+                <td style={{ ...cellStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {tag.description ?? '-'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN APP COMPONENT
+// ============================================================================
+
 // View types for main content area
-type MainViewType = 'routine' | 'controller-tags' | 'program-tags' | 'controller-info' | 'data-type';
+type MainViewType = 'routine' | 'controller-tags' | 'program-tags' | 'controller-info' | 'data-type' | 'aoi-parameters' | 'aoi-local-tags' | 'aoi-routine';
 
 export default function App() {
   const [controller, setController] = useState<NormalizedController | null>(null);
@@ -31,6 +312,11 @@ export default function App() {
   } | null>(null);
   const [selectedProgramIndex, setSelectedProgramIndex] = useState<number | null>(null);
   const [selectedDataType, setSelectedDataType] = useState<NormalizedDataType | null>(null);
+  const [selectedAOI, setSelectedAOI] = useState<NormalizedAOI | null>(null);
+  const [selectedAOIRoutine, setSelectedAOIRoutine] = useState<{
+    aoiName: string;
+    routineIndex: number;
+  } | null>(null);
   const [mainViewType, setMainViewType] = useState<MainViewType>('routine');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,6 +353,8 @@ export default function App() {
         setFileName(file.name);
         setSelectedDataType(null);
         setSelectedProgramIndex(null);
+        setSelectedAOI(null);
+        setSelectedAOIRoutine(null);
         setMainViewType('routine');
         
         // Select first routine by default
@@ -101,6 +389,8 @@ export default function App() {
       setError(null);
       setSelectedDataType(null);
       setSelectedProgramIndex(null);
+      setSelectedAOI(null);
+      setSelectedAOIRoutine(null);
       setMainViewType('routine');
       
       if (normalized.programs.length > 0 && normalized.programs[0].routines.length > 0) {
@@ -153,6 +443,28 @@ export default function App() {
     setSelectedDataType(dataType);
     setMainViewType('data-type');
   }, []);
+
+  const handleAOIParametersSelect = useCallback((aoi: NormalizedAOI) => {
+    setSelectedAOI(aoi);
+    setMainViewType('aoi-parameters');
+  }, []);
+
+  const handleAOILocalTagsSelect = useCallback((aoi: NormalizedAOI) => {
+    setSelectedAOI(aoi);
+    setMainViewType('aoi-local-tags');
+  }, []);
+
+  const handleAOIRoutineSelect = useCallback((aoi: NormalizedAOI, routineIndex: number, _routine: NormalizedRoutine) => {
+    setSelectedAOI(aoi);
+    setSelectedAOIRoutine({ aoiName: aoi.name, routineIndex });
+    setMainViewType('aoi-routine');
+  }, []);
+
+  // Get the selected AOI routine
+  const selectedAOIRoutineData: NormalizedRoutine | null = useMemo(() => {
+    if (!selectedAOI || !selectedAOIRoutine) return null;
+    return selectedAOI.routines[selectedAOIRoutine.routineIndex] || null;
+  }, [selectedAOI, selectedAOIRoutine]);
 
   // Get all data types for DataTypeTable
   const allDataTypes = useMemo(() => {
@@ -218,6 +530,57 @@ export default function App() {
           );
         }
         return <p style={styles.noSelection}>Select a data type from the Controller Organizer</p>;
+      case 'aoi-parameters':
+        if (selectedAOI) {
+          return (
+            <>
+              <div style={styles.routineTitle}>
+                <span style={{ fontWeight: 600 }}>{selectedAOI.name} Parameters</span>
+                <span style={styles.routineBadge}>AOI</span>
+                <span style={styles.routineCount}>{selectedAOI.parameters.length} parameters</span>
+              </div>
+              <div style={styles.infoPanelContent}>
+                <AOIParameterTable parameters={selectedAOI.parameters} />
+              </div>
+            </>
+          );
+        }
+        return <p style={styles.noSelection}>Select an AOI from the Controller Organizer</p>;
+      case 'aoi-local-tags':
+        if (selectedAOI) {
+          return (
+            <>
+              <div style={styles.routineTitle}>
+                <span style={{ fontWeight: 600 }}>{selectedAOI.name} Local Tags</span>
+                <span style={styles.routineBadge}>AOI</span>
+                <span style={styles.routineCount}>{selectedAOI.localTags.length} tags</span>
+              </div>
+              <div style={styles.infoPanelContent}>
+                <AOILocalTagTable localTags={selectedAOI.localTags} />
+              </div>
+            </>
+          );
+        }
+        return <p style={styles.noSelection}>Select an AOI from the Controller Organizer</p>;
+      case 'aoi-routine':
+        if (selectedAOI && selectedAOIRoutineData) {
+          return (
+            <>
+              <div style={styles.routineTitle}>
+                <span style={{ fontWeight: 600 }}>{selectedAOI.name} / {selectedAOIRoutineData.name}</span>
+                <span style={styles.routineBadge}>AOI Routine</span>
+                <span style={styles.routineCount}>{selectedAOIRoutineData.rungs.length} rungs</span>
+              </div>
+              <div style={styles.ladderContent}>
+                <VirtualizedLadderDiagram
+                  routine={selectedAOIRoutineData}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              </div>
+            </>
+          );
+        }
+        return <p style={styles.noSelection}>Select an AOI routine from the Controller Organizer</p>;
       case 'routine':
       default:
         if (parsedRoutine) {
@@ -312,11 +675,15 @@ export default function App() {
               controller={controller}
               programs={controller.programs}
               selectedRoutine={selectedRoutine ?? undefined}
+              selectedAOIRoutine={selectedAOIRoutine ?? undefined}
               onRoutineSelect={handleRoutineSelect}
               onControllerTagsSelect={handleControllerTagsSelect}
               onProgramTagsSelect={handleProgramTagsSelect}
               onControllerInfoSelect={handleControllerInfoSelect}
               onDataTypeSelect={handleDataTypeSelect}
+              onAOIParametersSelect={handleAOIParametersSelect}
+              onAOILocalTagsSelect={handleAOILocalTagsSelect}
+              onAOIRoutineSelect={handleAOIRoutineSelect}
             />
           </aside>
 

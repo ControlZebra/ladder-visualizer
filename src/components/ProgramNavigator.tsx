@@ -4,6 +4,7 @@ import type {
   NormalizedProgram,
   NormalizedRoutine,
   NormalizedDataType,
+  NormalizedAOI,
 } from '../types';
 
 // ============================================================================
@@ -357,6 +358,8 @@ export interface ProgramNavigatorProps {
   programs: NormalizedProgram[];
   /** Currently selected routine */
   selectedRoutine?: { programIndex: number; routineIndex: number };
+  /** Currently selected AOI routine */
+  selectedAOIRoutine?: { aoiName: string; routineIndex: number };
   /** Callback when a routine is selected */
   onRoutineSelect?: (programIndex: number, routineIndex: number, routine: NormalizedRoutine) => void;
   /** Callback when Controller Tags is selected */
@@ -369,6 +372,12 @@ export interface ProgramNavigatorProps {
   onDataTypeSelect?: (dataType: NormalizedDataType) => void;
   /** Callback when an I/O device is selected */
   onIODeviceSelect?: (deviceId: number) => void;
+  /** Callback when AOI parameters are selected (to show in table) */
+  onAOIParametersSelect?: (aoi: NormalizedAOI) => void;
+  /** Callback when AOI local tags are selected (to show in table) */
+  onAOILocalTagsSelect?: (aoi: NormalizedAOI) => void;
+  /** Callback when an AOI routine is selected */
+  onAOIRoutineSelect?: (aoi: NormalizedAOI, routineIndex: number, routine: NormalizedRoutine) => void;
   /** Optional CSS class name */
   className?: string;
 }
@@ -380,12 +389,16 @@ export function ProgramNavigator({
   controller,
   programs,
   selectedRoutine,
+  selectedAOIRoutine,
   onRoutineSelect,
   onControllerTagsSelect,
   onProgramTagsSelect,
   onControllerInfoSelect,
   onDataTypeSelect,
   onIODeviceSelect,
+  onAOIParametersSelect,
+  onAOILocalTagsSelect,
+  onAOIRoutineSelect,
   className = '',
 }: ProgramNavigatorProps) {
   // Convert to display format if provided
@@ -615,43 +628,22 @@ export function ProgramNavigator({
                           depth={3}
                         />
                       )}
-                      {/* Parameters folder */}
+                      {/* Parameters */}
                       <TreeItem
-                        icon={expanded.has(`aoi-${aoi.name}-params`) ? Icons.folderOpen : Icons.folder}
+                        icon={Icons.tags}
                         label="Parameters"
                         depth={3}
-                        isExpandable={aoi.parameters.length > 0}
-                        isExpanded={expanded.has(`aoi-${aoi.name}-params`)}
-                        onToggle={() => toggleExpanded(`aoi-${aoi.name}-params`)}
+                        onClick={() => onAOIParametersSelect?.(aoi)}
                         badge={`${aoi.parameters.length}`}
                       />
-                      {expanded.has(`aoi-${aoi.name}-params`) && aoi.parameters.map((param) => (
-                        <TreeItem
-                          key={param.name}
-                          icon={param.usage === 'Input' ? Icons.input : param.usage === 'Output' ? Icons.output : Icons.inout}
-                          label={`${param.name}: ${param.dataType}`}
-                          depth={4}
-                          badge={param.usage}
-                        />
-                      ))}
-                      {/* Local Tags folder */}
+                      {/* Local Tags */}
                       <TreeItem
-                        icon={expanded.has(`aoi-${aoi.name}-locals`) ? Icons.folderOpen : Icons.folder}
+                        icon={Icons.tags}
                         label="Local Tags"
                         depth={3}
-                        isExpandable={aoi.localTags.length > 0}
-                        isExpanded={expanded.has(`aoi-${aoi.name}-locals`)}
-                        onToggle={() => toggleExpanded(`aoi-${aoi.name}-locals`)}
+                        onClick={() => onAOILocalTagsSelect?.(aoi)}
                         badge={`${aoi.localTags.length}`}
                       />
-                      {expanded.has(`aoi-${aoi.name}-locals`) && aoi.localTags.map((tag) => (
-                        <TreeItem
-                          key={tag.name}
-                          icon={Icons.tag}
-                          label={`${tag.name}: ${tag.dataType}${tag.dimensions ? `[${tag.dimensions}]` : ''}`}
-                          depth={4}
-                        />
-                      ))}
                       {/* Routines folder */}
                       <TreeItem
                         icon={expanded.has(`aoi-${aoi.name}-routines`) ? Icons.folderOpen : Icons.folder}
@@ -662,15 +654,22 @@ export function ProgramNavigator({
                         onToggle={() => toggleExpanded(`aoi-${aoi.name}-routines`)}
                         badge={`${aoi.routines.length}`}
                       />
-                      {expanded.has(`aoi-${aoi.name}-routines`) && aoi.routines.map((routine) => (
-                        <TreeItem
-                          key={routine.name}
-                          icon={Icons.routine}
-                          label={routine.name}
-                          depth={4}
-                          badge={routine.type === 'RLL' ? `${routine.rungs.length} rungs` : routine.type}
-                        />
-                      ))}
+                      {expanded.has(`aoi-${aoi.name}-routines`) && aoi.routines.map((routine, routineIdx) => {
+                        const isAOIRoutineSelected = 
+                          selectedAOIRoutine?.aoiName === aoi.name && 
+                          selectedAOIRoutine?.routineIndex === routineIdx;
+                        return (
+                          <TreeItem
+                            key={routine.name}
+                            icon={Icons.routine}
+                            label={routine.name}
+                            depth={4}
+                            isSelected={isAOIRoutineSelected}
+                            badge={routine.type === 'RLL' ? `${routine.rungs.length} rungs` : routine.type}
+                            onClick={routine.type === 'RLL' ? () => onAOIRoutineSelect?.(aoi, routineIdx, routine) : undefined}
+                          />
+                        );
+                      })}
                     </>
                   )}
                 </React.Fragment>
