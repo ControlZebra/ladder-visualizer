@@ -1,0 +1,263 @@
+import type { ControllerExport } from '../../types/controller';
+import type {
+  NormalizedController,
+  NormalizedProgram,
+  NormalizedRoutine,
+  NormalizedRung,
+  NormalizedTag,
+  NormalizedDataType,
+  NormalizedDataTypeMember,
+  NormalizedAOI,
+  NormalizedModule,
+  DataTypeClass,
+  NormalizedTagType,
+  TagScope,
+  ExternalAccess,
+} from '../../types/normalized';
+import { parseRung, parseRungWithBranches } from '../rung-parser';
+
+/**
+ * Convert JSON ControllerExport to NormalizedController
+ */
+export function jsonToNormalized(data: ControllerExport): NormalizedController {
+  return {
+    // Core metadata
+    name: extractControllerName(data),
+    serialNumber: data.serial_number,
+    commPath: data.comm_path,
+    createdDate: parseDate(data.created_date),
+    modifiedDate: parseDate(data.modified_date),
+
+    // Core data
+    dataTypes: data.data_types.map(normalizeDataType),
+    tags: data.tags.map(tag => normalizeTag(tag, 'Controller')),
+    programs: data.programs.map(normalizeProgram),
+    aois: data.aois.map(normalizeAOI),
+    modules: data.map_devices.map(normalizeModule),
+
+    // Source information
+    vendor: 'rockwell',
+    sourceFormat: 'json',
+    vendorMetadata: {
+      sfc_execution_control: data.sfc_execution_control,
+      sfc_restart_position: data.sfc_restart_position,
+      sfc_last_scan: data.sfc_last_scan,
+    },
+  };
+}
+
+/**
+ * Extract controller name from serial number or path
+ */
+function extractControllerName(data: ControllerExport): string {
+  // Try to extract from comm_path or use serial number
+  const pathParts = data.comm_path.split('/');
+  if (pathParts.length > 0) {
+    const lastPart = pathParts[pathParts.length - 1];
+    if (lastPart && lastPart !== '') {
+      return lastPart;
+    }
+  }
+  return data.serial_number || 'Unknown Controller';
+}
+
+/**
+ * Parse date string to Date object
+ */
+function parseDate(dateString: string): Date | undefined {
+  if (!dateString) return undefined;
+  const parsed = new Date(dateString);
+  return isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+/**
+ * Normalize a data type
+ */
+function normalizeDataType(dt: {
+  name: string;
+  family: string;
+  cls: 'ProductDefined' | 'User';
+  members: Array<{
+    name: string;
+    data_type: string;
+    dimension: number;
+    radix: string;
+    hidden: boolean;
+    external_access: string;
+  }>;
+}): NormalizedDataType {
+  const classMap: Record<string, DataTypeClass> = {
+    ProductDefined: 'BuiltIn',
+    User: 'User',
+  };
+
+  return {
+    name: dt.name,
+    family: dt.family,
+    class: classMap[dt.cls] || 'Unknown',
+    members: dt.members.map(normalizeMember),
+  };
+}
+
+/**
+ * Normalize a data type member
+ */
+function normalizeMember(m: {
+  name: string;
+  data_type: string;
+  dimension: number;
+  radix: string;
+  hidden: boolean;
+  external_access: string;
+}): NormalizedDataTypeMember {
+  return {
+    name: m.name,
+    dataType: m.data_type,
+    dimension: m.dimension,
+    radix: m.radix,
+    hidden: m.hidden,
+    externalAccess: normalizeExternalAccess(m.external_access),
+  };
+}
+
+/**
+ * Normalize external access string
+ */
+function normalizeExternalAccess(access: string): ExternalAccess {
+  switch (access) {
+    case 'Read/Write':
+      return 'ReadWrite';
+    case 'Read Only':
+      return 'ReadOnly';
+    case 'None':
+      return 'None';
+    default:
+      return 'ReadWrite'; // Default
+  }
+}
+
+/**
+ * Normalize a tag
+ */
+function normalizeTag(
+  tag: {
+    name: string;
+    tag_type: 'Base' | 'Alias' | 'Produced' | 'Consumed';
+    data_type: string;
+    radix: string;
+    external_access: 'Read/Write' | 'Read Only' | 'None';
+  },
+  scope: TagScope,
+  programName?: string
+): NormalizedTag {
+  const tagTypeMap: Record<string, NormalizedTagType> = {
+    Base: 'Base',
+    Alias: 'Alias',
+    Produced: 'Produced',
+    Consumed: 'Consumed',
+  };
+
+  return {
+    name: tag.name,
+    tagType: tagTypeMap[tag.tag_type] || 'Unknown',
+    dataType: tag.data_type,
+    radix: tag.radix,
+    externalAccess: normalizeExternalAccess(tag.external_access),
+    scope,
+    programName,
+  };
+}
+
+/**
+ * Normalize a program
+ */
+function normalizeProgram(
+  program: {
+    name?: string;
+    tags?: Array<{
+      name: string;
+      tag_type: 'Base' | 'Alias' | 'Produced' | 'Consumed';
+      data_type: string;
+      radix: string;
+      external_access: 'Read/Write' | 'Read Only' | 'None';
+    }>;
+    routines: Array<{
+      name: string;
+      type: 'RLL' | 'FBD' | 'ST' | 'SFC';
+      rungs: string[];
+    }>;
+  },
+  index: number
+): NormalizedProgram {
+  const programName = program.name || `Program_${index}`;
+
+  return {
+    name: programName,
+    tags: (program.tags || []).map(tag => normalizeTag(tag, 'Program', programName)),
+    routines: program.routines.map(normalizeRoutine),
+  };
+}
+
+/**
+ * Normalize a routine
+ */
+function normalizeRoutine(routine: {
+  name: string;
+  type: 'RLL' | 'FBD' | 'ST' | 'SFC';
+  rungs: string[];
+}): NormalizedRoutine {
+  return {
+    name: routine.name,
+    type: routine.type,
+    rungs: routine.rungs.map((raw, index) => normalizeRung(raw, index)),
+  };
+}
+
+/**
+ * Normalize a rung
+ */
+function normalizeRung(raw: string, number: number): NormalizedRung {
+  const elements = parseRungWithBranches(raw);
+  const instructions = parseRung(raw);
+  
+  return {
+    number,
+    raw,
+    elements,
+    instructions,
+    type: 'Normal',
+  };
+}
+
+/**
+ * Normalize an AOI
+ */
+function normalizeAOI(aoi: { name: string }): NormalizedAOI {
+  return {
+    name: aoi.name,
+    // Additional fields can be added when the AOI schema is extended
+  };
+}
+
+/**
+ * Normalize a module/device
+ */
+function normalizeModule(device: {
+  module_id: number;
+  parent_module: number;
+  slot_no: number;
+  vendor_id: number;
+  product_type: number;
+  product_code: number;
+  comments: string[];
+}): NormalizedModule {
+  return {
+    id: device.module_id,
+    parentId: device.parent_module,
+    slot: device.slot_no,
+    vendorId: device.vendor_id,
+    productType: device.product_type,
+    productCode: device.product_code,
+    comments: device.comments,
+  };
+}

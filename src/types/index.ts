@@ -1,3 +1,26 @@
+// Normalized Types (vendor-agnostic internal representation)
+export type {
+  NormalizedController,
+  NormalizedProgram,
+  NormalizedRoutine,
+  NormalizedRung,
+  NormalizedTag,
+  NormalizedDataType,
+  NormalizedDataTypeMember,
+  NormalizedAOI,
+  NormalizedModule,
+  PLCVendor,
+  SourceFormat,
+  NormalizedRoutineType,
+  NormalizedTagType,
+  TagScope,
+  ExternalAccess,
+  DataTypeClass,
+} from './normalized';
+
+// Controller (legacy format-specific types)
+export type { ControllerExport, AOI, SfcExecutionControl, SfcRestartPosition, SfcLastScan } from './controller';
+
 // Data Types
 export type { DataType, DataTypeMember } from './data-types';
 
@@ -47,12 +70,3 @@ export {
 
 // Devices
 export type { MapDevice } from './devices';
-
-// Controller
-export type {
-  ControllerExport,
-  AOI,
-  SfcExecutionControl,
-  SfcRestartPosition,
-  SfcLastScan,
-} from './controller';
