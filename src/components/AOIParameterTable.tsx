@@ -1,143 +1,111 @@
-import React, { useState, useMemo } from 'react';
 import type { AOIParameter } from '../types';
+import { GenericTable, type ColumnDefinition } from './table';
 
 export interface AOIParameterTableProps {
+  /** Array of parameters to display */
   parameters: AOIParameter[];
+  /** Optional CSS class name */
+  className?: string;
+  /** Callback when a parameter is selected */
+  onParameterSelect?: (param: AOIParameter) => void;
 }
 
-export function AOIParameterTable({ parameters }: AOIParameterTableProps) {
-  const [filter, setFilter] = useState('');
-  const [sortBy, setSortBy] = useState<keyof AOIParameter>('name');
-  const [sortAsc, setSortAsc] = useState(true);
-
-  const filteredAndSorted = useMemo(() => {
-    let result = parameters;
-
-    if (filter) {
-      const lowerFilter = filter.toLowerCase();
-      result = result.filter(
-        (param) =>
-          param.name.toLowerCase().includes(lowerFilter) ||
-          param.dataType.toLowerCase().includes(lowerFilter) ||
-          param.usage.toLowerCase().includes(lowerFilter)
-      );
-    }
-
-    result = [...result].sort((a, b) => {
-      const aVal = a[sortBy] ?? '';
-      const bVal = b[sortBy] ?? '';
-      if (aVal < bVal) return sortAsc ? -1 : 1;
-      if (aVal > bVal) return sortAsc ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [parameters, filter, sortBy, sortAsc]);
-
-  const handleSort = (column: keyof AOIParameter) => {
-    if (sortBy === column) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortBy(column);
-      setSortAsc(true);
-    }
-  };
-
-  const getSortIndicator = (column: keyof AOIParameter) => {
-    if (sortBy !== column) return '';
-    return sortAsc ? ' ▲' : ' ▼';
-  };
-
-  const headerStyle: React.CSSProperties = {
-    padding: '8px 12px',
-    textAlign: 'left',
-    cursor: 'pointer',
-    backgroundColor: '#f5f5f5',
-    borderBottom: '2px solid #ddd',
-    fontWeight: 600,
-    userSelect: 'none',
-  };
-
-  const cellStyle: React.CSSProperties = {
-    padding: '8px 12px',
-    borderBottom: '1px solid #eee',
-  };
-
-  const usageBadgeStyle = (usage: string): React.CSSProperties => ({
-    padding: '2px 6px',
-    borderRadius: '3px',
-    fontSize: '11px',
-    fontWeight: 500,
-    backgroundColor: usage === 'Input' ? '#e8f5e9' : usage === 'Output' ? '#ffebee' : '#e3f2fd',
-    color: usage === 'Input' ? '#2e7d32' : usage === 'Output' ? '#c62828' : '#1565c0',
-  });
-
+/** Windows 10 style checkbox */
+function Checkbox({ checked }: { checked: boolean }) {
   return (
-    <div>
-      <div style={{ marginBottom: '12px' }}>
-        <input
-          type="text"
-          placeholder="Filter parameters..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+    <span
+      style={{
+        display: 'inline-block',
+        width: '13px',
+        height: '13px',
+        border: '1px solid #999',
+        borderRadius: '2px',
+        backgroundColor: checked ? '#0078d4' : '#fff',
+        position: 'relative',
+        verticalAlign: 'middle',
+      }}
+    >
+      {checked && (
+        <span
           style={{
-            padding: '8px 12px',
-            width: '100%',
-            maxWidth: '300px',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            fontSize: '14px',
+            position: 'absolute',
+            left: '3px',
+            top: '0px',
+            width: '4px',
+            height: '8px',
+            border: 'solid #fff',
+            borderWidth: '0 2px 2px 0',
+            transform: 'rotate(45deg)',
           }}
         />
-        <span style={{ marginLeft: '12px', color: '#666', fontSize: '14px' }}>
-          {filteredAndSorted.length} of {parameters.length} parameters
-        </span>
-      </div>
+      )}
+    </span>
+  );
+}
 
-      <div style={{ overflow: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-          <thead>
-            <tr>
-              <th style={headerStyle} onClick={() => handleSort('name')}>
-                Name{getSortIndicator('name')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('dataType')}>
-                Data Type{getSortIndicator('dataType')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('usage')}>
-                Usage{getSortIndicator('usage')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('required')}>
-                Required{getSortIndicator('required')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('visible')}>
-                Visible{getSortIndicator('visible')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('externalAccess')}>
-                Access{getSortIndicator('externalAccess')}
-              </th>
-              <th style={headerStyle}>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAndSorted.map((param) => (
-              <tr key={param.name}>
-                <td style={{ ...cellStyle, fontFamily: 'monospace', fontWeight: 500 }}>{param.name}</td>
-                <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{param.dataType}</td>
-                <td style={cellStyle}>
-                  <span style={usageBadgeStyle(param.usage)}>{param.usage}</span>
-                </td>
-                <td style={cellStyle}>{param.required ? '✓' : '-'}</td>
-                <td style={cellStyle}>{param.visible ? '✓' : '-'}</td>
-                <td style={cellStyle}>{param.externalAccess ?? '-'}</td>
-                <td style={{ ...cellStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {param.description ?? '-'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+/** Column definitions for AOIParameterTable */
+const AOI_PARAMETER_COLUMNS: ColumnDefinition<AOIParameter>[] = [
+  {
+    key: 'name',
+    header: 'Name',
+    mono: true,
+  },
+  {
+    key: 'dataType',
+    header: 'Data Type',
+    mono: true,
+  },
+  {
+    key: 'usage',
+    header: 'Usage',
+    render: (param) => param.usage,
+  },
+  {
+    key: 'required',
+    header: 'Required',
+    render: (param) => <Checkbox checked={param.required} />,
+  },
+  {
+    key: 'visible',
+    header: 'Visible',
+    render: (param) => <Checkbox checked={param.visible} />,
+  },
+  {
+    key: 'externalAccess',
+    header: 'Access',
+    render: (param) => param.externalAccess ?? '-',
+  },
+  {
+    key: 'description',
+    header: 'Description',
+    sortable: false,
+    truncate: true,
+    render: (param) => param.description ?? '-',
+  },
+];
+
+/** Fields to include in filter search */
+const FILTER_FIELDS: (keyof AOIParameter)[] = ['name', 'dataType', 'usage'];
+
+/**
+ * React component that renders a sortable, filterable table of AOI parameters.
+ */
+export function AOIParameterTable({
+  parameters,
+  className = '',
+  onParameterSelect,
+}: AOIParameterTableProps) {
+  return (
+    <GenericTable<AOIParameter>
+      data={parameters}
+      columns={AOI_PARAMETER_COLUMNS}
+      getRowKey={(param) => param.name}
+      filterFields={FILTER_FIELDS}
+      defaultSortKey="name"
+      className={className}
+      onRowSelect={onParameterSelect}
+      filterPlaceholder="Filter parameters..."
+      itemLabel="parameters"
+    />
   );
 }

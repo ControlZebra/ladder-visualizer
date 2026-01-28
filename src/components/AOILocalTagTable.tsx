@@ -1,127 +1,73 @@
-import React, { useState, useMemo } from 'react';
 import type { AOILocalTag } from '../types';
+import { GenericTable, type ColumnDefinition } from './table';
 
 export interface AOILocalTagTableProps {
+  /** Array of local tags to display */
   localTags: AOILocalTag[];
+  /** Optional CSS class name */
+  className?: string;
+  /** Callback when a local tag is selected */
+  onTagSelect?: (tag: AOILocalTag) => void;
 }
 
-export function AOILocalTagTable({ localTags }: AOILocalTagTableProps) {
-  const [filter, setFilter] = useState('');
-  const [sortBy, setSortBy] = useState<keyof AOILocalTag>('name');
-  const [sortAsc, setSortAsc] = useState(true);
+/** Column definitions for AOILocalTagTable */
+const AOI_LOCAL_TAG_COLUMNS: ColumnDefinition<AOILocalTag>[] = [
+  {
+    key: 'name',
+    header: 'Name',
+    mono: true,
+  },
+  {
+    key: 'dataType',
+    header: 'Data Type',
+    mono: true,
+  },
+  {
+    key: 'dimensions',
+    header: 'Dimensions',
+    render: (tag) => (tag.dimensions ? `[${tag.dimensions}]` : '-'),
+  },
+  {
+    key: 'radix',
+    header: 'Style',
+    render: (tag) => tag.radix ?? '-',
+  },
+  {
+    key: 'externalAccess',
+    header: 'Access',
+    render: (tag) => tag.externalAccess ?? '-',
+  },
+  {
+    key: 'description',
+    header: 'Description',
+    sortable: false,
+    truncate: true,
+    render: (tag) => tag.description ?? '-',
+  },
+];
 
-  const filteredAndSorted = useMemo(() => {
-    let result = localTags;
+/** Fields to include in filter search */
+const FILTER_FIELDS: (keyof AOILocalTag)[] = ['name', 'dataType'];
 
-    if (filter) {
-      const lowerFilter = filter.toLowerCase();
-      result = result.filter(
-        (tag) =>
-          tag.name.toLowerCase().includes(lowerFilter) ||
-          tag.dataType.toLowerCase().includes(lowerFilter)
-      );
-    }
-
-    result = [...result].sort((a, b) => {
-      const aVal = a[sortBy] ?? '';
-      const bVal = b[sortBy] ?? '';
-      if (aVal < bVal) return sortAsc ? -1 : 1;
-      if (aVal > bVal) return sortAsc ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [localTags, filter, sortBy, sortAsc]);
-
-  const handleSort = (column: keyof AOILocalTag) => {
-    if (sortBy === column) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortBy(column);
-      setSortAsc(true);
-    }
-  };
-
-  const getSortIndicator = (column: keyof AOILocalTag) => {
-    if (sortBy !== column) return '';
-    return sortAsc ? ' ▲' : ' ▼';
-  };
-
-  const headerStyle: React.CSSProperties = {
-    padding: '8px 12px',
-    textAlign: 'left',
-    cursor: 'pointer',
-    backgroundColor: '#f5f5f5',
-    borderBottom: '2px solid #ddd',
-    fontWeight: 600,
-    userSelect: 'none',
-  };
-
-  const cellStyle: React.CSSProperties = {
-    padding: '8px 12px',
-    borderBottom: '1px solid #eee',
-  };
-
+/**
+ * React component that renders a sortable, filterable table of AOI local tags.
+ */
+export function AOILocalTagTable({
+  localTags,
+  className = '',
+  onTagSelect,
+}: AOILocalTagTableProps) {
   return (
-    <div>
-      <div style={{ marginBottom: '12px' }}>
-        <input
-          type="text"
-          placeholder="Filter local tags..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            width: '100%',
-            maxWidth: '300px',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            fontSize: '14px',
-          }}
-        />
-        <span style={{ marginLeft: '12px', color: '#666', fontSize: '14px' }}>
-          {filteredAndSorted.length} of {localTags.length} local tags
-        </span>
-      </div>
-
-      <div style={{ overflow: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-          <thead>
-            <tr>
-              <th style={headerStyle} onClick={() => handleSort('name')}>
-                Name{getSortIndicator('name')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('dataType')}>
-                Data Type{getSortIndicator('dataType')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('dimensions')}>
-                Dimensions{getSortIndicator('dimensions')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('radix')}>
-                Radix{getSortIndicator('radix')}
-              </th>
-              <th style={headerStyle} onClick={() => handleSort('externalAccess')}>
-                Access{getSortIndicator('externalAccess')}
-              </th>
-              <th style={headerStyle}>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAndSorted.map((tag) => (
-              <tr key={tag.name}>
-                <td style={{ ...cellStyle, fontFamily: 'monospace', fontWeight: 500 }}>{tag.name}</td>
-                <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{tag.dataType}</td>
-                <td style={cellStyle}>{tag.dimensions ? `[${tag.dimensions}]` : '-'}</td>
-                <td style={cellStyle}>{tag.radix ?? '-'}</td>
-                <td style={cellStyle}>{tag.externalAccess ?? '-'}</td>
-                <td style={{ ...cellStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {tag.description ?? '-'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <GenericTable<AOILocalTag>
+      data={localTags}
+      columns={AOI_LOCAL_TAG_COLUMNS}
+      getRowKey={(tag) => tag.name}
+      filterFields={FILTER_FIELDS}
+      defaultSortKey="name"
+      className={className}
+      onRowSelect={onTagSelect}
+      filterPlaceholder="Filter local tags..."
+      itemLabel="local tags"
+    />
   );
 }
