@@ -10,8 +10,5 @@ export * from './types';
 // Export parsers
 export * from './parsers';
 
-// Export renderers
-export * from './renderers';
-
 // Export React components
 export * from './components';

@@ -54922,7 +54922,7 @@
             "CPT(Tw,V5+V7-V9+(V11*V13)-4.686035);",
             "XPY(V1,0.5,V2);",
             "GEQ(WBGT_Fahreheit,81)XIC(Associates_Classified_as_VeryHeavy_Duty)XPY(V1,0.5,V2)OTE(ActionLimitReached_for_VeryHeavy_0to25);",
-            "XIC(Associates_Classified_as_Heavy_Duty)[XIC(A_tag),[XIC(B),XIC(C)]GEQ(WBGT_Fahreheit,89)]GEQ(WBGT_Fahreheit,89)GEQ(WBGT_Fahreheit,89)XIC(Associates_Classified_as_Moderate_Duty)OTE(ThreseholdLimitReachModerate_0to25);",
+            "XIC(Associates_Classified_as_Heavy_Duty)[XIC(Associates_Classified_as_Heavy_Duty)XIC(B)XIC(B)GEQ(WBGT_Fahreheit,89)GEQ(WBGT_Fahreheit,89),[XIC(B),XIC(C)]GEQ(WBGT_Fahreheit,89)]GEQ(WBGT_Fahreheit,89)GEQ(WBGT_Fahreheit,89)XIC(Associates_Classified_as_Moderate_Duty)OTE(ThreseholdLimitReachModerate_0to25);",
             "LIM(78,WBGT_Fahreheit,81.99)XIC(Associates_Classified_as_Heavy_Duty)OTE(ActionLimitReached_for_HeavyWork_25to50);",
             "LIM(82,WBGT_Fahreheit,85.99)XIC(Associates_Classified_as_VeryHeavy_Duty)OTE(ThresholdLimitReachedVeryHeavy_25to50);",
             "LIM(81,WBGT_Fahreheit,83.99)XIC(Associates_Classified_as_Moderate_Duty)OTE(ActionLimitReached_for_Moderate_25to50);",
