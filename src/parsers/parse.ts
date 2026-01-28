@@ -4,6 +4,7 @@ import { createFailureResult } from './parser-interface';
 import { createParseError, ParseErrorCodes } from './parse-error';
 import { parserRegistry } from './parser-registry';
 import { detectFormatFromFilename } from './format-detector';
+import { registerAOIsFromController, clearAOIs } from './aoi-registration';
 
 /**
  * Parse a File object into a normalized controller model.
@@ -69,16 +70,31 @@ export function parseString(
     ]);
   }
 
+  let result: ParseResult<NormalizedController>;
+
   // Use format hint to find parser, or auto-detect
   if (formatHint) {
     const parser = parserRegistry.getParserByFormat(formatHint);
     if (parser) {
-      return parser.parse(content);
+      result = parser.parse(content);
+    } else {
+      // Fall back to auto-detection if hint didn't match
+      result = parserRegistry.parse(content);
     }
-    // Fall back to auto-detection if hint didn't match
+  } else {
+    result = parserRegistry.parse(content);
   }
 
-  return parserRegistry.parse(content);
+  // Register AOIs from the parsed controller into the global instruction registry
+  // This enables BOX symbols to display proper parameter labels for AOI instructions
+  if (result.success && result.data) {
+    // Clear previous AOI registrations to avoid stale definitions
+    clearAOIs();
+    // Register new AOIs from this controller
+    registerAOIsFromController(result.data);
+  }
+
+  return result;
 }
 
 /**

@@ -9,6 +9,8 @@ import {
   AOIParameterTable,
   AOILocalTagTable,
   StructuredTextViewer,
+  registerAOIsFromController,
+  clearAOIs,
 } from '../src';
 import type { 
   NormalizedController,
@@ -41,6 +43,9 @@ export default function App() {
   useEffect(() => {
     try {
       const normalized = jsonToNormalized(controllerData);
+      // Register AOIs from the parsed controller for proper parameter label display
+      clearAOIs();
+      registerAOIsFromController(normalized);
       setController(normalized);
       setFileName(null);
     } catch (err) {
@@ -86,6 +91,9 @@ export default function App() {
   const handleLoadDemo = useCallback(() => {
     try {
       const normalized = jsonToNormalized(controllerData);
+      // Register AOIs from the parsed controller for proper parameter label display
+      clearAOIs();
+      registerAOIsFromController(normalized);
       setController(normalized);
       setFileName(null);
       setError(null);
