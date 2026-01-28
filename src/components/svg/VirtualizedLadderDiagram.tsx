@@ -1364,7 +1364,6 @@ export function VirtualizedLadderDiagram({
       ref={containerRef}
       className={`ladder-diagram-container virtualized ${className}`}
       style={{
-        overflow: 'auto',
         overflowX: 'hidden',
         overflowY: 'auto',
         backgroundColor: '#fff',

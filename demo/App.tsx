@@ -142,12 +142,6 @@ export default function App() {
     return program?.tags ?? [];
   }, [controller, selectedProgramIndex]);
 
-  // Get program name
-  const programName = useMemo(() => {
-    if (selectedProgramIndex === null || !controller) return '';
-    return controller.programs[selectedProgramIndex]?.name ?? '';
-  }, [controller, selectedProgramIndex]);
-
   const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: NormalizedRoutine) => {
     setSelectedRoutine({ programIndex, routineIndex });
     setMainViewType('routine');
@@ -421,11 +415,12 @@ const colors = {
 
 const styles: Record<string, React.CSSProperties> = {
   app: {
-    minHeight: '100vh',
+    height: '100%',
     backgroundColor: colors.background,
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
     display: 'flex',
     flexDirection: 'column',
+    overflow: 'hidden',
   },
   header: {
     backgroundColor: colors.primaryDark,
@@ -494,7 +489,9 @@ const styles: Record<string, React.CSSProperties> = {
   sidebar: {
     width: '260px',
     flexShrink: 0,
-    overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
   },
   diagramContainer: {
     flex: 1,
@@ -504,6 +501,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     overflow: 'hidden',
     minWidth: 0,
+    minHeight: 0,
   },
   ladderContent: {
     flex: 1,
@@ -541,8 +539,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   infoPanelContent: {
     flex: 1,
-    overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
     padding: '12px',
+    minHeight: 0,
   },
   loadingContainer: {
     display: 'flex',

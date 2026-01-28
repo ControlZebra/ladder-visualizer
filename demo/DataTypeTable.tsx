@@ -84,6 +84,10 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
     fontSize: '13px',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    overflow: 'hidden',
   },
   noMembers: {
     padding: '24px',

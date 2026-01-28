@@ -452,9 +452,18 @@ export function ProgramNavigator({
     backgroundColor: '#fafafa',
     border: '1px solid #c0c0c0',
     borderRadius: '0',
-    overflow: 'auto',
     fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
     height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  };
+
+  const treeContainerStyle: React.CSSProperties = {
+    flex: 1,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    minHeight: 0,
   };
 
   const headerStyle: React.CSSProperties = {
@@ -478,7 +487,8 @@ export function ProgramNavigator({
         <span>Controller Organizer</span>
       </div>
 
-      <div style={{ padding: '4px 0' }}>
+      <div style={treeContainerStyle}>
+        <div style={{ padding: '4px 0' }}>
         {/* Controller Root */}
         <TreeItem
           icon={Icons.controller}
@@ -830,6 +840,7 @@ export function ProgramNavigator({
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );

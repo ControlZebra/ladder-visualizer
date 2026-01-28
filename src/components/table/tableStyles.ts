@@ -6,6 +6,15 @@ import type React from 'react';
  */
 
 export const tableStyles = {
+  /** Wrapper style for the entire table component - takes full parent height */
+  wrapper: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    height: '100%',
+    overflow: 'hidden',
+    minHeight: 0,
+  } satisfies React.CSSProperties,
+
   /** Table header cell style - Windows .NET style blue gradient header */
   header: {
     padding: '6px 8px',
@@ -20,6 +29,20 @@ export const tableStyles = {
     userSelect: 'none' as const,
     color: '#1e1e1e',
     whiteSpace: 'nowrap' as const,
+  } satisfies React.CSSProperties,
+
+  /** Sticky header cell style - stays at top when scrolling */
+  stickyHeader: {
+    position: 'sticky' as const,
+    top: 0,
+    zIndex: 1,
+  } satisfies React.CSSProperties,
+
+  /** Sticky thead wrapper */
+  stickyThead: {
+    position: 'sticky' as const,
+    top: 0,
+    zIndex: 1,
   } satisfies React.CSSProperties,
 
   /** Table body cell style - Windows grid cell */
@@ -68,6 +91,7 @@ export const tableStyles = {
     display: 'flex' as const,
     alignItems: 'center' as const,
     gap: '8px',
+    flexShrink: 0,
   } satisfies React.CSSProperties,
 
   /** Count text style */
@@ -77,11 +101,14 @@ export const tableStyles = {
     fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
   } satisfies React.CSSProperties,
 
-  /** Table container style - Windows DataGridView border */
+  /** Table container style - Windows DataGridView border with scroll */
   tableContainer: {
-    overflow: 'auto' as const,
+    flex: 1,
+    overflowY: 'auto' as const,
+    overflowX: 'auto' as const,
     border: '1px solid #a0a0a0',
     backgroundColor: '#ffffff',
+    minHeight: 0,
   } satisfies React.CSSProperties,
 
   /** Table element style */

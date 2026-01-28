@@ -239,7 +239,8 @@ const styles: Record<string, CSSProperties> = {
   },
   scrollContainer: {
     flex: 1,
-    overflow: 'auto',
+    overflowY: 'auto',
+    overflowX: 'auto',
     padding: '16px',
   },
   codeContainer: {

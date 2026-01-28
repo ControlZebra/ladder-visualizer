@@ -118,7 +118,7 @@ export function GenericTable<T>({
   };
 
   return (
-    <div className={className}>
+    <div className={className} style={tableStyles.wrapper}>
       <div style={tableStyles.filterContainer}>
         <input
           type="text"
@@ -134,7 +134,7 @@ export function GenericTable<T>({
 
       <div style={tableStyles.tableContainer}>
         <table style={tableStyles.table}>
-          <thead>
+          <thead style={tableStyles.stickyThead}>
             <tr>
               {columns.map((column) => {
                 const sortable = column.sortable !== false;
@@ -145,6 +145,7 @@ export function GenericTable<T>({
                     key={column.key}
                     style={combineStyles(
                       tableStyles.header,
+                      tableStyles.stickyHeader,
                       !sortable ? { cursor: 'default' } : undefined,
                       column.headerStyle
                     )}
