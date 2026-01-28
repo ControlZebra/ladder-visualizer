@@ -167,6 +167,9 @@ function calculateBranchDimensions(branch: BranchGroup): Dimensions {
   for (const leg of branch.branches) {
     let legWidth = 0;
     let legHeight = MIN_RUNG_HEIGHT;
+    // Track max height above and below the wire for proper leg height calculation
+    let maxHeightAboveWire = MIN_RUNG_HEIGHT / 2;
+    let maxHeightBelowWire = MIN_RUNG_HEIGHT / 2;
 
     for (let i = 0; i < leg.length; i++) {
       const element = leg[i];
@@ -180,13 +183,19 @@ function calculateBranchDimensions(branch: BranchGroup): Dimensions {
       }
 
       // For contacts/coils, add label space to height consideration
-      let elementHeight = dims.height;
+      let labelSpace = 0;
       if (!isBranchGroup(element) && hasLabel(element)) {
-        elementHeight = dims.height + LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
+        labelSpace = LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
       }
 
+      // Track height above and below wire separately for accurate leg height
+      const heightAboveWire = dims.centerY + labelSpace;
+      const heightBelowWire = dims.height - dims.centerY;
+      
+      maxHeightAboveWire = Math.max(maxHeightAboveWire, heightAboveWire);
+      maxHeightBelowWire = Math.max(maxHeightBelowWire, heightBelowWire);
+
       legWidth += dims.width;
-      legHeight = Math.max(legHeight, elementHeight);
 
       // Add gap between elements
       if (i < leg.length - 1) {
@@ -194,7 +203,9 @@ function calculateBranchDimensions(branch: BranchGroup): Dimensions {
       }
     }
 
-    legDimensions.push({ width: legWidth, height: legHeight, centerY: legHeight / 2 });
+    // Leg height is the sum of max heights above and below the wire
+    legHeight = maxHeightAboveWire + maxHeightBelowWire;
+    legDimensions.push({ width: legWidth, height: legHeight, centerY: maxHeightAboveWire });
   }
 
   // Branch width = longest leg + 2 * connector offset
@@ -210,8 +221,9 @@ function calculateBranchDimensions(branch: BranchGroup): Dimensions {
     }
   }
 
-  // centerY = center of first leg (main wire continues through first leg)
-  const centerY = legDimensions[0].height / 2;
+  // centerY = where the main wire is in the first leg (its centerY, not half of height)
+  // This is the height above the wire for the entire branch
+  const centerY = legDimensions[0].centerY;
 
   return { width: branchWidth, height: branchHeight, centerY };
 }
@@ -298,32 +310,40 @@ function splitIntoLines(
 
 /**
  * Step 2.3: Calculate Line Heights and Wire Y Positions
+ * 
+ * For branches, we need to account for asymmetric height distribution:
+ * - Height above wire = dims.centerY (center of first leg)
+ * - Height below wire = dims.height - dims.centerY (remaining legs)
  */
 function calculateLineMetrics(lines: ElementLine[], rungYOffset: number): number {
   let currentY = rungYOffset;
 
   for (const line of lines) {
-    // Find tallest element in line
-    let maxHeight = MIN_RUNG_HEIGHT;
-    let maxWireOffset = MIN_RUNG_HEIGHT / 2;
+    // Track maximum space needed above and below the wire separately
+    let maxHeightAboveWire = MIN_RUNG_HEIGHT / 2;
+    let maxHeightBelowWire = MIN_RUNG_HEIGHT / 2;
 
     const allElements = [...line.conditions, ...line.operations];
     for (const element of allElements) {
       const dims = calculateElementDimensions(element);
       const labelSpace = hasLabel(element) ? LABEL_OFFSET : 0;
 
-      const wireOffset = dims.centerY + labelSpace + RUNG_PADDING;
-      const totalHeight = dims.height + labelSpace + 2 * RUNG_PADDING;
+      // Height above wire: from top of element to wire (centerY) plus label space and padding
+      const heightAboveWire = dims.centerY + labelSpace + RUNG_PADDING;
+      
+      // Height below wire: from wire to bottom of element plus padding
+      const heightBelowWire = (dims.height - dims.centerY) + RUNG_PADDING;
 
-      maxHeight = Math.max(maxHeight, totalHeight);
-      maxWireOffset = Math.max(maxWireOffset, wireOffset);
+      maxHeightAboveWire = Math.max(maxHeightAboveWire, heightAboveWire);
+      maxHeightBelowWire = Math.max(maxHeightBelowWire, heightBelowWire);
     }
 
-    line.height = maxHeight;
-    line.wireY = currentY + maxWireOffset;
+    // Total line height is the sum of space above and below the wire
+    line.height = maxHeightAboveWire + maxHeightBelowWire;
+    line.wireY = currentY + maxHeightAboveWire;
     line.yOffset = currentY - rungYOffset;
 
-    currentY += maxHeight + LINE_SPACING;
+    currentY += line.height + LINE_SPACING;
   }
 
   // Remove trailing line spacing
@@ -422,26 +442,39 @@ function positionBranch(branch: BranchGroup, branchStartX: number, mainWireY: nu
   // Calculate leg dimensions for Y positioning
   const legDimensions: Dimensions[] = branch.branches.map(leg => {
     let legWidth = 0;
-    let legHeight = MIN_RUNG_HEIGHT;
+    // Track max height above and below the wire for proper leg height calculation
+    let maxHeightAboveWire = MIN_RUNG_HEIGHT / 2;
+    let maxHeightBelowWire = MIN_RUNG_HEIGHT / 2;
 
     for (let i = 0; i < leg.length; i++) {
       const element = leg[i];
       const elDims = calculateElementDimensions(element);
-      let elementHeight = elDims.height;
+      
+      let labelSpace = 0;
       if (!isBranchGroup(element) && hasLabel(element)) {
-        elementHeight = elDims.height + LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
+        labelSpace = LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
       }
+      
+      // Track height above and below wire separately for accurate leg height
+      const heightAboveWire = elDims.centerY + labelSpace;
+      const heightBelowWire = elDims.height - elDims.centerY;
+      
+      maxHeightAboveWire = Math.max(maxHeightAboveWire, heightAboveWire);
+      maxHeightBelowWire = Math.max(maxHeightBelowWire, heightBelowWire);
+      
       legWidth += elDims.width;
-      legHeight = Math.max(legHeight, elementHeight);
       if (i < leg.length - 1) {
         legWidth += INSTRUCTION_GAP;
       }
     }
 
-    return { width: legWidth, height: legHeight, centerY: legHeight / 2 };
+    // Leg height is the sum of max heights above and below the wire
+    const legHeight = maxHeightAboveWire + maxHeightBelowWire;
+    return { width: legWidth, height: legHeight, centerY: maxHeightAboveWire };
   });
 
   // Calculate Y position for each leg
+  // Use centerY (height above wire) and (height - centerY) (height below wire) for proper positioning
   const legYPositions: number[] = [];
   let currentY = mainWireY;
 
@@ -451,7 +484,11 @@ function positionBranch(branch: BranchGroup, branchStartX: number, mainWireY: nu
     } else {
       const prevLegDims = legDimensions[i - 1];
       const legDims = legDimensions[i];
-      currentY += prevLegDims.height / 2 + BRANCH_VERTICAL_GAP + legDims.height / 2;
+      // Previous leg extends below wire by (height - centerY)
+      // Current leg extends above wire by centerY
+      const prevLegBelowWire = prevLegDims.height - prevLegDims.centerY;
+      const currentLegAboveWire = legDims.centerY;
+      currentY += prevLegBelowWire + BRANCH_VERTICAL_GAP + currentLegAboveWire;
       legYPositions.push(currentY);
     }
   }
