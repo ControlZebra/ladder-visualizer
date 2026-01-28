@@ -1,4 +1,7 @@
-// Normalized Types (vendor-agnostic internal representation)
+// ============================================================================
+// Normalized Types (vendor-agnostic representation)
+// ============================================================================
+
 export type {
   NormalizedController,
   NormalizedProgram,
@@ -18,19 +21,26 @@ export type {
   DataTypeClass,
 } from './normalized';
 
-// Controller (legacy format-specific types)
-export type { ControllerExport, AOI, SfcExecutionControl, SfcRestartPosition, SfcLastScan } from './controller';
+// ============================================================================
+// Re-export with simpler aliases for convenience
+// ============================================================================
 
-// Data Types
-export type { DataType, DataTypeMember } from './data-types';
+export type {
+  NormalizedController as Controller,
+  NormalizedProgram as Program,
+  NormalizedRoutine as Routine,
+  NormalizedRung as Rung,
+  NormalizedTag as Tag,
+  NormalizedDataType as DataType,
+  NormalizedDataTypeMember as DataTypeMember,
+  NormalizedAOI as AOI,
+  NormalizedModule as Module,
+} from './normalized';
 
-// Tags
-export type { Tag } from './tags';
-
-// Programs & Routines
-export type { Program, Routine, ParsedRoutine, Rung, RoutineType } from './programs';
-
+// ============================================================================
 // Instructions
+// ============================================================================
+
 export type {
   Instruction,
   InstructionMnemonic,
@@ -45,7 +55,10 @@ export type {
 } from './instructions';
 export { getInstructionCategory, getInstructionDisplayName, getInstructionParameterLabels, isBranchGroup } from './instructions';
 
+// ============================================================================
 // Instruction Registry
+// ============================================================================
+
 export type {
   InstructionCategory,
   InstructionDefinition,
@@ -67,6 +80,3 @@ export {
   COUNTER_INSTRUCTIONS,
   OTHER_INSTRUCTIONS,
 } from './instruction-registry';
-
-// Devices
-export type { MapDevice } from './devices';

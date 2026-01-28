@@ -1,23 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  parseControllerExport,
-  parseRoutine,
   parseFile,
   VirtualizedLadderDiagram,
   TagTable,
   ControllerInfo,
   ProgramNavigator,
+  jsonToNormalized,
 } from '../src';
 import type { 
-  ControllerExport, 
-  Routine, 
-  ParsedRoutine, 
-  DataType,
   NormalizedController,
   NormalizedRoutine,
   NormalizedDataType,
-  NormalizedTag,
-  Tag,
 } from '../src';
 import { DataTypeTable } from './DataTypeTable';
 
@@ -27,60 +20,28 @@ import controllerData from '../examples/controller_output.json';
 // View types for main content area
 type MainViewType = 'routine' | 'controller-tags' | 'program-tags' | 'controller-info' | 'data-type';
 
-// Source type for the loaded data
-type DataSource = 'demo' | 'file';
-
-// Unified controller type that can handle both legacy and normalized data
-interface UnifiedAppController {
-  source: DataSource;
-  legacy?: ControllerExport;
-  normalized?: NormalizedController;
-  fileName?: string;
-}
-
-/**
- * Convert NormalizedDataType to legacy DataType format for DataTypeTable compatibility
- */
-function normalizedDataTypeToLegacy(dt: NormalizedDataType): DataType {
-  return {
-    name: dt.name,
-    family: dt.family || 'NoFamily',
-    cls: dt.class === 'User' ? 'User' : 'ProductDefined',
-    members: (dt.members || []).map(m => ({
-      name: m.name,
-      data_type: m.dataType,
-      dimension: m.dimension || 0,
-      radix: m.radix || 'Decimal',
-      hidden: m.hidden || false,
-      external_access: m.externalAccess || 'ReadWrite',
-    })),
-  };
-}
-
 export default function App() {
-  // Unified controller state that handles both legacy and normalized data
-  const [unifiedController, setUnifiedController] = useState<UnifiedAppController | null>(null);
+  const [controller, setController] = useState<NormalizedController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [selectedRoutine, setSelectedRoutine] = useState<{
     programIndex: number;
     routineIndex: number;
   } | null>(null);
   const [selectedProgramIndex, setSelectedProgramIndex] = useState<number | null>(null);
-  const [selectedDataType, setSelectedDataType] = useState<DataType | null>(null);
+  const [selectedDataType, setSelectedDataType] = useState<NormalizedDataType | null>(null);
   const [mainViewType, setMainViewType] = useState<MainViewType>('routine');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load demo data on mount
   useEffect(() => {
     try {
-      const parsed = parseControllerExport(controllerData);
-      setUnifiedController({
-        source: 'demo',
-        legacy: parsed,
-      });
+      const normalized = jsonToNormalized(controllerData);
+      setController(normalized);
+      setFileName(null);
       // Select first routine by default
-      if (parsed.programs.length > 0 && parsed.programs[0].routines.length > 0) {
+      if (normalized.programs.length > 0 && normalized.programs[0].routines.length > 0) {
         setSelectedRoutine({ programIndex: 0, routineIndex: 0 });
       }
     } catch (err) {
@@ -102,11 +63,8 @@ export default function App() {
       const result = await parseFile(file);
       
       if (result.success && result.data) {
-        setUnifiedController({
-          source: 'file',
-          normalized: result.data,
-          fileName: file.name,
-        });
+        setController(result.data);
+        setFileName(file.name);
         setSelectedDataType(null);
         setSelectedProgramIndex(null);
         setMainViewType('routine');
@@ -137,17 +95,15 @@ export default function App() {
    */
   const handleLoadDemo = useCallback(() => {
     try {
-      const parsed = parseControllerExport(controllerData);
-      setUnifiedController({
-        source: 'demo',
-        legacy: parsed,
-      });
+      const normalized = jsonToNormalized(controllerData);
+      setController(normalized);
+      setFileName(null);
       setError(null);
       setSelectedDataType(null);
       setSelectedProgramIndex(null);
       setMainViewType('routine');
       
-      if (parsed.programs.length > 0 && parsed.programs[0].routines.length > 0) {
+      if (normalized.programs.length > 0 && normalized.programs[0].routines.length > 0) {
         setSelectedRoutine({ programIndex: 0, routineIndex: 0 });
       }
     } catch (err) {
@@ -155,58 +111,29 @@ export default function App() {
     }
   }, []);
 
-  // Get the active controller (either legacy or normalized)
-  // Components now support both types directly!
-  const activeController: ControllerExport | NormalizedController | null = useMemo(() => {
-    if (!unifiedController) return null;
-    return unifiedController.legacy ?? unifiedController.normalized ?? null;
-  }, [unifiedController]);
+  // Get the selected routine
+  const parsedRoutine: NormalizedRoutine | null = useMemo(() => {
+    if (!controller || !selectedRoutine) return null;
+    const routine = controller.programs[selectedRoutine.programIndex]?.routines[selectedRoutine.routineIndex];
+    return routine || null;
+  }, [controller, selectedRoutine]);
 
-  // Get controller tags (works with both types)
-  const controllerTags: Tag[] | NormalizedTag[] = useMemo(() => {
-    if (!activeController) return [];
-    return activeController.tags;
-  }, [activeController]);
-
-  // Parse the selected routine - now returns either ParsedRoutine or NormalizedRoutine
-  const parsedRoutine: ParsedRoutine | NormalizedRoutine | null = useMemo(() => {
-    if (!unifiedController || !selectedRoutine) return null;
-    
-    if (unifiedController.source === 'demo' && unifiedController.legacy) {
-      const routine = unifiedController.legacy.programs[selectedRoutine.programIndex]?.routines[selectedRoutine.routineIndex];
-      if (!routine) return null;
-      return parseRoutine(routine);
-    }
-    
-    if (unifiedController.source === 'file' && unifiedController.normalized) {
-      const routine = unifiedController.normalized.programs[selectedRoutine.programIndex]?.routines[selectedRoutine.routineIndex];
-      if (!routine) return null;
-      // NormalizedRoutine is directly compatible with VirtualizedLadderDiagram!
-      return routine;
-    }
-    
-    return null;
-  }, [unifiedController, selectedRoutine]);
-
-  // Get program tags if viewing program tags - memoized to prevent recalculation
-  const programTags: Tag[] | NormalizedTag[] = useMemo(() => {
-    if (selectedProgramIndex === null || !activeController) return [];
-    const program = activeController.programs[selectedProgramIndex];
-    if (!program) return [];
-    return program.tags ?? [];
-  }, [activeController, selectedProgramIndex]);
+  // Get program tags if viewing program tags
+  const programTags = useMemo(() => {
+    if (selectedProgramIndex === null || !controller) return [];
+    const program = controller.programs[selectedProgramIndex];
+    return program?.tags ?? [];
+  }, [controller, selectedProgramIndex]);
 
   // Get program name
   const programName = useMemo(() => {
-    if (selectedProgramIndex === null || !activeController) return '';
-    const program = activeController.programs[selectedProgramIndex];
-    if (!program) return '';
-    return program.name ?? (selectedProgramIndex === 0 ? 'MainProgram' : `Program_${selectedProgramIndex + 1}`);
-  }, [activeController, selectedProgramIndex]);
+    if (selectedProgramIndex === null || !controller) return '';
+    return controller.programs[selectedProgramIndex]?.name ?? '';
+  }, [controller, selectedProgramIndex]);
 
-  const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: Routine | NormalizedRoutine) => {
+  const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: NormalizedRoutine) => {
     setSelectedRoutine({ programIndex, routineIndex });
-    setMainViewType('routine'); // Switch to routine view when selecting a routine
+    setMainViewType('routine');
   }, []);
 
   const handleControllerTagsSelect = useCallback(() => {
@@ -222,29 +149,20 @@ export default function App() {
     setMainViewType('controller-info');
   }, []);
 
-  const handleDataTypeSelect = useCallback((dataType: DataType | NormalizedDataType) => {
-    // Convert NormalizedDataType to legacy format for DataTypeTable (which only accepts legacy)
-    if ('class' in dataType) {
-      setSelectedDataType(normalizedDataTypeToLegacy(dataType));
-    } else {
-      setSelectedDataType(dataType);
-    }
+  const handleDataTypeSelect = useCallback((dataType: NormalizedDataType) => {
+    setSelectedDataType(dataType);
     setMainViewType('data-type');
   }, []);
 
   // Get all data types for DataTypeTable
-  const allDataTypes: DataType[] = useMemo(() => {
-    if (!activeController) return [];
-    if ('data_types' in activeController) {
-      return activeController.data_types;
-    }
-    // Convert normalized data types to legacy format for DataTypeTable
-    return activeController.dataTypes.map(normalizedDataTypeToLegacy);
-  }, [activeController]);
+  const allDataTypes = useMemo(() => {
+    if (!controller) return [];
+    return controller.dataTypes;
+  }, [controller]);
 
   // Render main content based on view type
   const renderMainContent = () => {
-    if (!activeController) return null;
+    if (!controller) return null;
 
     switch (mainViewType) {
       case 'controller-tags':
@@ -252,10 +170,10 @@ export default function App() {
           <>
             <div style={styles.routineTitle}>
               <span style={{ fontWeight: 600 }}>Controller Tags</span>
-              <span style={styles.routineCount}>{controllerTags.length} tags</span>
+              <span style={styles.routineCount}>{controller.tags.length} tags</span>
             </div>
             <div style={styles.infoPanelContent}>
-              <TagTable tags={controllerTags} />
+              <TagTable tags={controller.tags} />
             </div>
           </>
         );
@@ -282,7 +200,7 @@ export default function App() {
               <span style={{ fontWeight: 600 }}>Controller Info</span>
             </div>
             <div style={styles.infoPanelContent}>
-              <ControllerInfo controller={activeController} />
+              <ControllerInfo controller={controller} />
             </div>
           </>
         );
@@ -347,7 +265,7 @@ export default function App() {
     );
   }
 
-  if (!activeController || isLoading) {
+  if (!controller || isLoading) {
     return (
       <div style={styles.loadingContainer}>
         <p>{isLoading ? 'Parsing file...' : 'Loading controller data...'}</p>
@@ -355,19 +273,15 @@ export default function App() {
     );
   }
 
-  // Get programs array (works with both legacy and normalized)
-  const programs = activeController.programs;
-
   return (
     <div style={styles.app}>
       {/* Header with file controls */}
       <header style={styles.header}>
         <div style={styles.headerLeft}>
           <h1 style={styles.title}>Ladder Logic Visualizer</h1>
-          {unifiedController?.source === 'file' && unifiedController.fileName && (
-            <span style={styles.fileName}>{unifiedController.fileName}</span>
-          )}
-          {unifiedController?.source === 'demo' && (
+          {fileName ? (
+            <span style={styles.fileName}>{fileName}</span>
+          ) : (
             <span style={styles.fileName}>Demo Data</span>
           )}
         </div>
@@ -395,8 +309,8 @@ export default function App() {
           {/* Sidebar */}
           <aside style={styles.sidebar}>
             <ProgramNavigator
-              controller={activeController}
-              programs={programs}
+              controller={controller}
+              programs={controller.programs}
               selectedRoutine={selectedRoutine ?? undefined}
               onRoutineSelect={handleRoutineSelect}
               onControllerTagsSelect={handleControllerTagsSelect}
@@ -418,14 +332,14 @@ export default function App() {
 
 // Studio 5000-inspired color scheme
 const colors = {
-  primary: '#2b579a',        // Deep blue (Studio 5000 accent)
-  primaryDark: '#1e3f6f',    // Darker blue for header
-  secondary: '#4a7c59',      // Green accent (for controller icon)
-  background: '#e8e8e8',     // Light gray background
-  surface: '#ffffff',        // White surface
-  border: '#c0c0c0',         // Gray border
-  text: '#333333',           // Dark text
-  textLight: '#666666',      // Light text
+  primary: '#2b579a',
+  primaryDark: '#1e3f6f',
+  secondary: '#4a7c59',
+  background: '#e8e8e8',
+  surface: '#ffffff',
+  border: '#c0c0c0',
+  text: '#333333',
+  textLight: '#666666',
 };
 
 const styles: Record<string, React.CSSProperties> = {
@@ -446,15 +360,46 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: `2px solid ${colors.primary}`,
     flexShrink: 0,
   },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
   title: {
     margin: 0,
     fontSize: '16px',
     fontWeight: 600,
   },
-  subtitle: {
-    margin: '0 0 0 12px',
+  fileName: {
     fontSize: '12px',
-    opacity: 0.8,
+    opacity: 0.9,
+    padding: '2px 8px',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: '3px',
+  },
+  headerButton: {
+    padding: '6px 12px',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    color: 'white',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 500,
+  },
+  uploadLabel: {
+    display: 'inline-block',
+    cursor: 'pointer',
+  },
+  formatHint: {
+    fontSize: '11px',
+    opacity: 0.7,
+    marginLeft: '4px',
   },
   main: {
     flex: 1,
@@ -567,42 +512,5 @@ const styles: Record<string, React.CSSProperties> = {
   buttonLabel: {
     display: 'inline-block',
     cursor: 'pointer',
-  },
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  headerRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  fileName: {
-    fontSize: '12px',
-    opacity: 0.9,
-    padding: '2px 8px',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: '3px',
-  },
-  headerButton: {
-    padding: '6px 12px',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    color: 'white',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    fontWeight: 500,
-    transition: 'background-color 0.2s',
-  },
-  uploadLabel: {
-    display: 'inline-block',
-    cursor: 'pointer',
-  },
-  formatHint: {
-    fontSize: '11px',
-    opacity: 0.7,
-    marginLeft: '4px',
   },
 };

@@ -23,12 +23,12 @@ export function DataTypeTable({ dataType, allDataTypes }: DataTypeTableProps) {
   }, [allDataTypes]);
 
   const getDataTypeIcon = useCallback((member: DataTypeMember) => {
-    const type = member.data_type.toUpperCase();
+    const type = member.dataType.toUpperCase();
     if (type === 'BOOL') return '🔘';
     if (type === 'DINT' || type === 'INT' || type === 'SINT' || type === 'LINT') return '🔢';
     if (type === 'REAL') return '📊';
     if (type.includes('STRING')) return '📝';
-    const memberDataType = dataTypeMap.get(member.data_type);
+    const memberDataType = dataTypeMap.get(member.dataType);
     if (memberDataType && memberDataType.members.length > 0) return '📦';
     return '•';
   }, [dataTypeMap]);
@@ -43,12 +43,12 @@ export function DataTypeTable({ dataType, allDataTypes }: DataTypeTableProps) {
           <span style={styles.icon}>{getDataTypeIcon(member)}</span>
           {member.name}
         </td>
-        <td style={{ ...styles.cell, ...styles.typeCell }}>{member.data_type}</td>
+        <td style={{ ...styles.cell, ...styles.typeCell }}>{member.dataType}</td>
         <td style={{ ...styles.cell, ...styles.dimCell }}>
           {member.dimension > 0 ? `[${member.dimension}]` : ''}
         </td>
         <td style={{ ...styles.cell, ...styles.radixCell }}>{member.radix}</td>
-        <td style={{ ...styles.cell, ...styles.accessCell }}>{member.external_access}</td>
+        <td style={{ ...styles.cell, ...styles.accessCell }}>{member.externalAccess}</td>
         <td style={{ ...styles.cell, ...styles.hiddenCell }}>
           {member.hidden ? '✓' : ''}
         </td>
@@ -56,8 +56,8 @@ export function DataTypeTable({ dataType, allDataTypes }: DataTypeTableProps) {
     ));
   };
 
-  const getCategoryLabel = (cls: string, family: string): string => {
-    if (cls === 'User') return 'User Defined';
+  const getCategoryLabel = (typeClass: string, family?: string): string => {
+    if (typeClass === 'User') return 'User Defined';
     if (family === 'StringFamily') return 'String Type';
     return 'Predefined';
   };
@@ -69,7 +69,7 @@ export function DataTypeTable({ dataType, allDataTypes }: DataTypeTableProps) {
         <div style={styles.headerTitle}>
           <span style={styles.headerIcon}>📋</span>
           <span style={styles.typeName}>{dataType.name}</span>
-          <span style={styles.typeBadge}>{getCategoryLabel(dataType.cls, dataType.family)}</span>
+          <span style={styles.typeBadge}>{getCategoryLabel(dataType.class, dataType.family)}</span>
         </div>
       </div>
 
@@ -81,7 +81,7 @@ export function DataTypeTable({ dataType, allDataTypes }: DataTypeTableProps) {
         </div>
         <div style={styles.infoItem}>
           <span style={styles.infoLabel}>Class:</span>
-          <span style={styles.infoValue}>{dataType.cls}</span>
+          <span style={styles.infoValue}>{dataType.class}</span>
         </div>
         <div style={styles.infoItem}>
           <span style={styles.infoLabel}>Members:</span>

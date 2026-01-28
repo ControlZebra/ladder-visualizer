@@ -1,9 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import type { 
-  Program, 
-  Routine, 
-  ControllerExport, 
-  DataType,
   NormalizedController,
   NormalizedProgram,
   NormalizedRoutine,
@@ -11,136 +7,67 @@ import type {
 } from '../types';
 
 // ============================================================================
-// TYPE UTILITIES
+// INTERNAL DISPLAY TYPES (for tree rendering)
 // ============================================================================
 
-/**
- * Unified program format for internal use
- */
-interface UnifiedProgram {
+interface DisplayProgram {
   name: string;
-  routines: UnifiedRoutine[];
+  routines: DisplayRoutine[];
   tagCount: number;
 }
 
-/**
- * Unified routine format for internal use
- */
-interface UnifiedRoutine {
+interface DisplayRoutine {
   name: string;
   type: string;
   rungCount: number;
 }
 
-/**
- * Unified data type format for internal use
- */
-interface UnifiedDataType {
+interface DisplayDataType {
   name: string;
   family: string;
   cls: string;
 }
 
-/**
- * Unified controller format for internal use
- */
-interface UnifiedController {
+interface DisplayController {
   name: string;
   tagCount: number;
-  programs: UnifiedProgram[];
+  programs: DisplayProgram[];
   dataTypes: {
-    userDefined: UnifiedDataType[];
-    strings: UnifiedDataType[];
-    addOnDefined: UnifiedDataType[];
-    predefined: UnifiedDataType[];
-    moduleDefined: UnifiedDataType[];
+    userDefined: DisplayDataType[];
+    strings: DisplayDataType[];
+    addOnDefined: DisplayDataType[];
+    predefined: DisplayDataType[];
+    moduleDefined: DisplayDataType[];
   };
   moduleCount: number;
   aoiCount: number;
 }
 
 /**
- * Check if controller is in NormalizedController format
+ * Convert NormalizedController to display format
  */
-function isNormalizedController(
-  controller: ControllerExport | NormalizedController | undefined
-): controller is NormalizedController {
-  if (!controller) return false;
-  return 'serialNumber' in controller || 'sourceFormat' in controller || 'dataTypes' in controller;
-}
-
-/**
- * Convert legacy ControllerExport to unified format
- */
-function legacyControllerToUnified(controller: ControllerExport): UnifiedController {
-  const userDefined: UnifiedDataType[] = [];
-  const strings: UnifiedDataType[] = [];
-  const predefined: UnifiedDataType[] = [];
-  const addOnDefined: UnifiedDataType[] = [];
-  const moduleDefined: UnifiedDataType[] = [];
-
-  for (const dt of controller.data_types) {
-    const unified = { name: dt.name, family: dt.family, cls: dt.cls };
-    if (dt.cls === 'User') {
-      if (dt.name.includes(':')) {
-        moduleDefined.push(unified);
-      } else {
-        userDefined.push(unified);
-      }
-    } else {
-      if (dt.family === 'StringFamily') {
-        strings.push(unified);
-      } else {
-        predefined.push(unified);
-      }
-    }
-  }
-
-  return {
-    name: controller.serial_number 
-      ? `Controller_${controller.serial_number.replace('16#', '').replace(/_/g, '')}`
-      : 'Controller',
-    tagCount: controller.tags.length,
-    programs: controller.programs.map((p, idx) => ({
-      name: p.name || (idx === 0 ? 'MainProgram' : `Program_${idx + 1}`),
-      routines: p.routines.map(r => ({
-        name: r.name,
-        type: r.type,
-        rungCount: r.rungs.length,
-      })),
-      tagCount: p.tags?.length || 0,
-    })),
-    dataTypes: { userDefined, strings, addOnDefined, predefined, moduleDefined },
-    moduleCount: controller.map_devices.length,
-    aoiCount: controller.aois.length,
-  };
-}
-
-/**
- * Convert NormalizedController to unified format
- */
-function normalizedControllerToUnified(controller: NormalizedController): UnifiedController {
-  const userDefined: UnifiedDataType[] = [];
-  const strings: UnifiedDataType[] = [];
-  const predefined: UnifiedDataType[] = [];
-  const addOnDefined: UnifiedDataType[] = [];
-  const moduleDefined: UnifiedDataType[] = [];
+function controllerToDisplay(controller: NormalizedController): DisplayController {
+  const userDefined: DisplayDataType[] = [];
+  const strings: DisplayDataType[] = [];
+  const predefined: DisplayDataType[] = [];
+  const addOnDefined: DisplayDataType[] = [];
+  const moduleDefined: DisplayDataType[] = [];
 
   for (const dt of controller.dataTypes) {
-    const unified = { name: dt.name, family: dt.family || 'NoFamily', cls: dt.class };
+    const display = { name: dt.name, family: dt.family || 'NoFamily', cls: dt.class };
     if (dt.class === 'User') {
       if (dt.name.includes(':')) {
-        moduleDefined.push(unified);
+        moduleDefined.push(display);
       } else {
-        userDefined.push(unified);
+        userDefined.push(display);
       }
     } else if (dt.class === 'AddOnDefined') {
-      addOnDefined.push(unified);
+      addOnDefined.push(display);
     } else {
       if (dt.family === 'StringFamily') {
-        strings.push(unified);
+        strings.push(display);
       } else {
-        predefined.push(unified);
+        predefined.push(display);
       }
     }
   }
@@ -164,24 +91,9 @@ function normalizedControllerToUnified(controller: NormalizedController): Unifie
 }
 
 /**
- * Convert legacy programs to unified format
+ * Convert programs to display format
  */
-function legacyProgramsToUnified(programs: Program[]): UnifiedProgram[] {
-  return programs.map((p, idx) => ({
-    name: p.name || (idx === 0 ? 'MainProgram' : `Program_${idx + 1}`),
-    routines: p.routines.map(r => ({
-      name: r.name,
-      type: r.type,
-      rungCount: r.rungs.length,
-    })),
-    tagCount: p.tags?.length || 0,
-  }));
-}
-
-/**
- * Convert normalized programs to unified format
- */
-function normalizedProgramsToUnified(programs: NormalizedProgram[]): UnifiedProgram[] {
+function programsToDisplay(programs: NormalizedProgram[]): DisplayProgram[] {
   return programs.map(p => ({
     name: p.name,
     routines: p.routines.map(r => ({
@@ -405,34 +317,22 @@ function TreeItem({
 // ============================================================================
 
 export interface ProgramNavigatorProps {
-  /** 
-   * Controller data for full tree view.
-   * Accepts both legacy ControllerExport and NormalizedController formats.
-   */
-  controller?: ControllerExport | NormalizedController;
-  /** 
-   * Array of programs (fallback if no controller provided).
-   * Accepts both legacy Program[] and NormalizedProgram[] formats.
-   */
-  programs: Program[] | NormalizedProgram[];
+  /** Controller data for full tree view */
+  controller?: NormalizedController;
+  /** Array of programs (fallback if no controller provided) */
+  programs: NormalizedProgram[];
   /** Currently selected routine */
   selectedRoutine?: { programIndex: number; routineIndex: number };
-  /** 
-   * Callback when a routine is selected.
-   * Returns the original routine object (legacy or normalized).
-   */
-  onRoutineSelect?: (programIndex: number, routineIndex: number, routine: Routine | NormalizedRoutine) => void;
+  /** Callback when a routine is selected */
+  onRoutineSelect?: (programIndex: number, routineIndex: number, routine: NormalizedRoutine) => void;
   /** Callback when Controller Tags is selected */
   onControllerTagsSelect?: () => void;
   /** Callback when Program Tags is selected */
   onProgramTagsSelect?: (programIndex: number) => void;
   /** Callback when Controller info is selected (clicking controller node) */
   onControllerInfoSelect?: () => void;
-  /** 
-   * Callback when a data type is selected.
-   * Returns the original data type object (legacy or normalized).
-   */
-  onDataTypeSelect?: (dataType: DataType | NormalizedDataType) => void;
+  /** Callback when a data type is selected */
+  onDataTypeSelect?: (dataType: NormalizedDataType) => void;
   /** Callback when an I/O device is selected */
   onIODeviceSelect?: (deviceId: number) => void;
   /** Optional CSS class name */
@@ -441,7 +341,6 @@ export interface ProgramNavigatorProps {
 
 /**
  * React component for navigating programs and routines in a Studio 5000-style tree.
- * Supports both legacy and normalized controller/program formats.
  */
 export function ProgramNavigator({
   controller,
@@ -455,29 +354,19 @@ export function ProgramNavigator({
   onIODeviceSelect,
   className = '',
 }: ProgramNavigatorProps) {
-  // Convert to unified controller if provided
-  const unifiedController = useMemo<UnifiedController | null>(() => {
+  // Convert to display format if provided
+  const displayController = useMemo<DisplayController | null>(() => {
     if (!controller) return null;
-    if (isNormalizedController(controller)) {
-      return normalizedControllerToUnified(controller);
-    }
-    return legacyControllerToUnified(controller);
+    return controllerToDisplay(controller);
   }, [controller]);
 
-  // Convert programs to unified format
-  const unifiedPrograms = useMemo<UnifiedProgram[]>(() => {
-    if (unifiedController) {
-      return unifiedController.programs;
+  // Convert programs to display format
+  const displayPrograms = useMemo<DisplayProgram[]>(() => {
+    if (displayController) {
+      return displayController.programs;
     }
-    // Use programs prop directly
-    if (programs.length > 0) {
-      if ('routines' in programs[0] && programs[0].routines.length > 0 && 'rungs' in programs[0].routines[0]) {
-        return normalizedProgramsToUnified(programs as NormalizedProgram[]);
-      }
-      return legacyProgramsToUnified(programs as Program[]);
-    }
-    return [];
-  }, [unifiedController, programs]);
+    return programsToDisplay(programs);
+  }, [displayController, programs]);
 
   // Expansion state for tree nodes
   const [expanded, setExpanded] = useState<Set<string>>(
@@ -497,23 +386,20 @@ export function ProgramNavigator({
   };
 
   // Helper to get original routine for callback
-  const getOriginalRoutine = (programIndex: number, routineIndex: number): Routine | NormalizedRoutine | undefined => {
+  const getOriginalRoutine = (programIndex: number, routineIndex: number): NormalizedRoutine | undefined => {
     const program = programs[programIndex];
     if (!program) return undefined;
     return program.routines[routineIndex];
   };
 
   // Helper to get original data type for callback
-  const getOriginalDataType = (name: string): DataType | NormalizedDataType | undefined => {
+  const getOriginalDataType = (name: string): NormalizedDataType | undefined => {
     if (!controller) return undefined;
-    if (isNormalizedController(controller)) {
-      return controller.dataTypes.find(dt => dt.name === name);
-    }
-    return controller.data_types.find(dt => dt.name === name);
+    return controller.dataTypes.find(dt => dt.name === name);
   };
 
-  // Get data type categories from unified controller
-  const dataTypeCategories = unifiedController?.dataTypes ?? null;
+  // Get data type categories from display controller
+  const dataTypeCategories = displayController?.dataTypes ?? null;
 
   const containerStyle: React.CSSProperties = {
     backgroundColor: '#fafafa',
@@ -536,8 +422,8 @@ export function ProgramNavigator({
     gap: '8px',
   };
 
-  // Derive controller name from unified controller or use default
-  const controllerName = unifiedController?.name ?? 'Controller';
+  // Derive controller name from display controller or use default
+  const controllerName = displayController?.name ?? 'Controller';
 
   return (
     <div className={`program-navigator ${className}`} style={containerStyle}>
@@ -564,7 +450,7 @@ export function ProgramNavigator({
               icon={Icons.tags}
               label="Controller Tags"
               depth={1}
-              badge={`${unifiedController?.tagCount ?? 0}`}
+              badge={`${displayController?.tagCount ?? 0}`}
               onClick={onControllerTagsSelect}
             />
 
@@ -590,7 +476,7 @@ export function ProgramNavigator({
                   onToggle={() => toggleExpanded('mainTask')}
                 />
 
-                {expanded.has('mainTask') && unifiedPrograms.map((program, pIdx) => {
+                {expanded.has('mainTask') && displayPrograms.map((program, pIdx) => {
                   const programKey = `program-${pIdx}`;
                   const programName = program.name;
 
@@ -670,27 +556,18 @@ export function ProgramNavigator({
               isExpandable={true}
               isExpanded={expanded.has('aois')}
               onToggle={() => toggleExpanded('aois')}
-              badge={`${unifiedController?.aoiCount ?? 0}`}
+              badge={`${displayController?.aoiCount ?? 0}`}
             />
 
             {expanded.has('aois') && controller && (
-              isNormalizedController(controller)
-                ? controller.aois.map((aoi) => (
-                    <TreeItem
-                      key={aoi.name}
-                      icon={Icons.aoi}
-                      label={aoi.name}
-                      depth={2}
-                    />
-                  ))
-                : controller.aois?.map((aoi) => (
-                    <TreeItem
-                      key={aoi.name}
-                      icon={Icons.aoi}
-                      label={aoi.name}
-                      depth={2}
-                    />
-                  ))
+              controller.aois.map((aoi) => (
+                <TreeItem
+                  key={aoi.name}
+                  icon={Icons.aoi}
+                  label={aoi.name}
+                  depth={2}
+                />
+              ))
             )}
 
             {/* Data Types */}
@@ -701,7 +578,7 @@ export function ProgramNavigator({
               isExpandable={true}
               isExpanded={expanded.has('dataTypes')}
               onToggle={() => toggleExpanded('dataTypes')}
-              badge={controller ? `${isNormalizedController(controller) ? controller.dataTypes.length : controller.data_types.length}` : undefined}
+              badge={controller ? `${controller.dataTypes.length}` : undefined}
             />
 
             {expanded.has('dataTypes') && dataTypeCategories && (
@@ -831,29 +708,19 @@ export function ProgramNavigator({
               isExpandable={true}
               isExpanded={expanded.has('io')}
               onToggle={() => toggleExpanded('io')}
-              badge={`${unifiedController?.moduleCount ?? 0}`}
+              badge={`${displayController?.moduleCount ?? 0}`}
             />
 
             {expanded.has('io') && controller && (
-              isNormalizedController(controller)
-                ? controller.modules.map((mod) => (
-                    <TreeItem
-                      key={mod.id}
-                      icon={Icons.ioModule}
-                      label={`Slot ${mod.slot ?? 0} - Module ${mod.id}`}
-                      depth={2}
-                      onClick={() => onIODeviceSelect?.(mod.id)}
-                    />
-                  ))
-                : controller.map_devices.map((device) => (
-                    <TreeItem
-                      key={device.module_id}
-                      icon={Icons.ioModule}
-                      label={`Slot ${device.slot_no} - Module ${device.module_id}`}
-                      depth={2}
-                      onClick={() => onIODeviceSelect?.(device.module_id)}
-                    />
-                  ))
+              controller.modules.map((mod) => (
+                <TreeItem
+                  key={mod.id}
+                  icon={Icons.ioModule}
+                  label={`Slot ${mod.slot ?? 0} - Module ${mod.id}`}
+                  depth={2}
+                  onClick={() => onIODeviceSelect?.(mod.id)}
+                />
+              ))
             )}
           </>
         )}

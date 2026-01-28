@@ -1,89 +1,25 @@
 import React, { useState, useMemo } from 'react';
-import type { Tag, NormalizedTag } from '../types';
-
-/**
- * Internal unified tag format used by TagTable
- */
-interface UnifiedTag {
-  name: string;
-  tagType: string;
-  dataType: string;
-  radix?: string;
-  externalAccess?: string;
-  description?: string;
-}
-
-/**
- * Check if a tag is in NormalizedTag format
- */
-function isNormalizedTag(tag: Tag | NormalizedTag): tag is NormalizedTag {
-  return 'tagType' in tag && 'dataType' in tag;
-}
-
-/**
- * Convert legacy Tag to unified format
- */
-function legacyTagToUnified(tag: Tag): UnifiedTag {
-  return {
-    name: tag.name,
-    tagType: tag.tag_type,
-    dataType: tag.data_type,
-    radix: tag.radix,
-    externalAccess: tag.external_access,
-  };
-}
-
-/**
- * Convert NormalizedTag to unified format
- */
-function normalizedTagToUnified(tag: NormalizedTag): UnifiedTag {
-  return {
-    name: tag.name,
-    tagType: tag.tagType,
-    dataType: tag.dataType,
-    radix: tag.radix,
-    externalAccess: tag.externalAccess,
-    description: tag.description,
-  };
-}
+import type { NormalizedTag } from '../types';
 
 export interface TagTableProps {
-  /** 
-   * Array of tags to display. 
-   * Accepts both legacy Tag[] and NormalizedTag[] formats.
-   */
-  tags: Tag[] | NormalizedTag[];
+  /** Array of tags to display */
+  tags: NormalizedTag[];
   /** Optional CSS class name */
   className?: string;
-  /** 
-   * Callback when a tag is selected.
-   * Returns the tag in unified format.
-   * @deprecated Use onNormalizedTagSelect for NormalizedTag callback
-   */
-  onTagSelect?: (tag: Tag | NormalizedTag) => void;
+  /** Callback when a tag is selected */
+  onTagSelect?: (tag: NormalizedTag) => void;
 }
 
 /**
  * React component that renders a sortable, filterable table of PLC tags.
- * Supports both legacy Tag[] and NormalizedTag[] formats.
  */
 export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
   const [filter, setFilter] = useState('');
-  const [sortBy, setSortBy] = useState<keyof UnifiedTag>('name');
+  const [sortBy, setSortBy] = useState<keyof NormalizedTag>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
-  // Convert all tags to unified format for internal processing
-  const unifiedTags = useMemo(() => {
-    return tags.map((tag) => {
-      if (isNormalizedTag(tag as Tag | NormalizedTag)) {
-        return normalizedTagToUnified(tag as NormalizedTag);
-      }
-      return legacyTagToUnified(tag as Tag);
-    });
-  }, [tags]);
-
   const filteredAndSorted = useMemo(() => {
-    let result = unifiedTags;
+    let result = tags;
 
     // Filter
     if (filter) {
@@ -106,9 +42,9 @@ export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
     });
 
     return result;
-  }, [unifiedTags, filter, sortBy, sortAsc]);
+  }, [tags, filter, sortBy, sortAsc]);
 
-  const handleSort = (column: keyof UnifiedTag) => {
+  const handleSort = (column: keyof NormalizedTag) => {
     if (sortBy === column) {
       setSortAsc(!sortAsc);
     } else {
@@ -117,22 +53,14 @@ export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
     }
   };
 
-  const getSortIndicator = (column: keyof UnifiedTag) => {
+  const getSortIndicator = (column: keyof NormalizedTag) => {
     if (sortBy !== column) return '';
     return sortAsc ? ' ▲' : ' ▼';
   };
 
-  // Find original tag by name for callback
-  const handleTagClick = (unifiedTag: UnifiedTag) => {
+  const handleTagClick = (tag: NormalizedTag) => {
     if (onTagSelect) {
-      const originalTag = tags.find((t) => 
-        isNormalizedTag(t as Tag | NormalizedTag) 
-          ? (t as NormalizedTag).name === unifiedTag.name 
-          : (t as Tag).name === unifiedTag.name
-      );
-      if (originalTag) {
-        onTagSelect(originalTag as Tag | NormalizedTag);
-      }
+      onTagSelect(tag);
     }
   };
 

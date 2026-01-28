@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { JSONParser, jsonParser } from '../../src/parsers/json';
 import { jsonToNormalized } from '../../src/parsers/json/json-to-normalized';
-import type { ControllerExport } from '../../src/types/controller';
 
 describe('JSONParser', () => {
   const validJson = {
@@ -167,7 +166,7 @@ describe('JSONParser', () => {
 
 describe('jsonToNormalized', () => {
   it('should convert external access formats', () => {
-    const data: ControllerExport = {
+    const data = {
       serial_number: '123',
       comm_path: 'path',
       sfc_execution_control: 'CurrentActive',
@@ -212,7 +211,7 @@ describe('jsonToNormalized', () => {
   });
 
   it('should parse dates correctly', () => {
-    const data: ControllerExport = {
+    const data = {
       serial_number: '123',
       comm_path: 'path',
       sfc_execution_control: 'CurrentActive',
@@ -234,7 +233,7 @@ describe('jsonToNormalized', () => {
   });
 
   it('should store vendor metadata', () => {
-    const data: ControllerExport = {
+    const data = {
       serial_number: '123',
       comm_path: 'path',
       sfc_execution_control: 'ExecuteUntilFalse',

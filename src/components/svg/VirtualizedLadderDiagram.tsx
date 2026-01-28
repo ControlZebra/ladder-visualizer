@@ -1,10 +1,8 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import type { 
   Instruction, 
-  Rung, 
   RungElement, 
   BranchGroup, 
-  ParsedRoutine,
   NormalizedRung,
   NormalizedRoutine,
 } from '../../types';
@@ -521,7 +519,7 @@ function calculateRungContentWidth(elements: RungElement[]): number {
  * Calculate complete rung layout
  */
 function calculateRungLayoutComplete(
-  rung: Rung,
+  rung: NormalizedRung,
   rungIndex: number,
   yOffset: number,
   leftRailX: number,
@@ -581,7 +579,7 @@ function calculateRungLayoutComplete(
 /**
  * Calculate the minimum diagram width based on all rung content
  */
-function calculateMinDiagramWidth(rungs: Rung[]): number {
+function calculateMinDiagramWidth(rungs: NormalizedRung[]): number {
   let maxContentWidth = 0;
   
   for (const rung of rungs) {
@@ -597,7 +595,7 @@ function calculateMinDiagramWidth(rungs: Rung[]): number {
 /**
  * Calculate layouts for all rungs (used for virtualization)
  */
-function calculateRungLayouts(rungs: Rung[], diagramWidth: number): RungLayout[] {
+function calculateRungLayouts(rungs: NormalizedRung[], diagramWidth: number): RungLayout[] {
   const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
   const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
   const layouts: RungLayout[] = [];
@@ -777,7 +775,7 @@ export function BranchRenderer({ branch, x, mainWireY }: BranchRendererProps) {
 }
 
 interface RungRendererProps {
-  rung: Rung;
+  rung: NormalizedRung;
   rungIndex: number;
   yOffset: number;
   diagramWidth: number;
@@ -862,7 +860,7 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
 // ============================================================================
 
 interface ScrollableRungRowProps {
-  rung: Rung;
+  rung: NormalizedRung;
   rungIndex: number;
   layout: RungLayout;
   containerWidth: number;
@@ -1186,22 +1184,11 @@ function ScrollableRungRow({ rung, rungIndex, layout, containerWidth, rowBg, cel
 // VIRTUALIZED LADDER DIAGRAM
 // ============================================================================
 
-/**
- * Unified rung type that works with both legacy Rung and NormalizedRung
- */
-type UnifiedRung = Rung | NormalizedRung;
-
 export interface VirtualizedLadderDiagramProps {
-  /** 
-   * Parsed routine to display. 
-   * Accepts both legacy ParsedRoutine and NormalizedRoutine.
-   */
-  routine?: ParsedRoutine | NormalizedRoutine;
-  /** 
-   * Array of rungs to display (alternative to routine prop).
-   * Accepts both legacy Rung[] and NormalizedRung[].
-   */
-  rungs?: Rung[] | NormalizedRung[];
+  /** Parsed routine to display */
+  routine?: NormalizedRoutine;
+  /** Array of rungs to display (alternative to routine prop) */
+  rungs?: NormalizedRung[];
   width?: number;
   height?: number;
   className?: string;
@@ -1219,7 +1206,7 @@ export function VirtualizedLadderDiagram({
   style,
   overscan = 3,
 }: VirtualizedLadderDiagramProps) {
-  const rungs = useMemo<UnifiedRung[]>(() => {
+  const rungs = useMemo<NormalizedRung[]>(() => {
     if (rungsProp) return rungsProp;
     if (routine) return routine.rungs;
     return [];

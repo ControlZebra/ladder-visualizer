@@ -1,11 +1,15 @@
-import type { Tag, DataType, ControllerExport, ParsedRoutine } from '../types';
-import { parseRoutine } from './routine-parser';
+import type { 
+  NormalizedTag, 
+  NormalizedDataType, 
+  NormalizedController, 
+  NormalizedRoutine 
+} from '../types';
 
 /**
  * Tag usage information - which rungs reference a tag
  */
 export interface TagUsage {
-  tag: Tag;
+  tag: NormalizedTag;
   /** Array of [programIndex, routineIndex, rungIndex] tuples */
   usages: Array<{ programIndex: number; routineIndex: number; rungIndex: number }>;
 }
@@ -14,11 +18,11 @@ export interface TagUsage {
  * TagResolver provides lookup and cross-reference capabilities for tags.
  */
 export class TagResolver {
-  private tagMap: Map<string, Tag>;
-  private dataTypeMap: Map<string, DataType>;
+  private tagMap: Map<string, NormalizedTag>;
+  private dataTypeMap: Map<string, NormalizedDataType>;
   private tagUsages: Map<string, TagUsage>;
 
-  constructor(private controller: ControllerExport) {
+  constructor(private controller: NormalizedController) {
     this.tagMap = new Map();
     this.dataTypeMap = new Map();
     this.tagUsages = new Map();
@@ -35,7 +39,7 @@ export class TagResolver {
   }
 
   private buildDataTypeMap(): void {
-    for (const dataType of this.controller.data_types) {
+    for (const dataType of this.controller.dataTypes) {
       this.dataTypeMap.set(dataType.name, dataType);
     }
   }
@@ -51,13 +55,12 @@ export class TagResolver {
       const program = this.controller.programs[pIdx];
       for (let rIdx = 0; rIdx < program.routines.length; rIdx++) {
         const routine = program.routines[rIdx];
-        const parsed = parseRoutine(routine);
-        this.scanRoutineForTags(parsed, pIdx, rIdx);
+        this.scanRoutineForTags(routine, pIdx, rIdx);
       }
     }
   }
 
-  private scanRoutineForTags(routine: ParsedRoutine, programIndex: number, routineIndex: number): void {
+  private scanRoutineForTags(routine: NormalizedRoutine, programIndex: number, routineIndex: number): void {
     for (let rungIdx = 0; rungIdx < routine.rungs.length; rungIdx++) {
       const rung = routine.rungs[rungIdx];
       for (const instruction of rung.instructions) {
@@ -79,36 +82,36 @@ export class TagResolver {
   /**
    * Get a tag by name.
    */
-  getTag(name: string): Tag | undefined {
+  getTag(name: string): NormalizedTag | undefined {
     return this.tagMap.get(name);
   }
 
   /**
    * Get all tags.
    */
-  getAllTags(): Tag[] {
+  getAllTags(): NormalizedTag[] {
     return Array.from(this.tagMap.values());
   }
 
   /**
    * Get a data type by name.
    */
-  getDataType(name: string): DataType | undefined {
+  getDataType(name: string): NormalizedDataType | undefined {
     return this.dataTypeMap.get(name);
   }
 
   /**
    * Get all data types.
    */
-  getAllDataTypes(): DataType[] {
+  getAllDataTypes(): NormalizedDataType[] {
     return Array.from(this.dataTypeMap.values());
   }
 
   /**
    * Get the data type definition for a tag.
    */
-  getTagDataType(tag: Tag): DataType | undefined {
-    return this.dataTypeMap.get(tag.data_type);
+  getTagDataType(tag: NormalizedTag): NormalizedDataType | undefined {
+    return this.dataTypeMap.get(tag.dataType);
   }
 
   /**
@@ -121,7 +124,7 @@ export class TagResolver {
   /**
    * Get tags that are used in at least one rung.
    */
-  getUsedTags(): Tag[] {
+  getUsedTags(): NormalizedTag[] {
     return Array.from(this.tagUsages.values())
       .filter((usage) => usage.usages.length > 0)
       .map((usage) => usage.tag);
@@ -130,7 +133,7 @@ export class TagResolver {
   /**
    * Get tags that are never referenced in any rung.
    */
-  getUnusedTags(): Tag[] {
+  getUnusedTags(): NormalizedTag[] {
     return Array.from(this.tagUsages.values())
       .filter((usage) => usage.usages.length === 0)
       .map((usage) => usage.tag);
@@ -138,8 +141,8 @@ export class TagResolver {
 }
 
 /**
- * Create a TagResolver for a controller export.
+ * Create a TagResolver for a controller.
  */
-export function createTagResolver(controller: ControllerExport): TagResolver {
+export function createTagResolver(controller: NormalizedController): TagResolver {
   return new TagResolver(controller);
 }

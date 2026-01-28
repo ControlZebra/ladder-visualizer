@@ -1,5 +1,5 @@
 // ============================================
-// New Unified API (Phase 1)
+// Unified Parsing API
 // ============================================
 
 // Unified parsing functions
@@ -49,11 +49,8 @@ export function registerDefaultParsers(): void {
 registerDefaultParsers();
 
 // ============================================
-// Legacy API (maintained for backwards compatibility)
+// Rung/Routine Utilities
 // ============================================
-
-// Controller Parser
-export { parseControllerExport, parseControllerExportString, ControllerParseError } from './controller-parser';
 
 // Rung Parser
 export { parseRung, parseRungs, parseRungWithBranches } from './rung-parser';
@@ -63,6 +60,3 @@ export { parseRoutine, parseRoutines } from './routine-parser';
 
 // Tag Resolver
 export { TagResolver, createTagResolver, type TagUsage } from './tag-resolver';
-
-// Schemas (for advanced use)
-export * from './schemas';

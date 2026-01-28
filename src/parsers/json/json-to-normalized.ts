@@ -1,8 +1,8 @@
-import type { ControllerExport } from '../../types/controller';
 import type {
   NormalizedController,
   NormalizedProgram,
   NormalizedRoutine,
+  NormalizedRoutineType,
   NormalizedRung,
   NormalizedTag,
   NormalizedDataType,
@@ -17,9 +17,67 @@ import type {
 import { parseRung, parseRungWithBranches } from '../rung-parser';
 
 /**
+ * Raw JSON format from Rockwell controller exports
+ */
+export interface RawControllerExport {
+  serial_number: string;
+  comm_path: string;
+  created_date: string;
+  modified_date: string;
+  sfc_execution_control?: string;
+  sfc_restart_position?: string;
+  sfc_last_scan?: string;
+  data_types: Array<{
+    name: string;
+    family: string;
+    cls: string;
+    members: Array<{
+      name: string;
+      data_type: string;
+      dimension: number;
+      radix: string;
+      hidden: boolean;
+      external_access: string;
+    }>;
+  }>;
+  tags: Array<{
+    name: string;
+    tag_type: string;
+    data_type: string;
+    radix: string;
+    external_access: string;
+  }>;
+  programs: Array<{
+    name?: string;
+    tags?: Array<{
+      name: string;
+      tag_type: string;
+      data_type: string;
+      radix: string;
+      external_access: string;
+    }>;
+    routines: Array<{
+      name: string;
+      type: string;
+      rungs: string[];
+    }>;
+  }>;
+  aois: Array<{ name: string }>;
+  map_devices: Array<{
+    module_id: number;
+    parent_module: number;
+    slot_no: number;
+    vendor_id: number;
+    product_type: number;
+    product_code: number;
+    comments: string[];
+  }>;
+}
+
+/**
  * Convert JSON ControllerExport to NormalizedController
  */
-export function jsonToNormalized(data: ControllerExport): NormalizedController {
+export function jsonToNormalized(data: RawControllerExport): NormalizedController {
   return {
     // Core metadata
     name: extractControllerName(data),
@@ -49,7 +107,7 @@ export function jsonToNormalized(data: ControllerExport): NormalizedController {
 /**
  * Extract controller name from serial number or path
  */
-function extractControllerName(data: ControllerExport): string {
+function extractControllerName(data: RawControllerExport): string {
   // Try to extract from comm_path or use serial number
   const pathParts = data.comm_path.split('/');
   if (pathParts.length > 0) {
@@ -76,7 +134,7 @@ function parseDate(dateString: string): Date | undefined {
 function normalizeDataType(dt: {
   name: string;
   family: string;
-  cls: 'ProductDefined' | 'User';
+  cls: string;
   members: Array<{
     name: string;
     data_type: string;
@@ -142,10 +200,10 @@ function normalizeExternalAccess(access: string): ExternalAccess {
 function normalizeTag(
   tag: {
     name: string;
-    tag_type: 'Base' | 'Alias' | 'Produced' | 'Consumed';
+    tag_type: string;
     data_type: string;
     radix: string;
-    external_access: 'Read/Write' | 'Read Only' | 'None';
+    external_access: string;
   },
   scope: TagScope,
   programName?: string
@@ -176,14 +234,14 @@ function normalizeProgram(
     name?: string;
     tags?: Array<{
       name: string;
-      tag_type: 'Base' | 'Alias' | 'Produced' | 'Consumed';
+      tag_type: string;
       data_type: string;
       radix: string;
-      external_access: 'Read/Write' | 'Read Only' | 'None';
+      external_access: string;
     }>;
     routines: Array<{
       name: string;
-      type: 'RLL' | 'FBD' | 'ST' | 'SFC';
+      type: string;
       rungs: string[];
     }>;
   },
@@ -203,12 +261,16 @@ function normalizeProgram(
  */
 function normalizeRoutine(routine: {
   name: string;
-  type: 'RLL' | 'FBD' | 'ST' | 'SFC';
+  type: string;
   rungs: string[];
 }): NormalizedRoutine {
+  const routineType = ['RLL', 'FBD', 'ST', 'SFC'].includes(routine.type) 
+    ? routine.type as NormalizedRoutineType 
+    : 'RLL';
+    
   return {
     name: routine.name,
-    type: routine.type,
+    type: routineType,
     rungs: routine.rungs.map((raw, index) => normalizeRung(raw, index)),
   };
 }

@@ -6,8 +6,7 @@ import {
   createFailureResult,
 } from '../parser-interface';
 import { createParseError, ParseErrorCodes } from '../parse-error';
-import { ControllerExportSchema } from '../schemas';
-import { jsonToNormalized } from './json-to-normalized';
+import { jsonToNormalized, type RawControllerExport } from './json-to-normalized';
 
 /**
  * Parser for Rockwell Automation JSON export format.
@@ -67,21 +66,20 @@ export class JSONParser extends BaseParser {
       ]);
     }
 
-    // Validate against schema
-    const result = ControllerExportSchema.safeParse(json);
-    if (!result.success) {
-      const errors = result.error.errors.map(e =>
-        createParseError(`${e.path.join('.')}: ${e.message}`, {
-          code: ParseErrorCodes.INVALID_FIELD_TYPE,
-          location: { path: e.path.join('.') },
-        })
-      );
-      return createFailureResult(errors);
+    // Basic validation - check for required fields
+    const missingFields = this.validateControllerExport(json);
+    if (missingFields.length > 0) {
+      return createFailureResult([
+        createParseError(
+          `Invalid controller export format - missing required fields: ${missingFields.join(', ')}`,
+          { code: ParseErrorCodes.MISSING_REQUIRED_FIELD }
+        ),
+      ]);
     }
 
     // Transform to normalized model
     try {
-      const normalized = jsonToNormalized(result.data);
+      const normalized = jsonToNormalized(json as RawControllerExport);
       return createSuccessResult(normalized);
     } catch (error) {
       return createFailureResult([
@@ -94,6 +92,35 @@ export class JSONParser extends BaseParser {
   }
 
   /**
+   * Basic runtime check for controller export format.
+   * Returns an array of missing field names, or empty array if valid.
+   */
+  private validateControllerExport(json: unknown): string[] {
+    const missingFields: string[] = [];
+    
+    if (typeof json !== 'object' || json === null) {
+      return ['root object'];
+    }
+    
+    const obj = json as Record<string, unknown>;
+    
+    if (typeof obj.serial_number !== 'string') {
+      missingFields.push('serial_number');
+    }
+    if (!Array.isArray(obj.programs)) {
+      missingFields.push('programs');
+    }
+    if (!Array.isArray(obj.tags)) {
+      missingFields.push('tags');
+    }
+    if (!Array.isArray(obj.data_types)) {
+      missingFields.push('data_types');
+    }
+    
+    return missingFields;
+  }
+
+  /**
    * Validate JSON without full parsing
    */
   validate(input: string | ArrayBuffer): ParseResult<void> {
@@ -101,16 +128,14 @@ export class JSONParser extends BaseParser {
 
     try {
       const json = JSON.parse(content);
-      const result = ControllerExportSchema.safeParse(json);
-
-      if (!result.success) {
-        const errors = result.error.errors.map(e =>
-          createParseError(`${e.path.join('.')}: ${e.message}`, {
-            code: ParseErrorCodes.INVALID_FIELD_TYPE,
-            location: { path: e.path.join('.') },
-          })
-        );
-        return createFailureResult(errors);
+      const missingFields = this.validateControllerExport(json);
+      if (missingFields.length > 0) {
+        return createFailureResult([
+          createParseError(
+            `Invalid controller export format - missing required fields: ${missingFields.join(', ')}`,
+            { code: ParseErrorCodes.MISSING_REQUIRED_FIELD }
+          ),
+        ]);
       }
 
       return createSuccessResult(undefined);

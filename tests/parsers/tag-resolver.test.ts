@@ -1,43 +1,48 @@
 import { describe, it, expect } from 'vitest';
 import { createTagResolver } from '../../src/parsers/tag-resolver';
-import type { ControllerExport } from '../../src/types';
+import { jsonToNormalized } from '../../src/parsers';
+import type { NormalizedController } from '../../src/types';
 
-const createTestController = (): ControllerExport => ({
-  serial_number: 'test',
-  comm_path: '',
-  sfc_execution_control: 'CurrentActive',
-  sfc_restart_position: 'MostRecent',
-  sfc_last_scan: 'DontScan',
-  created_date: '',
-  modified_date: '',
-  data_types: [
-    { name: 'BOOL', family: 'NoFamily', cls: 'ProductDefined', members: [] },
-    { name: 'INT', family: 'NoFamily', cls: 'ProductDefined', members: [] },
-    { name: 'REAL', family: 'NoFamily', cls: 'ProductDefined', members: [] },
-  ],
-  tags: [
-    { name: 'InputTag', tag_type: 'Base', data_type: 'BOOL', radix: 'Decimal', external_access: 'Read/Write' },
-    { name: 'OutputTag', tag_type: 'Base', data_type: 'BOOL', radix: 'Decimal', external_access: 'Read/Write' },
-    { name: 'UnusedTag', tag_type: 'Base', data_type: 'INT', radix: 'Decimal', external_access: 'Read/Write' },
-    { name: 'Temperature', tag_type: 'Base', data_type: 'REAL', radix: 'Float', external_access: 'Read/Write' },
-  ],
-  programs: [
-    {
-      routines: [
-        {
-          name: 'MainRoutine',
-          type: 'RLL',
-          rungs: [
-            'XIC(InputTag)OTE(OutputTag);',
-            'GEQ(Temperature,100)OTE(OutputTag);',
-          ],
-        },
-      ],
-    },
-  ],
-  aois: [],
-  map_devices: [],
-});
+const createTestController = (): NormalizedController => {
+  // Create a mock JSON structure that matches the expected format
+  const mockJson = {
+    serial_number: 'test',
+    comm_path: '',
+    sfc_execution_control: 'CurrentActive',
+    sfc_restart_position: 'MostRecent',
+    sfc_last_scan: 'DontScan',
+    created_date: '',
+    modified_date: '',
+    data_types: [
+      { name: 'BOOL', family: 'NoFamily', cls: 'ProductDefined', members: [] },
+      { name: 'INT', family: 'NoFamily', cls: 'ProductDefined', members: [] },
+      { name: 'REAL', family: 'NoFamily', cls: 'ProductDefined', members: [] },
+    ],
+    tags: [
+      { name: 'InputTag', tag_type: 'Base', data_type: 'BOOL', radix: 'Decimal', external_access: 'Read/Write' },
+      { name: 'OutputTag', tag_type: 'Base', data_type: 'BOOL', radix: 'Decimal', external_access: 'Read/Write' },
+      { name: 'UnusedTag', tag_type: 'Base', data_type: 'INT', radix: 'Decimal', external_access: 'Read/Write' },
+      { name: 'Temperature', tag_type: 'Base', data_type: 'REAL', radix: 'Float', external_access: 'Read/Write' },
+    ],
+    programs: [
+      {
+        routines: [
+          {
+            name: 'MainRoutine',
+            type: 'RLL',
+            rungs: [
+              'XIC(InputTag)OTE(OutputTag);',
+              'GEQ(Temperature,100)OTE(OutputTag);',
+            ],
+          },
+        ],
+      },
+    ],
+    aois: [],
+    map_devices: [],
+  };
+  return jsonToNormalized(mockJson);
+};
 
 describe('TagResolver', () => {
   it('should get tag by name', () => {
@@ -47,7 +52,7 @@ describe('TagResolver', () => {
     const tag = resolver.getTag('InputTag');
     expect(tag).toBeDefined();
     expect(tag?.name).toBe('InputTag');
-    expect(tag?.data_type).toBe('BOOL');
+    expect(tag?.dataType).toBe('BOOL');
   });
 
   it('should return undefined for unknown tag', () => {

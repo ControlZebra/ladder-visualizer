@@ -1,64 +1,23 @@
 import React, { useMemo } from 'react';
-import type { ControllerExport, NormalizedController } from '../types';
+import type { NormalizedController } from '../types';
 
-/**
- * Internal unified controller format used by ControllerInfo
- */
-interface UnifiedControllerInfo {
-  name: string;
-  serialNumber: string;
-  createdDate: string;
-  modifiedDate: string;
-  sfcExecution?: string;
-  tagCount: number;
-  dataTypeCount: number;
-  programCount: number;
-  routineCount: number;
-  rungCount: number;
-  moduleCount: number;
+export interface ControllerInfoProps {
+  /** Controller data */
+  controller: NormalizedController;
+  /** Optional CSS class name */
+  className?: string;
 }
 
 /**
- * Check if controller is in NormalizedController format
+ * React component that displays controller metadata.
  */
-function isNormalizedController(
-  controller: ControllerExport | NormalizedController
-): controller is NormalizedController {
-  return 'serialNumber' in controller || 'sourceFormat' in controller;
-}
-
-/**
- * Convert legacy ControllerExport to unified format
- */
-function legacyToUnified(controller: ControllerExport): UnifiedControllerInfo {
-  return {
-    name: controller.serial_number ? `Controller_${controller.serial_number.replace('16#', '').replace(/_/g, '')}` : 'Controller',
-    serialNumber: controller.serial_number,
-    createdDate: controller.created_date,
-    modifiedDate: controller.modified_date,
-    sfcExecution: controller.sfc_execution_control,
-    tagCount: controller.tags.length,
-    dataTypeCount: controller.data_types.length,
-    programCount: controller.programs.length,
-    routineCount: controller.programs.reduce((sum, p) => sum + p.routines.length, 0),
-    rungCount: controller.programs.reduce(
-      (sum, p) => sum + p.routines.reduce((rs, r) => rs + r.rungs.length, 0),
-      0
-    ),
-    moduleCount: controller.map_devices.length,
-  };
-}
-
-/**
- * Convert NormalizedController to unified format
- */
-function normalizedToUnified(controller: NormalizedController): UnifiedControllerInfo {
-  return {
+export function ControllerInfo({ controller, className = '' }: ControllerInfoProps) {
+  const info = useMemo(() => ({
     name: controller.name,
     serialNumber: controller.serialNumber || '-',
     createdDate: controller.createdDate?.toISOString().split('T')[0] || '-',
     modifiedDate: controller.modifiedDate?.toISOString().split('T')[0] || '-',
-    sfcExecution: undefined, // Not available in normalized format
+    vendor: controller.vendor,
     tagCount: controller.tags.length,
     dataTypeCount: controller.dataTypes.length,
     programCount: controller.programs.length,
@@ -68,31 +27,7 @@ function normalizedToUnified(controller: NormalizedController): UnifiedControlle
       0
     ),
     moduleCount: controller.modules.length,
-  };
-}
-
-export interface ControllerInfoProps {
-  /** 
-   * Controller data. 
-   * Accepts both legacy ControllerExport and NormalizedController formats.
-   */
-  controller: ControllerExport | NormalizedController;
-  /** Optional CSS class name */
-  className?: string;
-}
-
-/**
- * React component that displays controller metadata.
- * Supports both legacy ControllerExport and NormalizedController formats.
- */
-export function ControllerInfo({ controller, className = '' }: ControllerInfoProps) {
-  // Convert to unified format
-  const info = useMemo<UnifiedControllerInfo>(() => {
-    if (isNormalizedController(controller)) {
-      return normalizedToUnified(controller);
-    }
-    return legacyToUnified(controller);
-  }, [controller]);
+  }), [controller]);
 
   const cardStyle: React.CSSProperties = {
     padding: '16px',
@@ -165,12 +100,10 @@ export function ControllerInfo({ controller, className = '' }: ControllerInfoPro
           <div style={valueStyle}>{info.modifiedDate}</div>
         </div>
 
-        {info.sfcExecution && (
-          <div>
-            <div style={labelStyle}>SFC Execution</div>
-            <div style={valueStyle}>{info.sfcExecution}</div>
-          </div>
-        )}
+        <div>
+          <div style={labelStyle}>Vendor</div>
+          <div style={valueStyle}>{info.vendor}</div>
+        </div>
       </div>
 
       <h3 style={{ marginTop: '24px', marginBottom: '12px', fontSize: '16px' }}>
