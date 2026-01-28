@@ -12,135 +12,96 @@ export interface ControllerInfoProps {
  * React component that displays controller metadata.
  */
 export function ControllerInfo({ controller, className = '' }: ControllerInfoProps) {
-  const info = useMemo(() => ({
-    name: controller.name,
-    serialNumber: controller.serialNumber || '-',
-    createdDate: controller.createdDate?.toISOString().split('T')[0] || '-',
-    modifiedDate: controller.modifiedDate?.toISOString().split('T')[0] || '-',
-    vendor: controller.vendor,
-    tagCount: controller.tags.length,
-    dataTypeCount: controller.dataTypes.length,
-    programCount: controller.programs.length,
-    routineCount: controller.programs.reduce((sum, p) => sum + p.routines.length, 0),
-    rungCount: controller.programs.reduce(
-      (sum, p) => sum + p.routines.reduce((rs, r) => rs + r.rungs.length, 0),
-      0
-    ),
-    moduleCount: controller.modules.length,
-  }), [controller]);
+  const info = useMemo(() => {
+    const vendorMeta = controller.vendorMetadata || {};
+    
+    // Get main routine name from first program
+    const mainRoutineName = controller.programs.length > 0
+      ? controller.programs[0].mainRoutineName
+      : undefined;
+    
+    return {
+      name: controller.name,
+      description: controller.description || '',
+      serialNumber: controller.serialNumber || '',
+      createdDate: controller.createdDate?.toLocaleString() || '',
+      modifiedDate: controller.modifiedDate?.toLocaleString() || '',
+      // L5X-specific attributes
+      softwareRevision: (vendorMeta.softwareRevision as string) || '',
+      exportDate: (vendorMeta.exportDate as string) || '',
+      targetName: (vendorMeta.targetName as string) || '',
+      processorType: (vendorMeta.processorType as string) || '',
+      targetType: (vendorMeta.targetType as string) || '',
+      targetClass: (vendorMeta.targetClass as string) || '',
+      mainRoutineName: mainRoutineName || '',
+      firmwareRevision: vendorMeta.majorRev && vendorMeta.minorRev
+        ? `${vendorMeta.majorRev}.${vendorMeta.minorRev}`
+        : '',
+      // Counts
+      tagCount: controller.tags.length,
+      dataTypeCount: controller.dataTypes.length,
+      programCount: controller.programs.length,
+      routineCount: controller.programs.reduce((sum, p) => sum + p.routines.length, 0),
+      aoiCount: controller.aois.length,
+      moduleCount: controller.modules.length,
+    };
+  }, [controller]);
 
   const cardStyle: React.CSSProperties = {
     padding: '16px',
     backgroundColor: '#fff',
     border: '1px solid #e0e0e0',
-    borderRadius: '8px',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: '12px',
-    color: '#666',
-    marginBottom: '4px',
-  };
-
-  const valueStyle: React.CSSProperties = {
-    fontSize: '14px',
-    fontWeight: 500,
-    marginBottom: '12px',
-  };
-
-  const gridStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '16px',
-  };
-
-  const statStyle: React.CSSProperties = {
-    textAlign: 'center',
-    padding: '12px',
-    backgroundColor: '#f5f5f5',
     borderRadius: '4px',
   };
 
-  const statValueStyle: React.CSSProperties = {
-    fontSize: '24px',
-    fontWeight: 'bold',
+  const rowStyle: React.CSSProperties = {
+    display: 'flex',
+    marginBottom: '4px',
+    fontSize: '13px',
+    lineHeight: '1.6',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    minWidth: '140px',
     color: '#333',
   };
 
-  const statLabelStyle: React.CSSProperties = {
-    fontSize: '12px',
-    color: '#666',
-    marginTop: '4px',
+  const valueStyle: React.CSSProperties = {
+    color: '#000',
   };
+
+  const Property = ({ label, value }: { label: string; value: string | number }) => (
+    <div style={rowStyle}>
+      <span style={labelStyle}>{label}:</span>
+      <span style={valueStyle}>{value}</span>
+    </div>
+  );
 
   return (
     <div className={`controller-info ${className}`} style={cardStyle}>
-      <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>
-        Controller Information
-      </h2>
-
-      <div style={gridStyle}>
-        <div>
-          <div style={labelStyle}>Name</div>
-          <div style={valueStyle}>{info.name}</div>
-        </div>
-
-        <div>
-          <div style={labelStyle}>Serial Number</div>
-          <div style={valueStyle}>{info.serialNumber}</div>
-        </div>
-
-        <div>
-          <div style={labelStyle}>Created</div>
-          <div style={valueStyle}>{info.createdDate}</div>
-        </div>
-
-        <div>
-          <div style={labelStyle}>Modified</div>
-          <div style={valueStyle}>{info.modifiedDate}</div>
-        </div>
-
-        <div>
-          <div style={labelStyle}>Vendor</div>
-          <div style={valueStyle}>{info.vendor}</div>
-        </div>
-      </div>
-
-      <h3 style={{ marginTop: '24px', marginBottom: '12px', fontSize: '16px' }}>
-        Statistics
+      <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '14px', fontWeight: 'normal' }}>
+        Project Properties
       </h3>
 
-      <div style={{ ...gridStyle, gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
-        <div style={statStyle}>
-          <div style={statValueStyle}>{info.tagCount}</div>
-          <div style={statLabelStyle}>Tags</div>
-        </div>
-
-        <div style={statStyle}>
-          <div style={statValueStyle}>{info.dataTypeCount}</div>
-          <div style={statLabelStyle}>Data Types</div>
-        </div>
-
-        <div style={statStyle}>
-          <div style={statValueStyle}>{info.programCount}</div>
-          <div style={statLabelStyle}>Programs</div>
-        </div>
-
-        <div style={statStyle}>
-          <div style={statValueStyle}>{info.routineCount}</div>
-          <div style={statLabelStyle}>Routines</div>
-        </div>
-
-        <div style={statStyle}>
-          <div style={statValueStyle}>{info.rungCount}</div>
-          <div style={statLabelStyle}>Rungs</div>
-        </div>
-
-        <div style={statStyle}>
-          <div style={statValueStyle}>{info.moduleCount}</div>
-          <div style={statLabelStyle}>I/O Modules</div>
-        </div>
-      </div>
+      <Property label="Name" value={info.name} />
+      {info.description && <Property label="Description" value={info.description} />}
+      <Property label="Created" value={info.createdDate} />
+      <Property label="Last Modified" value={info.modifiedDate} />
+      <Property label="Processor Type" value={info.processorType} />
+      <Property label="Target Name" value={info.targetName} />
+      <Property label="Target Type" value={info.targetType} />
+      <Property label="Target Class" value={info.targetClass} />
+      <Property label="Software Revision" value={info.softwareRevision} />
+      {info.firmwareRevision && <Property label="Firmware Revision" value={info.firmwareRevision} />}
+      <Property label="Serial Number" value={info.serialNumber} />
+      <Property label="Export Date" value={info.exportDate} />
+      <Property label="Main Routine" value={info.mainRoutineName} />
+      <Property label="Programs" value={info.programCount} />
+      <Property label="Routines" value={info.routineCount} />
+      <Property label="Tags" value={info.tagCount} />
+      <Property label="Data Types" value={info.dataTypeCount} />
+      <Property label="AOIs" value={info.aoiCount} />
+      <Property label="I/O Modules" value={info.moduleCount} />
     </div>
   );
 }
