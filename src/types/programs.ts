@@ -3,6 +3,8 @@ import { Tag } from './tags';
 
 /**
  * A single rung in a ladder logic routine
+ * @deprecated Use NormalizedRung instead. This type will be removed in a future version.
+ * @see NormalizedRung for the new vendor-agnostic format
  */
 export interface Rung {
   /** Original raw rung string from the export */
@@ -15,11 +17,14 @@ export interface Rung {
 
 /**
  * Routine type
+ * @deprecated Use NormalizedRoutineType instead.
  */
 export type RoutineType = 'RLL' | 'FBD' | 'ST' | 'SFC';
 
 /**
  * A routine within a program (contains rungs for RLL type)
+ * @deprecated Use NormalizedRoutine instead. This type will be removed in a future version.
+ * @see NormalizedRoutine for the new vendor-agnostic format
  */
 export interface Routine {
   name: string;
@@ -30,6 +35,8 @@ export interface Routine {
 
 /**
  * A parsed routine with instructions extracted
+ * @deprecated Use NormalizedRoutine instead. This type will be removed in a future version.
+ * @see NormalizedRoutine for the new vendor-agnostic format
  */
 export interface ParsedRoutine {
   name: string;
@@ -39,6 +46,8 @@ export interface ParsedRoutine {
 
 /**
  * A program containing routines
+ * @deprecated Use NormalizedProgram instead. This type will be removed in a future version.
+ * @see NormalizedProgram for the new vendor-agnostic format
  */
 export interface Program {
   /** Program name (optional in some exports) */

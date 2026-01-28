@@ -1,5 +1,7 @@
 /**
  * Member of a PLC data type structure
+ * @deprecated Use NormalizedDataTypeMember instead. This type will be removed in a future version.
+ * @see NormalizedDataTypeMember for the new vendor-agnostic format
  */
 export interface DataTypeMember {
   name: string;
@@ -12,6 +14,8 @@ export interface DataTypeMember {
 
 /**
  * PLC Data Type definition (BOOL, INT, TIMER, custom types, etc.)
+ * @deprecated Use NormalizedDataType instead. This type will be removed in a future version.
+ * @see NormalizedDataType for the new vendor-agnostic format
  */
 export interface DataType {
   name: string;

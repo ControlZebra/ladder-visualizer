@@ -1,5 +1,13 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import type { Instruction, Rung, RungElement, BranchGroup, ParsedRoutine } from '../../types';
+import type { 
+  Instruction, 
+  Rung, 
+  RungElement, 
+  BranchGroup, 
+  ParsedRoutine,
+  NormalizedRung,
+  NormalizedRoutine,
+} from '../../types';
 import { isBranchGroup } from '../../types';
 import { ContactSymbol } from './ContactSymbol';
 import { CoilSymbol } from './CoilSymbol';
@@ -1178,9 +1186,22 @@ function ScrollableRungRow({ rung, rungIndex, layout, containerWidth, rowBg, cel
 // VIRTUALIZED LADDER DIAGRAM
 // ============================================================================
 
+/**
+ * Unified rung type that works with both legacy Rung and NormalizedRung
+ */
+type UnifiedRung = Rung | NormalizedRung;
+
 export interface VirtualizedLadderDiagramProps {
-  routine?: ParsedRoutine;
-  rungs?: Rung[];
+  /** 
+   * Parsed routine to display. 
+   * Accepts both legacy ParsedRoutine and NormalizedRoutine.
+   */
+  routine?: ParsedRoutine | NormalizedRoutine;
+  /** 
+   * Array of rungs to display (alternative to routine prop).
+   * Accepts both legacy Rung[] and NormalizedRung[].
+   */
+  rungs?: Rung[] | NormalizedRung[];
   width?: number;
   height?: number;
   className?: string;
@@ -1198,7 +1219,7 @@ export function VirtualizedLadderDiagram({
   style,
   overscan = 3,
 }: VirtualizedLadderDiagramProps) {
-  const rungs = useMemo(() => {
+  const rungs = useMemo<UnifiedRung[]>(() => {
     if (rungsProp) return rungsProp;
     if (routine) return routine.rungs;
     return [];

@@ -5,21 +5,25 @@ import { MapDevice } from './devices';
 
 /**
  * SFC Execution Control options
+ * @deprecated Use NormalizedController instead. This type will be removed in a future version.
  */
 export type SfcExecutionControl = 'CurrentActive' | 'ExecuteUntilFalse';
 
 /**
  * SFC Restart Position options
+ * @deprecated Use NormalizedController instead. This type will be removed in a future version.
  */
 export type SfcRestartPosition = 'MostRecent' | 'InitialStep';
 
 /**
  * SFC Last Scan options
+ * @deprecated Use NormalizedController instead. This type will be removed in a future version.
  */
 export type SfcLastScan = 'DontScan' | 'ProgrammaticReset';
 
 /**
  * Add-On Instruction definition
+ * @deprecated Use NormalizedAOI instead. This type will be removed in a future version.
  */
 export interface AOI {
   name: string;
@@ -28,6 +32,8 @@ export interface AOI {
 
 /**
  * Root interface for the controller JSON export
+ * @deprecated Use NormalizedController instead. This type will be removed in a future version.
+ * @see NormalizedController for the new vendor-agnostic format
  */
 export interface ControllerExport {
   serial_number: string;

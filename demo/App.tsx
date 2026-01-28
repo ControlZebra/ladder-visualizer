@@ -15,8 +15,9 @@ import type {
   DataType,
   NormalizedController,
   NormalizedRoutine,
-  NormalizedTag,
   NormalizedDataType,
+  NormalizedTag,
+  Tag,
 } from '../src';
 import { DataTypeTable } from './DataTypeTable';
 
@@ -30,28 +31,11 @@ type MainViewType = 'routine' | 'controller-tags' | 'program-tags' | 'controller
 type DataSource = 'demo' | 'file';
 
 // Unified controller type that can handle both legacy and normalized data
-interface UnifiedController {
+interface UnifiedAppController {
   source: DataSource;
   legacy?: ControllerExport;
   normalized?: NormalizedController;
   fileName?: string;
-}
-
-/**
- * Convert NormalizedTag to legacy Tag format for TagTable compatibility
- */
-function normalizedTagToLegacy(tag: NormalizedTag): { 
-  name: string; 
-  data_type: string; 
-  tag_type: string;
-  description?: string;
-} {
-  return {
-    name: tag.name,
-    data_type: tag.dataType,
-    tag_type: tag.tagType,
-    description: tag.description,
-  };
 }
 
 /**
@@ -73,24 +57,9 @@ function normalizedDataTypeToLegacy(dt: NormalizedDataType): DataType {
   };
 }
 
-/**
- * Convert NormalizedRoutine to ParsedRoutine format for VirtualizedLadderDiagram
- */
-function normalizedRoutineToParsed(routine: NormalizedRoutine): ParsedRoutine {
-  return {
-    name: routine.name,
-    type: routine.type,
-    rungs: routine.rungs.map(rung => ({
-      raw: rung.raw,
-      instructions: rung.instructions,
-      elements: rung.elements,
-    })),
-  };
-}
-
 export default function App() {
   // Unified controller state that handles both legacy and normalized data
-  const [unifiedController, setUnifiedController] = useState<UnifiedController | null>(null);
+  const [unifiedController, setUnifiedController] = useState<UnifiedAppController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<{
@@ -186,59 +155,21 @@ export default function App() {
     }
   }, []);
 
-  // Get controller for legacy components (adapter)
-  const legacyController: ControllerExport | null = useMemo(() => {
+  // Get the active controller (either legacy or normalized)
+  // Components now support both types directly!
+  const activeController: ControllerExport | NormalizedController | null = useMemo(() => {
     if (!unifiedController) return null;
-    
-    if (unifiedController.source === 'demo' && unifiedController.legacy) {
-      return unifiedController.legacy;
-    }
-    
-    // Convert normalized to legacy format for ProgramNavigator and ControllerInfo
-    if (unifiedController.source === 'file' && unifiedController.normalized) {
-      const normalized = unifiedController.normalized;
-      return {
-        serial_number: normalized.serialNumber || '',
-        comm_path: normalized.commPath || '',
-        created_date: normalized.createdDate?.toISOString() || '',
-        modified_date: normalized.modifiedDate?.toISOString() || '',
-        sfc_execution_control: 'CurrentActive',
-        sfc_restart_position: 'MostRecent',
-        sfc_last_scan: 'DontScan',
-        data_types: normalized.dataTypes.map(normalizedDataTypeToLegacy),
-        tags: normalized.tags.map(normalizedTagToLegacy) as ControllerExport['tags'],
-        aois: normalized.aois.map(aoi => ({
-          name: aoi.name,
-          description: aoi.description,
-          revision: aoi.revision,
-          vendor: aoi.vendor,
-        })),
-        map_devices: normalized.modules.map(mod => ({
-          module_id: mod.id,
-          parent_module: mod.parentId ?? 0,
-          slot_no: mod.slot ?? 0,
-          vendor_id: mod.vendorId ?? 0,
-          product_type: mod.productType ?? 0,
-          product_code: mod.productCode ?? 0,
-          comments: mod.comments ?? [],
-        })),
-        programs: normalized.programs.map(prog => ({
-          name: prog.name,
-          tags: prog.tags.map(normalizedTagToLegacy) as ControllerExport['tags'],
-          routines: prog.routines.map(routine => ({
-            name: routine.name,
-            type: routine.type,
-            rungs: routine.rungs.map(r => r.raw),
-          })),
-        })),
-      };
-    }
-    
-    return null;
+    return unifiedController.legacy ?? unifiedController.normalized ?? null;
   }, [unifiedController]);
 
-  // Parse the selected routine
-  const parsedRoutine: ParsedRoutine | null = useMemo(() => {
+  // Get controller tags (works with both types)
+  const controllerTags: Tag[] | NormalizedTag[] = useMemo(() => {
+    if (!activeController) return [];
+    return activeController.tags;
+  }, [activeController]);
+
+  // Parse the selected routine - now returns either ParsedRoutine or NormalizedRoutine
+  const parsedRoutine: ParsedRoutine | NormalizedRoutine | null = useMemo(() => {
     if (!unifiedController || !selectedRoutine) return null;
     
     if (unifiedController.source === 'demo' && unifiedController.legacy) {
@@ -250,25 +181,30 @@ export default function App() {
     if (unifiedController.source === 'file' && unifiedController.normalized) {
       const routine = unifiedController.normalized.programs[selectedRoutine.programIndex]?.routines[selectedRoutine.routineIndex];
       if (!routine) return null;
-      return normalizedRoutineToParsed(routine);
+      // NormalizedRoutine is directly compatible with VirtualizedLadderDiagram!
+      return routine;
     }
     
     return null;
   }, [unifiedController, selectedRoutine]);
 
   // Get program tags if viewing program tags - memoized to prevent recalculation
-  const programTags = useMemo(() => {
-    if (selectedProgramIndex === null || !legacyController) return [];
-    return legacyController.programs[selectedProgramIndex]?.tags || [];
-  }, [legacyController, selectedProgramIndex]);
+  const programTags: Tag[] | NormalizedTag[] = useMemo(() => {
+    if (selectedProgramIndex === null || !activeController) return [];
+    const program = activeController.programs[selectedProgramIndex];
+    if (!program) return [];
+    return program.tags ?? [];
+  }, [activeController, selectedProgramIndex]);
 
   // Get program name
   const programName = useMemo(() => {
-    if (selectedProgramIndex === null) return '';
-    return selectedProgramIndex === 0 ? 'MainProgram' : `Program_${selectedProgramIndex + 1}`;
-  }, [selectedProgramIndex]);
+    if (selectedProgramIndex === null || !activeController) return '';
+    const program = activeController.programs[selectedProgramIndex];
+    if (!program) return '';
+    return program.name ?? (selectedProgramIndex === 0 ? 'MainProgram' : `Program_${selectedProgramIndex + 1}`);
+  }, [activeController, selectedProgramIndex]);
 
-  const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: Routine) => {
+  const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: Routine | NormalizedRoutine) => {
     setSelectedRoutine({ programIndex, routineIndex });
     setMainViewType('routine'); // Switch to routine view when selecting a routine
   }, []);
@@ -286,14 +222,29 @@ export default function App() {
     setMainViewType('controller-info');
   }, []);
 
-  const handleDataTypeSelect = useCallback((dataType: DataType) => {
-    setSelectedDataType(dataType);
+  const handleDataTypeSelect = useCallback((dataType: DataType | NormalizedDataType) => {
+    // Convert NormalizedDataType to legacy format for DataTypeTable (which only accepts legacy)
+    if ('class' in dataType) {
+      setSelectedDataType(normalizedDataTypeToLegacy(dataType));
+    } else {
+      setSelectedDataType(dataType);
+    }
     setMainViewType('data-type');
   }, []);
 
+  // Get all data types for DataTypeTable
+  const allDataTypes: DataType[] = useMemo(() => {
+    if (!activeController) return [];
+    if ('data_types' in activeController) {
+      return activeController.data_types;
+    }
+    // Convert normalized data types to legacy format for DataTypeTable
+    return activeController.dataTypes.map(normalizedDataTypeToLegacy);
+  }, [activeController]);
+
   // Render main content based on view type
   const renderMainContent = () => {
-    if (!legacyController) return null;
+    if (!activeController) return null;
 
     switch (mainViewType) {
       case 'controller-tags':
@@ -301,10 +252,10 @@ export default function App() {
           <>
             <div style={styles.routineTitle}>
               <span style={{ fontWeight: 600 }}>Controller Tags</span>
-              <span style={styles.routineCount}>{legacyController.tags.length} tags</span>
+              <span style={styles.routineCount}>{controllerTags.length} tags</span>
             </div>
             <div style={styles.infoPanelContent}>
-              <TagTable tags={legacyController.tags} />
+              <TagTable tags={controllerTags} />
             </div>
           </>
         );
@@ -331,7 +282,7 @@ export default function App() {
               <span style={{ fontWeight: 600 }}>Controller Info</span>
             </div>
             <div style={styles.infoPanelContent}>
-              <ControllerInfo controller={legacyController} />
+              <ControllerInfo controller={activeController} />
             </div>
           </>
         );
@@ -343,7 +294,7 @@ export default function App() {
                 <span style={{ fontWeight: 600 }}>Data Type: {selectedDataType.name}</span>
               </div>
               <div style={styles.infoPanelContent}>
-                <DataTypeTable dataType={selectedDataType} allDataTypes={legacyController.data_types} />
+                <DataTypeTable dataType={selectedDataType} allDataTypes={allDataTypes} />
               </div>
             </>
           );
@@ -396,13 +347,16 @@ export default function App() {
     );
   }
 
-  if (!legacyController || isLoading) {
+  if (!activeController || isLoading) {
     return (
       <div style={styles.loadingContainer}>
         <p>{isLoading ? 'Parsing file...' : 'Loading controller data...'}</p>
       </div>
     );
   }
+
+  // Get programs array (works with both legacy and normalized)
+  const programs = activeController.programs;
 
   return (
     <div style={styles.app}>
@@ -441,8 +395,8 @@ export default function App() {
           {/* Sidebar */}
           <aside style={styles.sidebar}>
             <ProgramNavigator
-              controller={legacyController}
-              programs={legacyController.programs}
+              controller={activeController}
+              programs={programs}
               selectedRoutine={selectedRoutine ?? undefined}
               onRoutineSelect={handleRoutineSelect}
               onControllerTagsSelect={handleControllerTagsSelect}

@@ -1,25 +1,89 @@
 import React, { useState, useMemo } from 'react';
-import type { Tag } from '../types';
+import type { Tag, NormalizedTag } from '../types';
+
+/**
+ * Internal unified tag format used by TagTable
+ */
+interface UnifiedTag {
+  name: string;
+  tagType: string;
+  dataType: string;
+  radix?: string;
+  externalAccess?: string;
+  description?: string;
+}
+
+/**
+ * Check if a tag is in NormalizedTag format
+ */
+function isNormalizedTag(tag: Tag | NormalizedTag): tag is NormalizedTag {
+  return 'tagType' in tag && 'dataType' in tag;
+}
+
+/**
+ * Convert legacy Tag to unified format
+ */
+function legacyTagToUnified(tag: Tag): UnifiedTag {
+  return {
+    name: tag.name,
+    tagType: tag.tag_type,
+    dataType: tag.data_type,
+    radix: tag.radix,
+    externalAccess: tag.external_access,
+  };
+}
+
+/**
+ * Convert NormalizedTag to unified format
+ */
+function normalizedTagToUnified(tag: NormalizedTag): UnifiedTag {
+  return {
+    name: tag.name,
+    tagType: tag.tagType,
+    dataType: tag.dataType,
+    radix: tag.radix,
+    externalAccess: tag.externalAccess,
+    description: tag.description,
+  };
+}
 
 export interface TagTableProps {
-  /** Array of tags to display */
-  tags: Tag[];
+  /** 
+   * Array of tags to display. 
+   * Accepts both legacy Tag[] and NormalizedTag[] formats.
+   */
+  tags: Tag[] | NormalizedTag[];
   /** Optional CSS class name */
   className?: string;
-  /** Callback when a tag is selected */
-  onTagSelect?: (tag: Tag) => void;
+  /** 
+   * Callback when a tag is selected.
+   * Returns the tag in unified format.
+   * @deprecated Use onNormalizedTagSelect for NormalizedTag callback
+   */
+  onTagSelect?: (tag: Tag | NormalizedTag) => void;
 }
 
 /**
  * React component that renders a sortable, filterable table of PLC tags.
+ * Supports both legacy Tag[] and NormalizedTag[] formats.
  */
 export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
   const [filter, setFilter] = useState('');
-  const [sortBy, setSortBy] = useState<keyof Tag>('name');
+  const [sortBy, setSortBy] = useState<keyof UnifiedTag>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
+  // Convert all tags to unified format for internal processing
+  const unifiedTags = useMemo(() => {
+    return tags.map((tag) => {
+      if (isNormalizedTag(tag as Tag | NormalizedTag)) {
+        return normalizedTagToUnified(tag as NormalizedTag);
+      }
+      return legacyTagToUnified(tag as Tag);
+    });
+  }, [tags]);
+
   const filteredAndSorted = useMemo(() => {
-    let result = tags;
+    let result = unifiedTags;
 
     // Filter
     if (filter) {
@@ -27,24 +91,24 @@ export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
       result = result.filter(
         (tag) =>
           tag.name.toLowerCase().includes(lowerFilter) ||
-          tag.data_type.toLowerCase().includes(lowerFilter) ||
-          tag.tag_type.toLowerCase().includes(lowerFilter)
+          tag.dataType.toLowerCase().includes(lowerFilter) ||
+          tag.tagType.toLowerCase().includes(lowerFilter)
       );
     }
 
     // Sort
     result = [...result].sort((a, b) => {
-      const aVal = a[sortBy];
-      const bVal = b[sortBy];
+      const aVal = a[sortBy] ?? '';
+      const bVal = b[sortBy] ?? '';
       if (aVal < bVal) return sortAsc ? -1 : 1;
       if (aVal > bVal) return sortAsc ? 1 : -1;
       return 0;
     });
 
     return result;
-  }, [tags, filter, sortBy, sortAsc]);
+  }, [unifiedTags, filter, sortBy, sortAsc]);
 
-  const handleSort = (column: keyof Tag) => {
+  const handleSort = (column: keyof UnifiedTag) => {
     if (sortBy === column) {
       setSortAsc(!sortAsc);
     } else {
@@ -53,9 +117,23 @@ export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
     }
   };
 
-  const getSortIndicator = (column: keyof Tag) => {
+  const getSortIndicator = (column: keyof UnifiedTag) => {
     if (sortBy !== column) return '';
     return sortAsc ? ' ▲' : ' ▼';
+  };
+
+  // Find original tag by name for callback
+  const handleTagClick = (unifiedTag: UnifiedTag) => {
+    if (onTagSelect) {
+      const originalTag = tags.find((t) => 
+        isNormalizedTag(t as Tag | NormalizedTag) 
+          ? (t as NormalizedTag).name === unifiedTag.name 
+          : (t as Tag).name === unifiedTag.name
+      );
+      if (originalTag) {
+        onTagSelect(originalTag as Tag | NormalizedTag);
+      }
+    }
   };
 
   const headerStyle: React.CSSProperties = {
@@ -106,17 +184,17 @@ export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
               <th style={headerStyle} onClick={() => handleSort('name')}>
                 Name{getSortIndicator('name')}
               </th>
-              <th style={headerStyle} onClick={() => handleSort('tag_type')}>
-                Type{getSortIndicator('tag_type')}
+              <th style={headerStyle} onClick={() => handleSort('tagType')}>
+                Type{getSortIndicator('tagType')}
               </th>
-              <th style={headerStyle} onClick={() => handleSort('data_type')}>
-                Data Type{getSortIndicator('data_type')}
+              <th style={headerStyle} onClick={() => handleSort('dataType')}>
+                Data Type{getSortIndicator('dataType')}
               </th>
               <th style={headerStyle} onClick={() => handleSort('radix')}>
                 Radix{getSortIndicator('radix')}
               </th>
-              <th style={headerStyle} onClick={() => handleSort('external_access')}>
-                Access{getSortIndicator('external_access')}
+              <th style={headerStyle} onClick={() => handleSort('externalAccess')}>
+                Access{getSortIndicator('externalAccess')}
               </th>
             </tr>
           </thead>
@@ -125,7 +203,7 @@ export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
               <tr
                 key={tag.name}
                 style={rowStyle}
-                onClick={() => onTagSelect?.(tag)}
+                onClick={() => handleTagClick(tag)}
                 onMouseEnter={(e) => {
                   if (onTagSelect) {
                     e.currentTarget.style.backgroundColor = '#f0f7ff';
@@ -136,10 +214,10 @@ export function TagTable({ tags, className = '', onTagSelect }: TagTableProps) {
                 }}
               >
                 <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{tag.name}</td>
-                <td style={cellStyle}>{tag.tag_type}</td>
-                <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{tag.data_type}</td>
-                <td style={cellStyle}>{tag.radix}</td>
-                <td style={cellStyle}>{tag.external_access}</td>
+                <td style={cellStyle}>{tag.tagType}</td>
+                <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{tag.dataType}</td>
+                <td style={cellStyle}>{tag.radix ?? '-'}</td>
+                <td style={cellStyle}>{tag.externalAccess ?? '-'}</td>
               </tr>
             ))}
           </tbody>
