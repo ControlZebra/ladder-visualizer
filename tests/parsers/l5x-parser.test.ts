@@ -472,4 +472,84 @@ describe('L5XParser with real L5X file', () => {
     expect(onsTag?.dataType).toBe('BOOL');
     expect(onsTag?.dimensions).toBe(32);
   });
+
+  it('should correctly extract controller name and metadata from Program export', () => {
+    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+    let content: string;
+    
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      console.log('Skipping test: example L5X file not found');
+      return;
+    }
+
+    const result = l5xParser.parse(content);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+
+    // Controller name should be extracted from Controller element
+    expect(result.data?.name).toBe('PLC100_Mashing');
+    
+    // Vendor metadata should include both controller name and target name
+    expect(result.data?.vendorMetadata?.controllerName).toBe('PLC100_Mashing');
+    expect(result.data?.vendorMetadata?.targetName).toBe('Cooker_1_AutoLogic');
+    expect(result.data?.vendorMetadata?.targetType).toBe('Program');
+  });
+
+  it('should parse data types with usage context information', () => {
+    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+    let content: string;
+    
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      console.log('Skipping test: example L5X file not found');
+      return;
+    }
+
+    const result = l5xParser.parse(content);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+
+    // Data types from context should have usage set to 'Context'
+    const analogValveUDT = result.data?.dataTypes.find(dt => dt.name === 'Analog_Valve_UDT');
+    expect(analogValveUDT).toBeDefined();
+    expect(analogValveUDT?.class).toBe('User');
+    expect(analogValveUDT?.usage).toBe('Context');
+  });
+
+  it('should parse modules with name and usage information', () => {
+    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+    let content: string;
+    
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      console.log('Skipping test: example L5X file not found');
+      return;
+    }
+
+    const result = l5xParser.parse(content);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+
+    // Should have modules
+    expect(result.data?.modules.length).toBeGreaterThan(0);
+    
+    // Find a specific module by name
+    const aiModule = result.data?.modules.find(m => m.name === 'AI_ECP100_C_2');
+    expect(aiModule).toBeDefined();
+    expect(aiModule?.usage).toBe('Reference');
+    
+    // Check that all modules have names
+    for (const module of result.data?.modules || []) {
+      expect(module.name).toBeDefined();
+      expect(typeof module.name).toBe('string');
+      expect(module.name.length).toBeGreaterThan(0);
+    }
+  });
 });

@@ -322,9 +322,11 @@ function normalizeModule(device: {
   product_type: number;
   product_code: number;
   comments: string[];
+  name?: string;
 }): NormalizedModule {
   return {
     id: device.module_id,
+    name: device.name || `Module_${device.module_id}`,
     parentId: device.parent_module,
     slot: device.slot_no,
     vendorId: device.vendor_id,

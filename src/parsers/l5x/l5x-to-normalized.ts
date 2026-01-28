@@ -6,6 +6,7 @@ import type {
   L5XContent,
   L5XController,
   L5XDataType,
+  L5XDataTypes,
   L5XMember,
   L5XTag,
   L5XProgram,
@@ -13,6 +14,7 @@ import type {
   L5XRung,
   L5XAddOnInstruction,
   L5XModule,
+  L5XModules,
   L5XRungType,
   L5XParameter,
   L5XLocalTag,
@@ -38,6 +40,8 @@ import type {
   TagScope,
   ExternalAccess,
   DataTypeClass,
+  DataTypeUsage,
+  ModuleUsage,
   AOIParameter,
   AOILocalTag,
   AOIClass,
@@ -63,11 +67,11 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
     modifiedDate: parseDate(controller['@_LastModifiedDate']),
 
     // Core data
-    dataTypes: normalizeDataTypes(controller.DataTypes?.DataType),
+    dataTypes: normalizeDataTypes(controller.DataTypes),
     tags: normalizeControllerTags(controller.Tags?.Tag),
     programs: normalizePrograms(controller.Programs?.Program, targetType, root['@_TargetName']),
     aois: normalizeAOIs(controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition),
-    modules: normalizeModules(controller.Modules?.Module),
+    modules: normalizeModules(controller.Modules),
 
     // Source information
     vendor: 'rockwell',
@@ -86,6 +90,8 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
       sfcExecutionControl: controller['@_SFCExecutionControl'],
       sfcRestartPosition: controller['@_SFCRestartPosition'],
       sfcLastScan: controller['@_SFCLastScan'],
+      // Store controller name separately for when target type is Program
+      controllerName: controller['@_Name'],
     },
   };
 }
@@ -119,24 +125,32 @@ function parseDate(dateString: string | undefined): Date | undefined {
 // Data Types
 // ============================================
 
-function normalizeDataTypes(dataTypes: L5XDataType | L5XDataType[] | undefined): NormalizedDataType[] {
-  const types = ensureArray(dataTypes);
-  return types.map(normalizeDataType);
+function normalizeDataTypes(dataTypes: L5XDataTypes | undefined): NormalizedDataType[] {
+  if (!dataTypes) return [];
+  
+  const types = ensureArray(dataTypes.DataType);
+  const usage = dataTypes['@_Use'] as DataTypeUsage | undefined;
+  
+  return types.map(dt => normalizeDataType(dt, usage));
 }
 
-function normalizeDataType(dt: L5XDataType): NormalizedDataType {
+function normalizeDataType(dt: L5XDataType, usage?: DataTypeUsage): NormalizedDataType {
   const classMap: Record<string, DataTypeClass> = {
     'User': 'User',
     'ProductDefined': 'BuiltIn',
     'Standard': 'BuiltIn',
   };
+  
+  // Use the data type's class attribute - context/module-defined info is in the usage field
+  const dataTypeClass = classMap[dt['@_Class']] || 'Unknown';
 
   return {
     name: dt['@_Name'],
     family: dt['@_Family'] !== 'NoFamily' ? dt['@_Family'] : undefined,
-    class: classMap[dt['@_Class']] || 'Unknown',
+    class: dataTypeClass,
     members: normalizeMembers(dt.Members?.Member),
     description: extractText(dt.Description),
+    usage: usage,
   };
 }
 
@@ -482,19 +496,32 @@ function extractDefaultValue(defaultData: L5XParameter['DefaultData']): unknown 
 // Modules
 // ============================================
 
-function normalizeModules(modules: L5XModule | L5XModule[] | undefined): NormalizedModule[] {
-  const moduleArray = ensureArray(modules);
-  return moduleArray.map((mod, index) => normalizeModule(mod, index));
+function normalizeModules(modules: L5XModules | undefined): NormalizedModule[] {
+  if (!modules) return [];
+  
+  const moduleArray = ensureArray(modules.Module);
+  const containerUsage = modules['@_Use'] as ModuleUsage | undefined;
+  
+  return moduleArray.map((mod, index) => normalizeModule(mod, index, containerUsage));
 }
 
-function normalizeModule(module: L5XModule, index: number): NormalizedModule {
+function normalizeModule(module: L5XModule, index: number, containerUsage?: ModuleUsage): NormalizedModule {
+  // Module's own usage takes precedence over container usage
+  const moduleUsage = (module['@_Use'] as ModuleUsage | undefined) || containerUsage;
+  
   return {
     id: index,
+    name: module['@_Name'],
     parentId: undefined, // Would need to resolve from ParentModule name
+    parentModuleName: module['@_ParentModule'],
     slot: undefined, // Would need to extract from configuration
     vendorId: module['@_Vendor'] ? parseInt(module['@_Vendor'], undefined) : undefined,
     productType: module['@_ProductType'] ? parseInt(module['@_ProductType'], undefined) : undefined,
     productCode: module['@_ProductCode'] ? parseInt(module['@_ProductCode'], undefined) : undefined,
+    catalogNumber: module['@_CatalogNumber'],
+    majorRevision: module['@_Major'] ? parseInt(module['@_Major'], undefined) : undefined,
+    minorRevision: module['@_Minor'] ? parseInt(module['@_Minor'], undefined) : undefined,
     comments: module['@_CatalogNumber'] ? [module['@_CatalogNumber']] : undefined,
+    usage: moduleUsage,
   };
 }

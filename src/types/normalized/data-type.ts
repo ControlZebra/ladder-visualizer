@@ -21,7 +21,14 @@ export interface NormalizedDataTypeMember {
 /**
  * Data type class
  */
-export type DataTypeClass = 'BuiltIn' | 'User' | 'AddOnDefined' | 'Unknown';
+export type DataTypeClass = 'BuiltIn' | 'User' | 'AddOnDefined' | 'ModuleDefined' | 'Unknown';
+
+/**
+ * Data type usage/source in L5X exports
+ * - Target: The data type is being exported
+ * - Context: The data type is referenced from the controller/module context
+ */
+export type DataTypeUsage = 'Target' | 'Context';
 
 /**
  * Normalized data type definition - vendor-agnostic representation
@@ -37,4 +44,10 @@ export interface NormalizedDataType {
   members: NormalizedDataTypeMember[];
   /** Description/comment for the data type */
   description?: string;
+  /** 
+   * Usage/source of the data type (for L5X exports)
+   * - Target: Data type is being exported
+   * - Context: Data type is referenced from controller context (module-defined)
+   */
+  usage?: DataTypeUsage;
 }

@@ -8,6 +8,7 @@ export type {
   NormalizedController,
   NormalizedAOI,
   NormalizedModule,
+  ModuleUsage,
   PLCVendor,
   SourceFormat,
   AOIParameter,
@@ -38,4 +39,5 @@ export type {
   NormalizedDataType,
   NormalizedDataTypeMember,
   DataTypeClass,
+  DataTypeUsage,
 } from './data-type';

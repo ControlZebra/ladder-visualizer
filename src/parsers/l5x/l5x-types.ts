@@ -221,6 +221,8 @@ export interface L5XModules {
 }
 
 export interface L5XModule {
+  /** How this module is used in the export: Target (exported), Context (part of controller), Reference (name only) */
+  '@_Use'?: 'Target' | 'Context' | 'Reference';
   '@_Name': string;
   '@_CatalogNumber'?: string;
   '@_Vendor'?: string;

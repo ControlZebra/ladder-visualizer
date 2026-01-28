@@ -125,13 +125,22 @@ export interface NormalizedAOI {
 }
 
 /**
+ * Module usage type in L5X exports
+ */
+export type ModuleUsage = 'Target' | 'Context' | 'Reference';
+
+/**
  * Module/Device definition (normalized)
  */
 export interface NormalizedModule {
   /** Module identifier */
   id: number;
+  /** Module name */
+  name: string;
   /** Parent module ID */
   parentId?: number;
+  /** Parent module name */
+  parentModuleName?: string;
   /** Slot number */
   slot?: number;
   /** Vendor ID */
@@ -140,8 +149,21 @@ export interface NormalizedModule {
   productType?: number;
   /** Product code */
   productCode?: number;
+  /** Catalog number */
+  catalogNumber?: string;
+  /** Major revision */
+  majorRevision?: number;
+  /** Minor revision */
+  minorRevision?: number;
   /** Comments/description */
   comments?: string[];
+  /**
+   * Usage type of the module in L5X exports
+   * - Target: Module being exported
+   * - Context: Module is part of controller context
+   * - Reference: Module is referenced by name only
+   */
+  usage?: ModuleUsage;
 }
 
 /**
