@@ -251,6 +251,8 @@ export interface L5XAddOnInstruction {
   '@_Name': string;
   '@_Class'?: string;
   '@_Revision'?: string;
+  '@_RevisionExtension'?: string;
+  '@_Vendor'?: string;
   '@_ExecutePrescan'?: string;
   '@_ExecutePostscan'?: string;
   '@_ExecuteEnableInFalse'?: string;
@@ -292,6 +294,7 @@ export interface L5XLocalTag {
   '@_Name': string;
   '@_DataType': string;
   '@_Radix'?: string;
+  '@_Dimensions'?: string;
   '@_ExternalAccess'?: string;
   Description?: L5XDescription;
   DefaultData?: L5XTagData;

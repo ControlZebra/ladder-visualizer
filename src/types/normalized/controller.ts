@@ -1,6 +1,7 @@
 import type { NormalizedDataType } from './data-type';
-import type { NormalizedTag } from './tag';
+import type { NormalizedTag, ExternalAccess } from './tag';
 import type { NormalizedProgram } from './program';
+import type { NormalizedRoutine } from './routine';
 
 /**
  * Supported PLC vendors
@@ -13,17 +14,114 @@ export type PLCVendor = 'rockwell' | 'siemens' | 'mitsubishi' | 'omron' | 'beckh
 export type SourceFormat = 'json' | 'l5x' | 'l5k' | 'xml' | 'other';
 
 /**
- * Add-On Instruction definition (normalized)
+ * AOI Parameter usage direction
+ */
+export type AOIParameterUsage = 'Input' | 'Output' | 'InOut';
+
+/**
+ * AOI Parameter definition
+ */
+export interface AOIParameter {
+  /** Parameter name */
+  name: string;
+  /** Tag type (Base, Alias) */
+  tagType: string;
+  /** Data type of the parameter */
+  dataType: string;
+  /** Usage direction (Input, Output, InOut) */
+  usage: AOIParameterUsage;
+  /** Display radix */
+  radix?: string;
+  /** Whether the parameter is required when calling the AOI */
+  required: boolean;
+  /** Whether the parameter is visible in the instruction signature */
+  visible: boolean;
+  /** External access level */
+  externalAccess: ExternalAccess;
+  /** Parameter description */
+  description?: string;
+  /** Default value */
+  defaultValue?: unknown;
+}
+
+/**
+ * AOI Local Tag definition (internal variables)
+ */
+export interface AOILocalTag {
+  /** Local tag name */
+  name: string;
+  /** Data type */
+  dataType: string;
+  /** Display radix */
+  radix?: string;
+  /** External access level */
+  externalAccess: ExternalAccess;
+  /** Description */
+  description?: string;
+  /** Default value */
+  defaultValue?: unknown;
+  /** Array dimensions (0 for scalar) */
+  dimensions?: number;
+}
+
+/**
+ * AOI Class type
+ */
+export type AOIClass = 'Standard' | 'Safety';
+
+/**
+ * Add-On Instruction definition (normalized) - Full representation
  */
 export interface NormalizedAOI {
-  /** AOI name */
+  // ---- Identification ----
+  /** AOI name (used as instruction mnemonic) */
   name: string;
   /** Description */
   description?: string;
-  /** Revision information */
+  /** Revision string (e.g., "1.1", "4.2") */
   revision?: string;
-  /** Vendor information */
+  /** Revision extension (e.g., "Deluxe Edition") */
+  revisionExtension?: string;
+  /** Creator/vendor information */
   vendor?: string;
+  
+  // ---- Classification ----
+  /** AOI class (Standard or Safety) */
+  class: AOIClass;
+  
+  // ---- Timestamps ----
+  /** Date when AOI was created */
+  createdDate?: Date;
+  /** User who created the AOI */
+  createdBy?: string;
+  /** Date when AOI was last edited */
+  editedDate?: Date;
+  /** User who last edited the AOI */
+  editedBy?: string;
+  
+  // ---- Documentation ----
+  /** Revision notes / change log */
+  revisionNote?: string;
+  /** Additional help text */
+  helpText?: string;
+  
+  // ---- Execution Options ----
+  /** Execute during prescan */
+  executePrescan: boolean;
+  /** Execute during postscan */
+  executePostscan: boolean;
+  /** Execute when EnableIn is false */
+  executeEnableInFalse: boolean;
+  
+  // ---- Interface Definition ----
+  /** Input/Output/InOut parameters */
+  parameters: AOIParameter[];
+  /** Internal local tags */
+  localTags: AOILocalTag[];
+  
+  // ---- Implementation ----
+  /** Internal routines (ladder logic, etc.) */
+  routines: NormalizedRoutine[];
 }
 
 /**

@@ -114,6 +114,7 @@ function isOperation(instruction: Instruction): boolean {
     instruction.category === 'math' ||
     instruction.category === 'timer' ||
     instruction.category === 'counter' ||
+    instruction.category === 'aoi' ||
     instruction.category === 'other'
   );
 }

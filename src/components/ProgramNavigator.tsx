@@ -157,6 +157,12 @@ const Icons = {
       <circle cx="5" cy="5" r="1" fill="white"/>
     </svg>
   ),
+  tag: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M4 3L8 3L13 8L8 13L3 8L3 4C3 3.44772 3.44772 3 4 3Z" fill="#87CEEB" stroke="#4682B4" strokeWidth="0.5"/>
+      <circle cx="5.5" cy="5.5" r="0.8" fill="white"/>
+    </svg>
+  ),
   dataTypes: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <rect x="2" y="2" width="12" height="12" rx="1" fill="#FFA07A" stroke="#CD5C5C" strokeWidth="0.5"/>
@@ -199,6 +205,34 @@ const Icons = {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <rect x="2" y="2" width="12" height="12" rx="2" fill="#DDA0DD" stroke="#9932CC" strokeWidth="0.5"/>
       <text x="8" y="11" textAnchor="middle" fontSize="7" fill="#4B0082" fontWeight="bold">AOI</text>
+    </svg>
+  ),
+  description: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="2" width="12" height="12" rx="1" fill="#F5F5DC" stroke="#A9A9A9" strokeWidth="0.5"/>
+      <line x1="4" y1="5" x2="12" y2="5" stroke="#666" strokeWidth="0.5"/>
+      <line x1="4" y1="7.5" x2="10" y2="7.5" stroke="#666" strokeWidth="0.5"/>
+      <line x1="4" y1="10" x2="11" y2="10" stroke="#666" strokeWidth="0.5"/>
+    </svg>
+  ),
+  input: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="4" width="12" height="8" rx="1" fill="#90EE90" stroke="#228B22" strokeWidth="0.5"/>
+      <path d="M5 8L8 8M8 8L6 6M8 8L6 10" stroke="#228B22" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+      <text x="11" y="10" fontSize="5" fill="#228B22" fontWeight="bold">I</text>
+    </svg>
+  ),
+  output: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="4" width="12" height="8" rx="1" fill="#FFB6C1" stroke="#DC143C" strokeWidth="0.5"/>
+      <path d="M8 8L11 8M11 8L9 6M11 8L9 10" stroke="#DC143C" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+      <text x="5" y="10" fontSize="5" fill="#DC143C" fontWeight="bold">O</text>
+    </svg>
+  ),
+  inout: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="4" width="12" height="8" rx="1" fill="#87CEEB" stroke="#4169E1" strokeWidth="0.5"/>
+      <path d="M4 8L6 6M4 8L6 10M4 8L12 8M12 8L10 6M12 8L10 10" stroke="#4169E1" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
   chevronRight: (
@@ -561,12 +595,85 @@ export function ProgramNavigator({
 
             {expanded.has('aois') && controller && (
               controller.aois.map((aoi) => (
-                <TreeItem
-                  key={aoi.name}
-                  icon={Icons.aoi}
-                  label={aoi.name}
-                  depth={2}
-                />
+                <React.Fragment key={aoi.name}>
+                  <TreeItem
+                    icon={expanded.has(`aoi-${aoi.name}`) ? Icons.folderOpen : Icons.aoi}
+                    label={aoi.name}
+                    depth={2}
+                    isExpandable={true}
+                    isExpanded={expanded.has(`aoi-${aoi.name}`)}
+                    onToggle={() => toggleExpanded(`aoi-${aoi.name}`)}
+                    badge={aoi.revision}
+                  />
+                  {expanded.has(`aoi-${aoi.name}`) && (
+                    <>
+                      {/* AOI Description */}
+                      {aoi.description && (
+                        <TreeItem
+                          icon={Icons.description}
+                          label={aoi.description.length > 40 ? `${aoi.description.substring(0, 40)}...` : aoi.description}
+                          depth={3}
+                        />
+                      )}
+                      {/* Parameters folder */}
+                      <TreeItem
+                        icon={expanded.has(`aoi-${aoi.name}-params`) ? Icons.folderOpen : Icons.folder}
+                        label="Parameters"
+                        depth={3}
+                        isExpandable={aoi.parameters.length > 0}
+                        isExpanded={expanded.has(`aoi-${aoi.name}-params`)}
+                        onToggle={() => toggleExpanded(`aoi-${aoi.name}-params`)}
+                        badge={`${aoi.parameters.length}`}
+                      />
+                      {expanded.has(`aoi-${aoi.name}-params`) && aoi.parameters.map((param) => (
+                        <TreeItem
+                          key={param.name}
+                          icon={param.usage === 'Input' ? Icons.input : param.usage === 'Output' ? Icons.output : Icons.inout}
+                          label={`${param.name}: ${param.dataType}`}
+                          depth={4}
+                          badge={param.usage}
+                        />
+                      ))}
+                      {/* Local Tags folder */}
+                      <TreeItem
+                        icon={expanded.has(`aoi-${aoi.name}-locals`) ? Icons.folderOpen : Icons.folder}
+                        label="Local Tags"
+                        depth={3}
+                        isExpandable={aoi.localTags.length > 0}
+                        isExpanded={expanded.has(`aoi-${aoi.name}-locals`)}
+                        onToggle={() => toggleExpanded(`aoi-${aoi.name}-locals`)}
+                        badge={`${aoi.localTags.length}`}
+                      />
+                      {expanded.has(`aoi-${aoi.name}-locals`) && aoi.localTags.map((tag) => (
+                        <TreeItem
+                          key={tag.name}
+                          icon={Icons.tag}
+                          label={`${tag.name}: ${tag.dataType}${tag.dimensions ? `[${tag.dimensions}]` : ''}`}
+                          depth={4}
+                        />
+                      ))}
+                      {/* Routines folder */}
+                      <TreeItem
+                        icon={expanded.has(`aoi-${aoi.name}-routines`) ? Icons.folderOpen : Icons.folder}
+                        label="Routines"
+                        depth={3}
+                        isExpandable={aoi.routines.length > 0}
+                        isExpanded={expanded.has(`aoi-${aoi.name}-routines`)}
+                        onToggle={() => toggleExpanded(`aoi-${aoi.name}-routines`)}
+                        badge={`${aoi.routines.length}`}
+                      />
+                      {expanded.has(`aoi-${aoi.name}-routines`) && aoi.routines.map((routine) => (
+                        <TreeItem
+                          key={routine.name}
+                          icon={Icons.routine}
+                          label={routine.name}
+                          depth={4}
+                          badge={routine.type === 'RLL' ? `${routine.rungs.length} rungs` : routine.type}
+                        />
+                      ))}
+                    </>
+                  )}
+                </React.Fragment>
               ))
             )}
 

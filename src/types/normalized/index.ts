@@ -10,6 +10,10 @@ export type {
   NormalizedModule,
   PLCVendor,
   SourceFormat,
+  AOIParameter,
+  AOILocalTag,
+  AOIParameterUsage,
+  AOIClass,
 } from './controller';
 
 // Program

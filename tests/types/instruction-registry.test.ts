@@ -6,6 +6,11 @@ import {
   createEmptyInstructionRegistry,
   globalInstructionRegistry,
   DEFAULT_INSTRUCTIONS,
+  registerAOI,
+  registerAOIs,
+  clearAOIs,
+  isAOI,
+  AOIRegistrationInfo,
 } from '../../src/types/instruction-registry';
 import { getInstructionCategory, getInstructionDisplayName, getInstructionParameterLabels } from '../../src/types/instructions';
 
@@ -287,5 +292,203 @@ describe('Custom instruction registration', () => {
     expect(getInstructionCategory('MyCustomAOI')).toBe('other');
     expect(getInstructionDisplayName('MyCustomAOI')).toBe('My Custom Add-On Instruction');
     expect(getInstructionParameterLabels('MyCustomAOI')).toEqual(['Input1', 'Input2', 'Output']);
+  });
+});
+
+describe('AOI Registration Utilities', () => {
+  let registry: InstructionRegistry;
+
+  beforeEach(() => {
+    registry = createEmptyInstructionRegistry();
+  });
+
+  describe('registerAOI', () => {
+    it('should register an AOI as an instruction with category "aoi"', () => {
+      const aoiInfo: AOIRegistrationInfo = {
+        name: 'Analog_Input',
+        description: 'AOI for analog input scaling and alarming',
+        parameters: [
+          { name: 'EnableIn', usage: 'Input', visible: false },
+          { name: 'EnableOut', usage: 'Output', visible: false },
+          { name: 'In_Raw', usage: 'Input', visible: true },
+          { name: 'Out_PV', usage: 'Output', visible: true },
+        ],
+      };
+
+      registerAOI(registry, aoiInfo);
+
+      expect(registry.has('Analog_Input')).toBe(true);
+      expect(registry.getCategory('Analog_Input')).toBe('aoi');
+      expect(registry.getDisplayName('Analog_Input')).toBe('Analog_Input');
+      expect(registry.getSymbolType('Analog_Input')).toBe('box');
+    });
+
+    it('should only include visible parameters in parameter labels', () => {
+      const aoiInfo: AOIRegistrationInfo = {
+        name: 'Discrete_Valve',
+        parameters: [
+          { name: 'EnableIn', usage: 'Input', visible: false },
+          { name: 'EnableOut', usage: 'Output', visible: false },
+          { name: 'Command', usage: 'Input', visible: true },
+          { name: 'Feedback', usage: 'Input', visible: true },
+          { name: 'Output', usage: 'Output', visible: true },
+        ],
+      };
+
+      registerAOI(registry, aoiInfo);
+
+      const labels = registry.getParameterLabels('Discrete_Valve');
+      expect(labels).toEqual(['Command', 'Feedback', 'Output']);
+      expect(labels).not.toContain('EnableIn');
+      expect(labels).not.toContain('EnableOut');
+    });
+  });
+
+  describe('registerAOIs', () => {
+    it('should register multiple AOIs at once', () => {
+      const aois: AOIRegistrationInfo[] = [
+        {
+          name: 'Analog_Input',
+          parameters: [{ name: 'In_Raw', usage: 'Input', visible: true }],
+        },
+        {
+          name: 'Discrete_Valve',
+          parameters: [{ name: 'Command', usage: 'Input', visible: true }],
+        },
+        {
+          name: 'PF525_VFD_E_ENET',
+          description: 'VFD Motor Control',
+          parameters: [
+            { name: 'PF525_In', usage: 'InOut', visible: true },
+            { name: 'PF525_Out', usage: 'InOut', visible: true },
+          ],
+        },
+      ];
+
+      registerAOIs(registry, aois);
+
+      expect(registry.has('Analog_Input')).toBe(true);
+      expect(registry.has('Discrete_Valve')).toBe(true);
+      expect(registry.has('PF525_VFD_E_ENET')).toBe(true);
+      expect(registry.getMnemonicsByCategory('aoi')).toHaveLength(3);
+    });
+  });
+
+  describe('clearAOIs', () => {
+    it('should remove all AOI registrations', () => {
+      // Register some AOIs
+      const aois: AOIRegistrationInfo[] = [
+        { name: 'AOI1', parameters: [] },
+        { name: 'AOI2', parameters: [] },
+      ];
+      registerAOIs(registry, aois);
+
+      // Also register a non-AOI instruction
+      registry.register({
+        mnemonic: 'CUSTOM',
+        category: 'other',
+        displayName: 'Custom',
+        parameterLabels: [],
+        symbolType: 'box',
+      });
+
+      expect(registry.has('AOI1')).toBe(true);
+      expect(registry.has('AOI2')).toBe(true);
+      expect(registry.has('CUSTOM')).toBe(true);
+
+      // Clear only AOIs
+      const removedCount = clearAOIs(registry);
+
+      expect(removedCount).toBe(2);
+      expect(registry.has('AOI1')).toBe(false);
+      expect(registry.has('AOI2')).toBe(false);
+      expect(registry.has('CUSTOM')).toBe(true); // Non-AOI should remain
+    });
+  });
+
+  describe('isAOI', () => {
+    it('should return true for registered AOIs', () => {
+      registerAOI(registry, {
+        name: 'TestAOI',
+        parameters: [],
+      });
+
+      expect(isAOI('TestAOI', registry)).toBe(true);
+    });
+
+    it('should return false for non-AOI instructions', () => {
+      registry.register({
+        mnemonic: 'TON',
+        category: 'timer',
+        displayName: 'Timer',
+        parameterLabels: [],
+        symbolType: 'box',
+      });
+
+      expect(isAOI('TON', registry)).toBe(false);
+    });
+
+    it('should return false for unknown instructions', () => {
+      expect(isAOI('UNKNOWN', registry)).toBe(false);
+    });
+  });
+
+  describe('removeByCategory', () => {
+    it('should remove all instructions in a category', () => {
+      // Register instructions in different categories
+      registry.register({
+        mnemonic: 'AOI1',
+        category: 'aoi',
+        displayName: 'AOI 1',
+        parameterLabels: [],
+        symbolType: 'box',
+      });
+      registry.register({
+        mnemonic: 'AOI2',
+        category: 'aoi',
+        displayName: 'AOI 2',
+        parameterLabels: [],
+        symbolType: 'box',
+      });
+      registry.register({
+        mnemonic: 'TON',
+        category: 'timer',
+        displayName: 'Timer',
+        parameterLabels: [],
+        symbolType: 'box',
+      });
+
+      const removedCount = registry.removeByCategory('aoi');
+
+      expect(removedCount).toBe(2);
+      expect(registry.has('AOI1')).toBe(false);
+      expect(registry.has('AOI2')).toBe(false);
+      expect(registry.has('TON')).toBe(true);
+      expect(registry.getMnemonicsByCategory('aoi')).toHaveLength(0);
+    });
+  });
+
+  describe('remove', () => {
+    it('should remove a single instruction', () => {
+      registry.register({
+        mnemonic: 'TEST',
+        category: 'other',
+        displayName: 'Test',
+        parameterLabels: [],
+        symbolType: 'box',
+      });
+
+      expect(registry.has('TEST')).toBe(true);
+
+      const removed = registry.remove('TEST');
+
+      expect(removed).toBe(true);
+      expect(registry.has('TEST')).toBe(false);
+    });
+
+    it('should return false when removing non-existent instruction', () => {
+      const removed = registry.remove('NONEXISTENT');
+      expect(removed).toBe(false);
+    });
   });
 });

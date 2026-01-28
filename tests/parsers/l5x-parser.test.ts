@@ -351,4 +351,125 @@ describe('L5XParser with real L5X file', () => {
     expect(typeof firstRung?.number).toBe('number');
     expect(typeof firstRung?.raw).toBe('string');
   });
+
+  it('should parse AOIs with full metadata from example file', () => {
+    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+    let content: string;
+    
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      console.log('Skipping test: example L5X file not found');
+      return;
+    }
+
+    const result = l5xParser.parse(content);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+
+    // Should have AOIs
+    expect(result.data?.aois.length).toBeGreaterThan(0);
+
+    // Find the Analog_Input AOI
+    const analogInputAOI = result.data?.aois.find(aoi => aoi.name === 'Analog_Input');
+    expect(analogInputAOI).toBeDefined();
+    
+    // Check basic metadata
+    expect(analogInputAOI?.class).toBe('Standard');
+    expect(analogInputAOI?.revision).toBe('1.1');
+    
+    // Check execution options
+    expect(analogInputAOI?.executePrescan).toBe(false);
+    expect(analogInputAOI?.executePostscan).toBe(false);
+    expect(analogInputAOI?.executeEnableInFalse).toBe(false);
+    
+    // Check parameters
+    expect(analogInputAOI?.parameters.length).toBeGreaterThan(0);
+    
+    // Find EnableIn parameter (standard AOI parameter)
+    const enableInParam = analogInputAOI?.parameters.find(p => p.name === 'EnableIn');
+    expect(enableInParam).toBeDefined();
+    expect(enableInParam?.usage).toBe('Input');
+    expect(enableInParam?.dataType).toBe('BOOL');
+    expect(enableInParam?.visible).toBe(false);
+    expect(enableInParam?.required).toBe(false);
+    
+    // Find a visible input parameter
+    const inRawParam = analogInputAOI?.parameters.find(p => p.name === 'In_Raw');
+    expect(inRawParam).toBeDefined();
+    expect(inRawParam?.usage).toBe('Input');
+    expect(inRawParam?.visible).toBe(true);
+    expect(inRawParam?.required).toBe(true);
+    
+    // Check local tags
+    expect(analogInputAOI?.localTags.length).toBeGreaterThan(0);
+    
+    // Check that AOI has routines (internal logic)
+    expect(analogInputAOI?.routines.length).toBeGreaterThan(0);
+    
+    // Find the Logic routine
+    const logicRoutine = analogInputAOI?.routines.find(r => r.name === 'Logic');
+    expect(logicRoutine).toBeDefined();
+    expect(logicRoutine?.type).toBe('RLL');
+    expect(logicRoutine?.rungs.length).toBeGreaterThan(0);
+  });
+
+  it('should parse VFD AOI with InOut parameters', () => {
+    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+    let content: string;
+    
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      console.log('Skipping test: example L5X file not found');
+      return;
+    }
+
+    const result = l5xParser.parse(content);
+
+    expect(result.success).toBe(true);
+
+    // Find the PF525_VFD_E_ENET AOI
+    const vfdAOI = result.data?.aois.find(aoi => aoi.name === 'PF525_VFD_E_ENET');
+    expect(vfdAOI).toBeDefined();
+    
+    // Check revision extension
+    expect(vfdAOI?.revisionExtension).toBe('Deluxe Edition');
+    
+    // Check for InOut parameters
+    const pf525InParam = vfdAOI?.parameters.find(p => p.name === 'PF525_In');
+    expect(pf525InParam).toBeDefined();
+    expect(pf525InParam?.usage).toBe('InOut');
+    
+    const pf525OutParam = vfdAOI?.parameters.find(p => p.name === 'PF525_Out');
+    expect(pf525OutParam).toBeDefined();
+    expect(pf525OutParam?.usage).toBe('InOut');
+  });
+
+  it('should parse AOI local tags with dimensions (arrays)', () => {
+    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+    let content: string;
+    
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      console.log('Skipping test: example L5X file not found');
+      return;
+    }
+
+    const result = l5xParser.parse(content);
+
+    expect(result.success).toBe(true);
+
+    // Find the Analog_Input AOI
+    const analogInputAOI = result.data?.aois.find(aoi => aoi.name === 'Analog_Input');
+    expect(analogInputAOI).toBeDefined();
+    
+    // Find the L_ONS local tag which is an array
+    const onsTag = analogInputAOI?.localTags.find(t => t.name === 'L_ONS');
+    expect(onsTag).toBeDefined();
+    expect(onsTag?.dataType).toBe('BOOL');
+    expect(onsTag?.dimensions).toBe(32);
+  });
 });

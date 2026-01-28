@@ -19,6 +19,10 @@ export type {
   TagScope,
   ExternalAccess,
   DataTypeClass,
+  AOIParameter,
+  AOILocalTag,
+  AOIParameterUsage,
+  AOIClass,
 } from './normalized';
 
 // ============================================================================
@@ -64,6 +68,7 @@ export type {
   InstructionDefinition,
   RegistrationOptions,
   SymbolType,
+  AOIRegistrationInfo,
 } from './instruction-registry';
 export {
   InstructionRegistry,
@@ -79,4 +84,10 @@ export {
   TIMER_INSTRUCTIONS,
   COUNTER_INSTRUCTIONS,
   OTHER_INSTRUCTIONS,
+  // AOI registration utilities
+  registerAOI,
+  registerAOIs,
+  registerAOIsGlobally,
+  clearAOIs,
+  isAOI,
 } from './instruction-registry';

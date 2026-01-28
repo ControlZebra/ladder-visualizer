@@ -1,3 +1,5 @@
+import { globalInstructionRegistry } from '../../types/instruction-registry';
+
 const LINE_HEIGHT = 16;
 const CHAR_WIDTH = 7;
 const PADDING = 10;
@@ -74,10 +76,23 @@ function getTextWidth(text: string): number {
 }
 
 function getInstructionName(mnemonic: string): string {
-  return INSTRUCTION_NAMES[mnemonic] || mnemonic;
+  // First check hardcoded map
+  if (INSTRUCTION_NAMES[mnemonic]) {
+    return INSTRUCTION_NAMES[mnemonic];
+  }
+  // Then check the instruction registry (for AOIs and dynamically registered instructions)
+  const registryName = globalInstructionRegistry.getDisplayName(mnemonic);
+  return registryName || mnemonic;
 }
 
 function getParamLabels(mnemonic: string): string[] {
+  // First check hardcoded map
+  if (PARAM_LABELS[mnemonic]) {
+    return PARAM_LABELS[mnemonic];
+  }
+  // Then check the instruction registry (for AOIs and dynamically registered instructions)
+  const registryLabels = globalInstructionRegistry.getParameterLabels(mnemonic);
+  return registryLabels.length > 0 ? registryLabels : [];
   return PARAM_LABELS[mnemonic] || [];
 }
 

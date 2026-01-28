@@ -8,7 +8,7 @@
 /**
  * Instruction category types
  */
-export type InstructionCategory = 'input' | 'output' | 'compare' | 'math' | 'timer' | 'counter' | 'other';
+export type InstructionCategory = 'input' | 'output' | 'compare' | 'math' | 'timer' | 'counter' | 'aoi' | 'other';
 
 /**
  * Symbol type for rendering
@@ -56,6 +56,7 @@ export class InstructionRegistry {
     this.categoryIndex.set('math', new Set());
     this.categoryIndex.set('timer', new Set());
     this.categoryIndex.set('counter', new Set());
+    this.categoryIndex.set('aoi', new Set());
     this.categoryIndex.set('other', new Set());
   }
 
@@ -154,6 +155,30 @@ export class InstructionRegistry {
    */
   getAllDefinitions(): InstructionDefinition[] {
     return Array.from(this.definitions.values());
+  }
+
+  /**
+   * Remove an instruction from the registry
+   */
+  remove(mnemonic: string): boolean {
+    const def = this.definitions.get(mnemonic);
+    if (!def) return false;
+    
+    this.categoryIndex.get(def.category)?.delete(mnemonic);
+    this.definitions.delete(mnemonic);
+    return true;
+  }
+
+  /**
+   * Remove all instructions in a specific category
+   */
+  removeByCategory(category: InstructionCategory): number {
+    const mnemonics = this.getMnemonicsByCategory(category);
+    for (const mnemonic of mnemonics) {
+      this.definitions.delete(mnemonic);
+    }
+    this.categoryIndex.get(category)?.clear();
+    return mnemonics.length;
   }
 
   /**
@@ -526,4 +551,87 @@ export function createInstructionRegistry(): InstructionRegistry {
  */
 export function createEmptyInstructionRegistry(): InstructionRegistry {
   return new InstructionRegistry();
+}
+
+// ============================================================================
+// AOI Registration Utilities
+// ============================================================================
+
+/**
+ * AOI definition for registration purposes (minimal interface)
+ */
+export interface AOIRegistrationInfo {
+  /** AOI name (used as instruction mnemonic) */
+  name: string;
+  /** Description */
+  description?: string;
+  /** Parameters with their usage info */
+  parameters: Array<{
+    name: string;
+    usage: 'Input' | 'Output' | 'InOut';
+    visible: boolean;
+  }>;
+}
+
+/**
+ * Register a single AOI as an instruction in the registry
+ */
+export function registerAOI(
+  registry: InstructionRegistry,
+  aoi: AOIRegistrationInfo,
+  options: RegistrationOptions = {}
+): void {
+  // Get visible parameter names for the instruction signature
+  const visibleParams = aoi.parameters
+    .filter(p => p.visible)
+    .map(p => p.name);
+
+  const definition: InstructionDefinition = {
+    mnemonic: aoi.name,
+    category: 'aoi',
+    displayName: aoi.name,
+    parameterLabels: visibleParams,
+    symbolType: 'box',
+    description: aoi.description,
+  };
+
+  registry.register(definition, options);
+}
+
+/**
+ * Register multiple AOIs as instructions in the registry
+ */
+export function registerAOIs(
+  registry: InstructionRegistry,
+  aois: AOIRegistrationInfo[],
+  options: RegistrationOptions = {}
+): void {
+  for (const aoi of aois) {
+    registerAOI(registry, aoi, options);
+  }
+}
+
+/**
+ * Register AOIs in the global instruction registry
+ */
+export function registerAOIsGlobally(
+  aois: AOIRegistrationInfo[],
+  options: RegistrationOptions = {}
+): void {
+  registerAOIs(globalInstructionRegistry, aois, options);
+}
+
+/**
+ * Clear all AOI registrations from a registry
+ * (Useful when loading a new file)
+ */
+export function clearAOIs(registry: InstructionRegistry = globalInstructionRegistry): number {
+  return registry.removeByCategory('aoi');
+}
+
+/**
+ * Check if a mnemonic is a registered AOI
+ */
+export function isAOI(mnemonic: string, registry: InstructionRegistry = globalInstructionRegistry): boolean {
+  return registry.getCategory(mnemonic) === 'aoi';
 }

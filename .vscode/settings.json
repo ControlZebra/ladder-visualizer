@@ -4,5 +4,7 @@
             "approve": true,
             "matchCommandLine": true
         }
-    }
+    },
+    "chat.agent.thinking.collapsedTools": "withThinking",
+    "chat.agent.maxRequests": 100
 }

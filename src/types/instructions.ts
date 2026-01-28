@@ -7,7 +7,7 @@ export interface Instruction {
   /** Raw operand strings */
   operands: string[];
   /** Category for styling/rendering */
-  category: 'input' | 'output' | 'compare' | 'math' | 'timer' | 'counter' | 'other';
+  category: 'input' | 'output' | 'compare' | 'math' | 'timer' | 'counter' | 'aoi' | 'other';
 }
 
 /**

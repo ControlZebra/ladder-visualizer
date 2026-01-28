@@ -293,11 +293,21 @@ function normalizeRung(raw: string, number: number): NormalizedRung {
 
 /**
  * Normalize an AOI
+ * Note: JSON format has limited AOI information, so we provide sensible defaults
  */
 function normalizeAOI(aoi: { name: string }): NormalizedAOI {
   return {
     name: aoi.name,
-    // Additional fields can be added when the AOI schema is extended
+    // Classification with defaults
+    class: 'Standard',
+    // Execution options with defaults
+    executePrescan: false,
+    executePostscan: false,
+    executeEnableInFalse: false,
+    // Empty arrays for interface/implementation
+    parameters: [],
+    localTags: [],
+    routines: [],
   };
 }
 

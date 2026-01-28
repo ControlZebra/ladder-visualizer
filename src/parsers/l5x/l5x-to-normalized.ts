@@ -14,6 +14,8 @@ import type {
   L5XAddOnInstruction,
   L5XModule,
   L5XRungType,
+  L5XParameter,
+  L5XLocalTag,
 } from './l5x-types';
 import {
   ensureArray,
@@ -36,6 +38,10 @@ import type {
   TagScope,
   ExternalAccess,
   DataTypeClass,
+  AOIParameter,
+  AOILocalTag,
+  AOIClass,
+  AOIParameterUsage,
 } from '../../types/normalized';
 import { parseRung, parseRungWithBranches } from '../rung-parser';
 
@@ -360,12 +366,116 @@ function normalizeAOIs(aois: L5XAddOnInstruction | L5XAddOnInstruction[] | undef
 }
 
 function normalizeAOI(aoi: L5XAddOnInstruction): NormalizedAOI {
+  const classMap: Record<string, AOIClass> = {
+    'Standard': 'Standard',
+    'Safety': 'Safety',
+  };
+
   return {
+    // Identification
     name: aoi['@_Name'],
     description: extractText(aoi.Description),
     revision: aoi['@_Revision'],
-    vendor: aoi['@_CreatedBy'],
+    revisionExtension: aoi['@_RevisionExtension'],
+    vendor: aoi['@_Vendor'] || aoi['@_CreatedBy'],
+    
+    // Classification
+    class: classMap[aoi['@_Class'] || 'Standard'] || 'Standard',
+    
+    // Timestamps
+    createdDate: parseDate(aoi['@_CreatedDate']),
+    createdBy: aoi['@_CreatedBy'],
+    editedDate: parseDate(aoi['@_EditedDate']),
+    editedBy: aoi['@_EditedBy'],
+    
+    // Documentation
+    revisionNote: extractText(aoi.RevisionNote),
+    helpText: extractText(aoi.AdditionalHelpText),
+    
+    // Execution options
+    executePrescan: parseBoolean(aoi['@_ExecutePrescan']),
+    executePostscan: parseBoolean(aoi['@_ExecutePostscan']),
+    executeEnableInFalse: parseBoolean(aoi['@_ExecuteEnableInFalse']),
+    
+    // Interface definition
+    parameters: normalizeAOIParameters(aoi.Parameters?.Parameter),
+    localTags: normalizeAOILocalTags(aoi.LocalTags?.LocalTag),
+    
+    // Implementation
+    routines: normalizeRoutines(aoi.Routines?.Routine),
   };
+}
+
+function normalizeAOIParameters(params: L5XParameter | L5XParameter[] | undefined): AOIParameter[] {
+  const paramArray = ensureArray(params);
+  return paramArray.map(normalizeAOIParameter);
+}
+
+function normalizeAOIParameter(param: L5XParameter): AOIParameter {
+  const usageMap: Record<string, AOIParameterUsage> = {
+    'Input': 'Input',
+    'Output': 'Output',
+    'InOut': 'InOut',
+  };
+
+  return {
+    name: param['@_Name'],
+    tagType: param['@_TagType'] || 'Base',
+    dataType: param['@_DataType'],
+    usage: usageMap[param['@_Usage']] || 'Input',
+    radix: param['@_Radix'],
+    required: parseBoolean(param['@_Required']),
+    visible: parseBoolean(param['@_Visible']),
+    externalAccess: normalizeExternalAccess(param['@_ExternalAccess']),
+    description: extractText(param.Description),
+    defaultValue: extractDefaultValue(param.DefaultData),
+  };
+}
+
+function normalizeAOILocalTags(tags: L5XLocalTag | L5XLocalTag[] | undefined): AOILocalTag[] {
+  const tagArray = ensureArray(tags);
+  return tagArray.map(normalizeAOILocalTag);
+}
+
+function normalizeAOILocalTag(tag: L5XLocalTag): AOILocalTag {
+  return {
+    name: tag['@_Name'],
+    dataType: tag['@_DataType'],
+    radix: tag['@_Radix'],
+    externalAccess: normalizeExternalAccess(tag['@_ExternalAccess']),
+    description: extractText(tag.Description),
+    defaultValue: extractDefaultValue(tag.DefaultData),
+    dimensions: tag['@_Dimensions'] ? parseInt(tag['@_Dimensions'], 0) : 0,
+  };
+}
+
+function extractDefaultValue(defaultData: L5XParameter['DefaultData']): unknown {
+  if (!defaultData) return undefined;
+  
+  // Handle array of DefaultData
+  const dataArray = ensureArray(defaultData);
+  const l5kData = dataArray.find((d: { '@_Format'?: string }) => d['@_Format'] === 'L5K');
+  if (l5kData && '#text' in l5kData && l5kData['#text']) {
+    const text = (l5kData['#text'] as string).trim();
+    // Try to parse as number
+    const num = Number(text);
+    if (!isNaN(num)) return num;
+    return text;
+  }
+  
+  // Try decorated format
+  const decoratedData = dataArray.find((d: { '@_Format'?: string }) => d['@_Format'] === 'Decorated');
+  if (decoratedData && 'DataValue' in decoratedData && decoratedData.DataValue) {
+    const dataValue = decoratedData.DataValue as { '@_Value'?: string };
+    if (dataValue['@_Value']) {
+      const val = dataValue['@_Value'];
+      const num = Number(val);
+      if (!isNaN(num)) return num;
+      return val;
+    }
+  }
+  
+  return undefined;
 }
 
 // ============================================
