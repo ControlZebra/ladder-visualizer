@@ -805,6 +805,9 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
       {rungLayout.lines.map((line, lineIndex) => {
         const prevLine = lineIndex > 0 ? rungLayout.lines[lineIndex - 1] : null;
         const nextLine = lineIndex < rungLayout.lines.length - 1 ? rungLayout.lines[lineIndex + 1] : null;
+        
+        // Determine if this is a line-wrapped rung (multiple lines but NO branches)
+        const isLineWrapped = rungLayout.lines.length > 1 && !rungLayout.hasBranches;
 
         // Calculate conditions end position
         let conditionsEndX = line.conditionsStartX;
@@ -849,19 +852,43 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
               </>
             ) : (
               <>
-                {/* Wire to continuation point (near right rail) */}
-                <line x1={conditionsEndX} y1={line.wireY} x2={rightRailX - INSTRUCTION_GAP} y2={line.wireY} stroke="#333" strokeWidth="1" />
+                {/* Wire to right rail (line wrapping - no vertical connector) */}
+                <line x1={conditionsEndX} y1={line.wireY} x2={rightRailX} y2={line.wireY} stroke="#333" strokeWidth="1" />
                 
-                {/* Vertical connector to next line */}
-                {nextLine && (
-                  <line x1={rightRailX - INSTRUCTION_GAP} y1={line.wireY} x2={rightRailX - INSTRUCTION_GAP} y2={nextLine.wireY} stroke="#333" strokeWidth="1" />
+                {/* Continuation arrow symbol for line wrapping (only for non-branch line wrapping) */}
+                {isLineWrapped && nextLine && (
+                  <g className="continuation-symbol">
+                    {/* Arrow pointing down-right to indicate continuation */}
+                    <path
+                      d={`M ${rightRailX - 20} ${line.wireY - 8} 
+                          L ${rightRailX - 12} ${line.wireY} 
+                          L ${rightRailX - 20} ${line.wireY + 8}`}
+                      fill="none"
+                      stroke="#666"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </g>
                 )}
               </>
             )}
-
-            {/* Vertical connector from previous line */}
-            {prevLine && (
-              <line x1={line.conditionsStartX} y1={prevLine.wireY} x2={line.conditionsStartX} y2={line.wireY} stroke="#333" strokeWidth="1" />
+            
+            {/* Continuation from symbol for line wrapping (only for non-branch line wrapping) */}
+            {isLineWrapped && prevLine && (
+              <g className="continuation-from-symbol">
+                {/* Arrow pointing right to indicate continuation from previous line */}
+                <path
+                  d={`M ${leftRailX + 5} ${line.wireY - 8} 
+                      L ${leftRailX + 13} ${line.wireY} 
+                      L ${leftRailX + 5} ${line.wireY + 8}`}
+                  fill="none"
+                  stroke="#666"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </g>
             )}
           </g>
         );
