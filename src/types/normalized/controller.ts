@@ -130,32 +130,114 @@ export interface NormalizedAOI {
 export type ModuleUsage = 'Target' | 'Context' | 'Reference';
 
 /**
+ * Electronic keying state for modules
+ */
+export type EKeyState = 'ExactMatch' | 'CompatibleModule' | 'Disabled';
+
+/**
+ * Module port type
+ */
+export type PortType = 'Ethernet' | 'Backplane' | 'PointIO' | 'Serial' | 'USB' | 'ICP' | 'Unknown';
+
+/**
+ * Module category based on function
+ */
+export type ModuleCategory = 'Processor' | 'Communication' | 'DigitalInput' | 'DigitalOutput' | 'DigitalCombo' | 'AnalogInput' | 'AnalogOutput' | 'AnalogCombo' | 'Motion' | 'Safety' | 'Specialty' | 'Chassis' | 'Unknown';
+
+/**
+ * Port configuration for a module
+ */
+export interface ModulePort {
+  /** Port ID */
+  id: number;
+  /** Port type */
+  type: PortType;
+  /** Address (slot number, IP address, or node address) */
+  address?: string;
+  /** Is this an upstream port (connects to parent) */
+  upstream: boolean;
+  /** Bus size (for backplane ports - number of slots) */
+  busSize?: number;
+}
+
+/**
+ * I/O Connection configuration
+ */
+export interface ModuleConnection {
+  /** Connection name */
+  name: string;
+  /** Requested Packet Interval in microseconds */
+  rpiMicroseconds?: number;
+  /** Connection type (e.g., "Output", "Input", "Listen Only") */
+  type?: string;
+  /** Input data type */
+  inputDataType?: string;
+  /** Output data type */
+  outputDataType?: string;
+  /** Is unicast connection */
+  unicast?: boolean;
+}
+
+/**
  * Module/Device definition (normalized)
  */
 export interface NormalizedModule {
-  /** Module identifier */
+  // ---- Identification ----
+  /** Module identifier (index in the module list) */
   id: number;
   /** Module name */
   name: string;
+  /** Catalog number (part number, e.g., "1756-IF16") */
+  catalogNumber?: string;
+  /** Module description */
+  description?: string;
+  
+  // ---- Vendor/Product Info ----
+  /** Vendor ID (1 = Rockwell Automation) */
+  vendorId?: number;
+  /** Product type code */
+  productType?: number;
+  /** Product code */
+  productCode?: number;
+  /** Major firmware revision */
+  majorRevision?: number;
+  /** Minor firmware revision */
+  minorRevision?: number;
+  
+  // ---- Module Classification ----
+  /** Module category (derived from catalog number) */
+  category?: ModuleCategory;
+  
+  // ---- Hierarchy/Topology ----
   /** Parent module ID */
   parentId?: number;
   /** Parent module name */
   parentModuleName?: string;
-  /** Slot number */
+  /** Port ID on parent module that this connects to */
+  parentPortId?: number;
+  /** Slot number (if in a chassis) */
   slot?: number;
-  /** Vendor ID */
-  vendorId?: number;
-  /** Product type */
-  productType?: number;
-  /** Product code */
-  productCode?: number;
-  /** Catalog number */
-  catalogNumber?: string;
-  /** Major revision */
-  majorRevision?: number;
-  /** Minor revision */
-  minorRevision?: number;
-  /** Comments/description */
+  
+  // ---- Configuration ----
+  /** Is module communication inhibited */
+  inhibited: boolean;
+  /** Does module failure cause major fault */
+  majorFault: boolean;
+  /** Is safety enabled */
+  safetyEnabled: boolean;
+  /** Electronic keying state */
+  eKeyState?: EKeyState;
+  
+  // ---- Ports ----
+  /** Module ports (Ethernet, Backplane, etc.) */
+  ports: ModulePort[];
+  
+  // ---- Connections/Communication ----
+  /** I/O connections */
+  connections: ModuleConnection[];
+  
+  // ---- Metadata ----
+  /** Comments/documentation */
   comments?: string[];
   /**
    * Usage type of the module in L5X exports

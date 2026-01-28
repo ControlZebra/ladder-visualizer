@@ -43,6 +43,10 @@ import type {
   DataTypeClass,
   DataTypeUsage,
   ModuleUsage,
+  ModulePort,
+  ModuleConnection,
+  ModuleCategory,
+  PortType,
   AOIParameter,
   AOILocalTag,
   AOIClass,
@@ -522,20 +526,204 @@ function normalizeModules(modules: L5XModules | undefined): NormalizedModule[] {
 function normalizeModule(module: L5XModule, index: number, containerUsage?: ModuleUsage): NormalizedModule {
   // Module's own usage takes precedence over container usage
   const moduleUsage = (module['@_Use'] as ModuleUsage | undefined) || containerUsage;
+  const catalogNumber = module['@_CatalogNumber'];
   
   return {
+    // Identification
     id: index,
     name: module['@_Name'],
-    parentId: undefined, // Would need to resolve from ParentModule name
-    parentModuleName: module['@_ParentModule'],
-    slot: undefined, // Would need to extract from configuration
+    catalogNumber,
+    description: extractText(module.Description),
+    
+    // Vendor/Product Info
     vendorId: module['@_Vendor'] ? parseInt(module['@_Vendor'], undefined) : undefined,
     productType: module['@_ProductType'] ? parseInt(module['@_ProductType'], undefined) : undefined,
     productCode: module['@_ProductCode'] ? parseInt(module['@_ProductCode'], undefined) : undefined,
-    catalogNumber: module['@_CatalogNumber'],
     majorRevision: module['@_Major'] ? parseInt(module['@_Major'], undefined) : undefined,
     minorRevision: module['@_Minor'] ? parseInt(module['@_Minor'], undefined) : undefined,
-    comments: module['@_CatalogNumber'] ? [module['@_CatalogNumber']] : undefined,
+    
+    // Classification
+    category: deriveModuleCategory(catalogNumber),
+    
+    // Hierarchy
+    parentId: undefined, // Would need to resolve from ParentModule name in a second pass
+    parentModuleName: module['@_ParentModule'],
+    parentPortId: module['@_ParentModPortId'] ? parseInt(module['@_ParentModPortId'], undefined) : undefined,
+    slot: extractSlotFromPorts(module.Ports),
+    
+    // Configuration
+    inhibited: parseBoolean(module['@_Inhibited']),
+    majorFault: parseBoolean(module['@_MajorFault']),
+    safetyEnabled: parseBoolean(module['@_SafetyEnabled']),
+    eKeyState: normalizeEKeyState(module.EKey),
+    
+    // Ports
+    ports: normalizePorts(module.Ports),
+    
+    // Connections
+    connections: normalizeConnections(module.Communications),
+    
+    // Metadata
+    comments: catalogNumber ? [catalogNumber] : undefined,
     usage: moduleUsage,
   };
+}
+
+/**
+ * Normalize electronic keying state
+ */
+function normalizeEKeyState(ekey: L5XModule['EKey']): NormalizedModule['eKeyState'] {
+  if (!ekey) return undefined;
+  
+  const state = ekey['@_State'];
+  if (state === 'ExactMatch' || state === 'CompatibleModule' || state === 'Disabled') {
+    return state;
+  }
+  return undefined;
+}
+
+/**
+ * Normalize module ports
+ */
+function normalizePorts(ports: L5XModule['Ports']): ModulePort[] {
+  if (!ports) return [];
+  
+  const portArray = ensureArray(ports.Port);
+  return portArray.map(port => ({
+    id: parseInt(port['@_Id'], 0),
+    type: mapPortType(port['@_Type']),
+    address: port['@_Address'],
+    upstream: parseBoolean(port['@_Upstream']),
+    busSize: port.Bus?.['@_Size'] ? parseInt(port.Bus['@_Size'], undefined) : undefined,
+  }));
+}
+
+/**
+ * Map L5X port type to normalized port type
+ */
+function mapPortType(type: string | undefined): PortType {
+  if (!type) return 'Unknown';
+  
+  const typeUpper = type.toUpperCase();
+  if (typeUpper.includes('ETHERNET') || typeUpper === 'ENET') return 'Ethernet';
+  if (typeUpper.includes('BACKPLANE') || typeUpper === 'ICP') return 'Backplane';
+  if (typeUpper.includes('POINTIO') || typeUpper === 'COMPACT') return 'PointIO';
+  if (typeUpper.includes('SERIAL') || typeUpper === 'RS232') return 'Serial';
+  if (typeUpper.includes('USB')) return 'USB';
+  
+  return 'Unknown';
+}
+
+/**
+ * Extract slot number from port configurations
+ * Typically the slot is the address of a backplane/ICP port
+ */
+function extractSlotFromPorts(ports: L5XModule['Ports']): number | undefined {
+  if (!ports) return undefined;
+  
+  const portArray = ensureArray(ports.Port);
+  
+  // Look for backplane/ICP port with an address
+  for (const port of portArray) {
+    const type = port['@_Type']?.toUpperCase() || '';
+    if ((type.includes('BACKPLANE') || type === 'ICP') && port['@_Address']) {
+      const slot = parseInt(port['@_Address'], undefined);
+      if (!isNaN(slot)) return slot;
+    }
+  }
+  
+  return undefined;
+}
+
+/**
+ * Normalize module connections
+ */
+function normalizeConnections(communications: L5XModule['Communications']): ModuleConnection[] {
+  if (!communications?.Connections) return [];
+  
+  const connectionArray = ensureArray(communications.Connections.Connection);
+  return connectionArray.map(conn => ({
+    name: conn['@_Name'],
+    rpiMicroseconds: conn['@_RPI'] ? parseInt(conn['@_RPI'], undefined) : undefined,
+    type: conn['@_Type'],
+    inputDataType: conn.InputTag?.['@_DataType'],
+    outputDataType: conn.OutputTag?.['@_DataType'],
+    unicast: conn['@_Unicast'] ? parseBoolean(conn['@_Unicast']) : undefined,
+  }));
+}
+
+/**
+ * Derive module category from catalog number
+ * Uses Rockwell naming conventions to classify modules
+ */
+function deriveModuleCategory(catalogNumber: string | undefined): ModuleCategory {
+  if (!catalogNumber) return 'Unknown';
+  
+  const cat = catalogNumber.toUpperCase();
+  
+  // ControlLogix/CompactLogix processors
+  if (cat.includes('-L') && (cat.includes('55') || cat.includes('61') || cat.includes('62') || 
+      cat.includes('63') || cat.includes('64') || cat.includes('71') || cat.includes('72') ||
+      cat.includes('73') || cat.includes('74') || cat.includes('75') || cat.includes('80') ||
+      cat.includes('81') || cat.includes('82') || cat.includes('83') || cat.includes('85'))) {
+    return 'Processor';
+  }
+  
+  // Communication modules
+  if (cat.includes('-EN') || cat.includes('-CN') || cat.includes('-DN') || 
+      cat.includes('-DHRIO') || cat.includes('-RIO') || cat.includes('-NET')) {
+    return 'Communication';
+  }
+  
+  // Safety modules
+  if (cat.includes('/A') || cat.includes('/B') || cat.includes('SAFETY') || 
+      cat.includes('-S') && !cat.includes('-SC')) {
+    return 'Safety';
+  }
+  
+  // Motion modules
+  if (cat.includes('-M0') || cat.includes('-M1') || cat.includes('-M2') || cat.includes('-HM')) {
+    return 'Motion';
+  }
+  
+  // Digital I/O
+  if (cat.includes('-IB') || cat.includes('-IA') || cat.includes('-IG')) {
+    return 'DigitalInput';
+  }
+  if (cat.includes('-OB') || cat.includes('-OA') || cat.includes('-OW') || cat.includes('-OG')) {
+    return 'DigitalOutput';
+  }
+  if (cat.includes('-IQ') && cat.includes('O')) {
+    return 'DigitalCombo';
+  }
+  if (cat.includes('-IQ') || cat.includes('-IV')) {
+    return 'DigitalInput';
+  }
+  if (cat.includes('-OQ') || cat.includes('-OV')) {
+    return 'DigitalOutput';
+  }
+  
+  // Analog I/O
+  if (cat.includes('-IF') || cat.includes('-IR') || cat.includes('-IT') || cat.includes('-IH')) {
+    return 'AnalogInput';
+  }
+  if (cat.includes('-OF') || cat.includes('-OE')) {
+    return 'AnalogOutput';
+  }
+  if (cat.includes('-COMBO')) {
+    return 'AnalogCombo';
+  }
+  
+  // Chassis
+  if (cat.includes('-A') && (cat.includes('4') || cat.includes('7') || cat.includes('10') || 
+      cat.includes('13') || cat.includes('17'))) {
+    return 'Chassis';
+  }
+  
+  // Specialty (thermocouple, RTD, weighing, etc.)
+  if (cat.includes('-TC') || cat.includes('-RTB') || cat.includes('-WS')) {
+    return 'Specialty';
+  }
+  
+  return 'Unknown';
 }

@@ -234,10 +234,88 @@ export interface L5XModule {
   '@_ParentModPortId'?: string;
   '@_Inhibited'?: string;
   '@_MajorFault'?: string;
-  EKey?: unknown;
-  Ports?: unknown;
-  Communications?: unknown;
-  ExtendedProperties?: unknown;
+  '@_SafetyEnabled'?: string;
+  '@_Keying'?: string;
+  Description?: L5XDescription;
+  EKey?: L5XEKey;
+  Ports?: L5XPorts;
+  Communications?: L5XCommunications;
+  ExtendedProperties?: L5XExtendedProperties;
+}
+
+/**
+ * Electronic Keying configuration
+ */
+export interface L5XEKey {
+  '@_State': 'ExactMatch' | 'CompatibleModule' | 'Disabled';
+}
+
+/**
+ * Module port configurations
+ */
+export interface L5XPorts {
+  Port?: L5XPort | L5XPort[];
+}
+
+export interface L5XPort {
+  '@_Id': string;
+  '@_Address'?: string;
+  '@_Type': string;
+  '@_Upstream'?: string;
+  Bus?: L5XBus;
+}
+
+export interface L5XBus {
+  '@_Size'?: string;
+}
+
+/**
+ * Module communications configuration
+ */
+export interface L5XCommunications {
+  ConfigTag?: L5XConfigTag;
+  Connections?: L5XConnections;
+}
+
+export interface L5XConfigTag {
+  '@_ConfigSize'?: string;
+  '@_ExternalAccess'?: string;
+  Data?: L5XTagData | L5XTagData[];
+  Comments?: L5XComments;
+}
+
+export interface L5XConnections {
+  Connection?: L5XConnection | L5XConnection[];
+}
+
+export interface L5XConnection {
+  '@_Name': string;
+  '@_RPI'?: string;
+  '@_Type'?: string;
+  '@_EventID'?: string;
+  '@_ProgrammaticallySendEventTrigger'?: string;
+  '@_Unicast'?: string;
+  InputTag?: L5XIOTag;
+  OutputTag?: L5XIOTag;
+}
+
+export interface L5XIOTag {
+  '@_ExternalAccess'?: string;
+  '@_DataType'?: string;
+  Data?: L5XTagData | L5XTagData[];
+  Comments?: L5XComments;
+}
+
+/**
+ * Extended properties for modules
+ */
+export interface L5XExtendedProperties {
+  public?: L5XPublicProperties;
+}
+
+export interface L5XPublicProperties {
+  ConfigID?: { '@_Value': string };
+  CatNum?: { '@_Value': string };
 }
 
 // ============================================

@@ -333,5 +333,11 @@ function normalizeModule(device: {
     productType: device.product_type,
     productCode: device.product_code,
     comments: device.comments,
+    // Default values for fields not available in JSON format
+    inhibited: false,
+    majorFault: false,
+    safetyEnabled: false,
+    ports: [],
+    connections: [],
   };
 }

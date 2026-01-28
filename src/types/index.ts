@@ -24,6 +24,13 @@ export type {
   AOIParameterUsage,
   AOIClass,
   STLine,
+  // Module-related types
+  ModuleUsage,
+  ModuleCategory,
+  ModulePort,
+  ModuleConnection,
+  EKeyState,
+  PortType,
 } from './normalized';
 
 // ============================================================================

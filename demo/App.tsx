@@ -9,6 +9,7 @@ import {
   AOIParameterTable,
   AOILocalTagTable,
   StructuredTextViewer,
+  ModuleInfoTable,
   registerAOIsFromController,
   clearAOIs,
 } from '../src';
@@ -17,6 +18,7 @@ import type {
   NormalizedRoutine,
   NormalizedDataType,
   NormalizedAOI,
+  NormalizedModule,
 } from '../src';
 import { DataTypeTable } from './DataTypeTable';
 import { TabBar, TabData } from './TabBar';
@@ -287,6 +289,23 @@ export default function App() {
           </div>
         );
       }
+      case 'module': {
+        const module = controller.modules.find(m => m.id === tabData.moduleId);
+        if (module) {
+          return (
+            <div key={`module-${tabData.moduleId}`} style={containerStyle}>
+              <div style={styles.infoPanelContent}>
+                <ModuleInfoTable module={module} />
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div key={`module-${tabData.moduleId}`} style={containerStyle}>
+            <p style={styles.noSelection}>Module not found</p>
+          </div>
+        );
+      }
       default:
         return null;
     }
@@ -363,6 +382,13 @@ export default function App() {
     openTab(
       { type: 'aoi-routine', aoiName: aoi.name, routineIndex },
       `${aoi.name}:${routine.name}`
+    );
+  }, [openTab]);
+
+  const handleModuleSelect = useCallback((module: NormalizedModule) => {
+    openTab(
+      { type: 'module', moduleId: module.id, moduleName: module.name },
+      module.catalogNumber ? `${module.name} (${module.catalogNumber})` : module.name
     );
   }, [openTab]);
 
@@ -443,6 +469,7 @@ export default function App() {
               onProgramTagsSelect={handleProgramTagsSelect}
               onControllerInfoSelect={handleControllerInfoSelect}
               onDataTypeSelect={handleDataTypeSelect}
+              onModuleSelect={handleModuleSelect}
               onAOIParametersSelect={handleAOIParametersSelect}
               onAOILocalTagsSelect={handleAOILocalTagsSelect}
               onAOIRoutineSelect={handleAOIRoutineSelect}

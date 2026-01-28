@@ -5,6 +5,7 @@ import type {
   NormalizedRoutine,
   NormalizedDataType,
   NormalizedAOI,
+  NormalizedModule,
 } from '../types';
 
 // ============================================================================
@@ -395,8 +396,8 @@ export interface ProgramNavigatorProps {
   onControllerInfoSelect?: () => void;
   /** Callback when a data type is selected */
   onDataTypeSelect?: (dataType: NormalizedDataType) => void;
-  /** Callback when an I/O device is selected */
-  onIODeviceSelect?: (deviceId: number) => void;
+  /** Callback when an I/O module is selected */
+  onModuleSelect?: (module: NormalizedModule) => void;
   /** Callback when AOI parameters are selected (to show in table) */
   onAOIParametersSelect?: (aoi: NormalizedAOI) => void;
   /** Callback when AOI local tags are selected (to show in table) */
@@ -420,7 +421,7 @@ export function ProgramNavigator({
   onProgramTagsSelect,
   onControllerInfoSelect,
   onDataTypeSelect,
-  onIODeviceSelect,
+  onModuleSelect,
   onAOIParametersSelect,
   onAOILocalTagsSelect,
   onAOIRoutineSelect,
@@ -880,12 +881,13 @@ export function ProgramNavigator({
             <TreeItem
               key={mod.id}
               icon={Icons.ioModule}
-              label={`Slot ${mod.slot ?? 0} - Module ${mod.id}`}
+              label={mod.catalogNumber ? `${mod.name} (${mod.catalogNumber})` : mod.name}
               depth={1}
+              badge={mod.slot !== undefined ? `Slot ${mod.slot}` : undefined}
               isSelected={selectedItem === `io-module-${mod.id}`}
               onClick={() => {
                 setSelectedItem(`io-module-${mod.id}`);
-                onIODeviceSelect?.(mod.id);
+                onModuleSelect?.(mod);
               }}
             />
           ))

@@ -12,7 +12,8 @@ export type TabType =
   | 'data-type' 
   | 'aoi-parameters' 
   | 'aoi-local-tags' 
-  | 'aoi-routine';
+  | 'aoi-routine'
+  | 'module';
 
 export interface Tab {
   id: string;
@@ -30,7 +31,8 @@ export type TabData =
   | { type: 'data-type'; dataTypeName: string }
   | { type: 'aoi-parameters'; aoiName: string }
   | { type: 'aoi-local-tags'; aoiName: string }
-  | { type: 'aoi-routine'; aoiName: string; routineIndex: number };
+  | { type: 'aoi-routine'; aoiName: string; routineIndex: number }
+  | { type: 'module'; moduleId: number; moduleName: string };
 
 // ============================================================================
 // TAB ID GENERATORS
@@ -54,6 +56,8 @@ export function generateTabId(data: TabData): string {
       return `aoi-local-tags-${data.aoiName}`;
     case 'aoi-routine':
       return `aoi-routine-${data.aoiName}-${data.routineIndex}`;
+    case 'module':
+      return `module-${data.moduleId}`;
   }
 }
 
