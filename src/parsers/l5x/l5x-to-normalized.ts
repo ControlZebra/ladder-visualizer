@@ -18,6 +18,7 @@ import type {
   L5XRungType,
   L5XParameter,
   L5XLocalTag,
+  L5XLine,
 } from './l5x-types';
 import {
   ensureArray,
@@ -46,6 +47,7 @@ import type {
   AOILocalTag,
   AOIClass,
   AOIParameterUsage,
+  STLine,
 } from '../../types/normalized';
 import { parseRung, parseRungWithBranches } from '../rung-parser';
 
@@ -296,8 +298,20 @@ function normalizeRoutine(routine: L5XRoutine): NormalizedRoutine {
     name: routine['@_Name'],
     type,
     rungs: type === 'RLL' ? normalizeRungs(routine.RLLContent?.Rung) : [],
+    stContent: type === 'ST' ? normalizeSTContent(routine.STContent?.Line) : undefined,
     description: extractText(routine.Description),
   };
+}
+
+/**
+ * Normalize Structured Text content
+ */
+function normalizeSTContent(lines: L5XLine | L5XLine[] | undefined): STLine[] {
+  const lineArray = ensureArray(lines);
+  return lineArray.map(line => ({
+    number: parseInt(line['@_Number'], 0),
+    text: line['#text'] || '',
+  }));
 }
 
 function normalizeRungs(rungs: L5XRung | L5XRung[] | undefined): NormalizedRung[] {

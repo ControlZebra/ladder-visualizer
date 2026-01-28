@@ -23,3 +23,6 @@ export { ProgramNavigator, type ProgramNavigatorProps } from './ProgramNavigator
 // AOI Tables
 export { AOIParameterTable, type AOIParameterTableProps } from './AOIParameterTable';
 export { AOILocalTagTable, type AOILocalTagTableProps } from './AOILocalTagTable';
+
+// Structured Text Viewer
+export { StructuredTextViewer, type StructuredTextViewerProps } from './StructuredTextViewer';

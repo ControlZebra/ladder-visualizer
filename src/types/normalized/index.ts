@@ -21,7 +21,7 @@ export type {
 export type { NormalizedProgram } from './program';
 
 // Routine
-export type { NormalizedRoutine, NormalizedRoutineType } from './routine';
+export type { NormalizedRoutine, NormalizedRoutineType, STLine } from './routine';
 
 // Rung
 export type { NormalizedRung } from './rung';

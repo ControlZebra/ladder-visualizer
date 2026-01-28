@@ -1,5 +1,6 @@
-import React, { useMemo, useCallback } from 'react';
+import React from 'react';
 import type { DataType, DataTypeMember } from '../src/types';
+import { GenericTable, type ColumnDefinition } from '../src/components/table/GenericTable';
 
 export interface DataTypeTableProps {
   /** The data type to display */
@@ -10,64 +11,64 @@ export interface DataTypeTableProps {
 
 /**
  * Rockwell-style data type table component.
- * Displays data type members in Studio 5000's table format.
+ * Displays data type members in Studio 5000's table format using GenericTable.
  */
-export function DataTypeTable({ dataType, allDataTypes }: DataTypeTableProps) {
-  // Memoize data type lookup map to avoid O(n) search for each member
-  const dataTypeMap = useMemo(() => {
-    const map = new Map<string, DataType>();
-    for (const dt of allDataTypes) {
-      map.set(dt.name, dt);
-    }
-    return map;
-  }, [allDataTypes]);
-
-  const getDataTypeIcon = useCallback((member: DataTypeMember) => {
-    const type = member.dataType.toUpperCase();
-    if (type === 'BOOL') return '🔘';
-    if (type === 'DINT' || type === 'INT' || type === 'SINT' || type === 'LINT') return '🔢';
-    if (type === 'REAL') return '📊';
-    if (type.includes('STRING')) return '📝';
-    const memberDataType = dataTypeMap.get(member.dataType);
-    if (memberDataType && memberDataType.members.length > 0) return '📦';
-    return '•';
-  }, [dataTypeMap]);
-
-  const renderMembers = (members: DataTypeMember[], indent: number = 0) => {
-    return members.map((member, idx) => (
-      <tr
-        key={`${member.name}-${idx}`}
-        style={idx % 2 === 0 ? styles.rowEven : styles.rowOdd}
-      >
-        <td style={{ ...styles.cell, ...styles.nameCell, paddingLeft: `${12 + indent * 16}px` }}>
-          <span style={styles.icon}>{getDataTypeIcon(member)}</span>
-          {member.name}
-        </td>
-        <td style={{ ...styles.cell, ...styles.typeCell }}>{member.dataType}</td>
-        <td style={{ ...styles.cell, ...styles.dimCell }}>
-          {member.dimension > 0 ? `[${member.dimension}]` : ''}
-        </td>
-        <td style={{ ...styles.cell, ...styles.radixCell }}>{member.radix}</td>
-        <td style={{ ...styles.cell, ...styles.accessCell }}>{member.externalAccess}</td>
-        <td style={{ ...styles.cell, ...styles.hiddenCell }}>
-          {member.hidden ? '✓' : ''}
-        </td>
-      </tr>
-    ));
-  };
-
+export function DataTypeTable({ dataType }: DataTypeTableProps) {
   const getCategoryLabel = (typeClass: string, family?: string): string => {
     if (typeClass === 'User') return 'User Defined';
     if (family === 'StringFamily') return 'String Type';
     return 'Predefined';
   };
 
+  const columns: ColumnDefinition<DataTypeMember>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      sortKey: 'name',
+      mono: true,
+      render: (member) => member.name,
+    },
+    {
+      key: 'dataType',
+      header: 'Data Type',
+      sortKey: 'dataType',
+      mono: true,
+      render: (member) => member.dataType,
+    },
+    {
+      key: 'dimension',
+      header: 'Dim',
+      sortKey: 'dimension',
+      mono: true,
+      cellStyle: { textAlign: 'center' },
+      render: (member) => (member.dimension > 0 ? `[${member.dimension}]` : ''),
+    },
+    {
+      key: 'radix',
+      header: 'Style',
+      sortKey: 'radix',
+      render: (member) => member.radix || '-',
+    },
+    {
+      key: 'externalAccess',
+      header: 'External Access',
+      sortKey: 'externalAccess',
+      render: (member) => member.externalAccess || '-',
+    },
+    {
+      key: 'hidden',
+      header: 'Hidden',
+      sortable: false,
+      cellStyle: { textAlign: 'center' },
+      render: (member) => (member.hidden ? 'Yes' : ''),
+    },
+  ];
+
   return (
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.headerTitle}>
-          <span style={styles.headerIcon}>📋</span>
           <span style={styles.typeName}>{dataType.name}</span>
           <span style={styles.typeBadge}>{getCategoryLabel(dataType.class, dataType.family)}</span>
         </div>
@@ -91,23 +92,15 @@ export function DataTypeTable({ dataType, allDataTypes }: DataTypeTableProps) {
 
       {/* Members Table */}
       {dataType.members.length > 0 ? (
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={{ ...styles.headerCell, ...styles.nameCell }}>Name</th>
-                <th style={{ ...styles.headerCell, ...styles.typeCell }}>Data Type</th>
-                <th style={{ ...styles.headerCell, ...styles.dimCell }}>Dim</th>
-                <th style={{ ...styles.headerCell, ...styles.radixCell }}>Style</th>
-                <th style={{ ...styles.headerCell, ...styles.accessCell }}>External Access</th>
-                <th style={{ ...styles.headerCell, ...styles.hiddenCell }}>Hidden</th>
-              </tr>
-            </thead>
-            <tbody>
-              {renderMembers(dataType.members)}
-            </tbody>
-          </table>
-        </div>
+        <GenericTable<DataTypeMember>
+          data={dataType.members}
+          columns={columns}
+          getRowKey={(member) => member.name}
+          filterFields={['name', 'dataType', 'radix', 'externalAccess']}
+          defaultSortKey="name"
+          filterPlaceholder="Filter members..."
+          itemLabel="members"
+        />
       ) : (
         <div style={styles.noMembers}>
           <p>This is a primitive data type with no member structure.</p>
@@ -132,9 +125,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-  },
-  headerIcon: {
-    fontSize: '18px',
   },
   typeName: {
     fontSize: '16px',
@@ -168,63 +158,6 @@ const styles: Record<string, React.CSSProperties> = {
   infoValue: {
     fontWeight: 500,
     fontSize: '12px',
-  },
-  tableContainer: {
-    overflow: 'auto',
-    border: '1px solid #ddd',
-    borderTop: 'none',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '12px',
-  },
-  headerCell: {
-    padding: '8px 10px',
-    textAlign: 'left',
-    backgroundColor: '#e8e8e8',
-    borderBottom: '2px solid #ccc',
-    fontWeight: 600,
-    color: '#333',
-    whiteSpace: 'nowrap',
-  },
-  cell: {
-    padding: '6px 10px',
-    borderBottom: '1px solid #eee',
-    verticalAlign: 'middle',
-  },
-  rowEven: {
-    backgroundColor: '#fff',
-  },
-  rowOdd: {
-    backgroundColor: '#fafafa',
-  },
-  nameCell: {
-    minWidth: '180px',
-    fontFamily: 'monospace',
-  },
-  typeCell: {
-    minWidth: '120px',
-    fontFamily: 'monospace',
-    color: '#0066cc',
-  },
-  dimCell: {
-    minWidth: '50px',
-    textAlign: 'center',
-    fontFamily: 'monospace',
-  },
-  radixCell: {
-    minWidth: '80px',
-  },
-  accessCell: {
-    minWidth: '100px',
-  },
-  hiddenCell: {
-    minWidth: '60px',
-    textAlign: 'center',
-  },
-  icon: {
-    marginRight: '6px',
   },
   noMembers: {
     padding: '24px',

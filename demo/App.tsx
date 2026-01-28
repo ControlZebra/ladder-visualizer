@@ -8,6 +8,7 @@ import {
   jsonToNormalized,
   AOIParameterTable,
   AOILocalTagTable,
+  StructuredTextViewer,
 } from '../src';
 import type { 
   NormalizedController,
@@ -290,18 +291,31 @@ export default function App() {
         return <p style={styles.noSelection}>Select an AOI from the Controller Organizer</p>;
       case 'aoi-routine':
         if (selectedAOI && selectedAOIRoutineData) {
+          const isAOISTRoutine = selectedAOIRoutineData.type === 'ST';
           return (
             <>
               <div style={styles.routineTitle}>
                 <span style={{ fontWeight: 600 }}>{selectedAOI.name} / {selectedAOIRoutineData.name}</span>
-                <span style={styles.routineBadge}>AOI Routine</span>
-                <span style={styles.routineCount}>{selectedAOIRoutineData.rungs.length} rungs</span>
+                <span style={styles.routineBadge}>AOI Routine ({selectedAOIRoutineData.type})</span>
+                <span style={styles.routineCount}>
+                  {isAOISTRoutine
+                    ? `${selectedAOIRoutineData.stContent?.length || 0} lines`
+                    : `${selectedAOIRoutineData.rungs.length} rungs`
+                  }
+                </span>
               </div>
               <div style={styles.ladderContent}>
-                <VirtualizedLadderDiagram
-                  routine={selectedAOIRoutineData}
-                  style={{ width: '100%', height: '100%' }}
-                />
+                {isAOISTRoutine ? (
+                  <StructuredTextViewer
+                    routine={selectedAOIRoutineData}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                ) : (
+                  <VirtualizedLadderDiagram
+                    routine={selectedAOIRoutineData}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                )}
               </div>
             </>
           );
@@ -310,18 +324,32 @@ export default function App() {
       case 'routine':
       default:
         if (parsedRoutine) {
+          // Render different viewers based on routine type
+          const isSTRoutine = parsedRoutine.type === 'ST';
           return (
             <>
               <div style={styles.routineTitle}>
                 <span style={{ fontWeight: 600 }}>{parsedRoutine.name}</span>
                 <span style={styles.routineBadge}>{parsedRoutine.type}</span>
-                <span style={styles.routineCount}>{parsedRoutine.rungs.length} rungs</span>
+                <span style={styles.routineCount}>
+                  {isSTRoutine 
+                    ? `${parsedRoutine.stContent?.length || 0} lines`
+                    : `${parsedRoutine.rungs.length} rungs`
+                  }
+                </span>
               </div>
               <div style={styles.ladderContent}>
-                <VirtualizedLadderDiagram
-                  routine={parsedRoutine}
-                  style={{ width: '100%', height: '100%' }}
-                />
+                {isSTRoutine ? (
+                  <StructuredTextViewer
+                    routine={parsedRoutine}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                ) : (
+                  <VirtualizedLadderDiagram
+                    routine={parsedRoutine}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                )}
               </div>
             </>
           );

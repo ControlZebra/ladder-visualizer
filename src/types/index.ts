@@ -23,6 +23,7 @@ export type {
   AOILocalTag,
   AOIParameterUsage,
   AOIClass,
+  STLine,
 } from './normalized';
 
 // ============================================================================

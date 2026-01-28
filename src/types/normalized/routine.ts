@@ -6,6 +6,16 @@ import type { NormalizedRung } from './rung';
 export type NormalizedRoutineType = 'RLL' | 'FBD' | 'ST' | 'SFC';
 
 /**
+ * Structured Text line
+ */
+export interface STLine {
+  /** Line number (0-indexed from L5X) */
+  number: number;
+  /** Line content/text */
+  text: string;
+}
+
+/**
  * Normalized routine - vendor-agnostic representation
  */
 export interface NormalizedRoutine {
@@ -15,6 +25,8 @@ export interface NormalizedRoutine {
   type: NormalizedRoutineType;
   /** Parsed rungs (for RLL type) */
   rungs: NormalizedRung[];
+  /** Structured Text content (for ST type) */
+  stContent?: STLine[];
   /** Description/comment for the routine */
   description?: string;
 }
