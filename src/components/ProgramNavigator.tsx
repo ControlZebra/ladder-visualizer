@@ -133,34 +133,52 @@ const Icons = {
   ),
   task: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="3" y="2" width="10" height="12" rx="1" fill="#6B8DD6" stroke="#3B5998" strokeWidth="0.5"/>
-      <path d="M5 5H11M5 8H11M5 11H9" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+      <path d="M2 4C2 3.44772 2.44772 3 3 3H6L7.5 5H13C13.5523 5 14 5.44772 14 6V12C14 12.5523 13.5523 13 13 13H3C2.44772 13 2 12.5523 2 12V4Z" fill="#E8C872" stroke="#B8860B" strokeWidth="0.5"/>
+      <circle cx="10" cy="9" r="2" fill="white" stroke="#B8860B" strokeWidth="0.5"/>
+      <path d="M10 8V9.5L11 10" stroke="#B8860B" strokeWidth="0.5" strokeLinecap="round"/>
+    </svg>
+  ),
+  taskOpen: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 4C2 3.44772 2.44772 3 3 3H6L7.5 5H13C13.5523 5 14 5.44772 14 6V7H4L2 12V4Z" fill="#E8C872" stroke="#B8860B" strokeWidth="0.5"/>
+      <path d="M2 12L4 7H15L13 12H2Z" fill="#F5DEB3" stroke="#B8860B" strokeWidth="0.5"/>
+      <circle cx="10" cy="10" r="2" fill="white" stroke="#B8860B" strokeWidth="0.5"/>
+      <path d="M10 9V10.5L11 11" stroke="#B8860B" strokeWidth="0.5" strokeLinecap="round"/>
     </svg>
   ),
   program: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="2" y="2" width="12" height="12" rx="1" fill="#9370DB" stroke="#6B4C9A" strokeWidth="0.5"/>
-      <text x="8" y="11" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">P</text>
+      <path d="M2 4C2 3.44772 2.44772 3 3 3H6L7.5 5H13C13.5523 5 14 5.44772 14 6V12C14 12.5523 13.5523 13 13 13H3C2.44772 13 2 12.5523 2 12V4Z" fill="#E8C872" stroke="#B8860B" strokeWidth="0.5"/>
+      <text x="8" y="11" textAnchor="middle" fontSize="6" fill="#6B4C00" fontWeight="bold">P</text>
+    </svg>
+  ),
+  programOpen: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 4C2 3.44772 2.44772 3 3 3H6L7.5 5H13C13.5523 5 14 5.44772 14 6V7H4L2 12V4Z" fill="#E8C872" stroke="#B8860B" strokeWidth="0.5"/>
+      <path d="M2 12L4 7H15L13 12H2Z" fill="#F5DEB3" stroke="#B8860B" strokeWidth="0.5"/>
+      <text x="9" y="11" textAnchor="middle" fontSize="5" fill="#6B4C00" fontWeight="bold">P</text>
     </svg>
   ),
   routine: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="2" y="3" width="12" height="10" rx="1" fill="#F5F5F5" stroke="#888" strokeWidth="0.5"/>
-      <line x1="4" y1="6" x2="8" y2="6" stroke="#333" strokeWidth="1"/>
-      <line x1="10" y1="6" x2="12" y2="6" stroke="#333" strokeWidth="1"/>
-      <circle cx="11" cy="9" r="1.5" fill="none" stroke="#333" strokeWidth="0.8"/>
-      <line x1="4" y1="9" x2="8" y2="9" stroke="#333" strokeWidth="1"/>
+      <path d="M4 2H10L13 5V14H4C3.44772 14 3 13.5523 3 13V3C3 2.44772 3.44772 2 4 2Z" fill="#F5F5F5" stroke="#888" strokeWidth="0.5"/>
+      <path d="M10 2V5H13" fill="#E0E0E0" stroke="#888" strokeWidth="0.5"/>
+      <line x1="5" y1="7" x2="11" y2="7" stroke="#666" strokeWidth="0.5"/>
+      <line x1="5" y1="9" x2="11" y2="9" stroke="#666" strokeWidth="0.5"/>
+      <line x1="5" y1="11" x2="9" y2="11" stroke="#666" strokeWidth="0.5"/>
+      <path d="M11 10L13 12L11.5 13.5L9.5 11.5L11 10Z" fill="#FFD700" stroke="#B8860B" strokeWidth="0.3"/>
+      <path d="M13 12L14 11" stroke="#B8860B" strokeWidth="0.5" strokeLinecap="round"/>
     </svg>
   ),
   tags: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M3 2L8 2L14 8L8 14L2 8L2 3C2 2.44772 2.44772 2 3 2Z" fill="#20B2AA" stroke="#008080" strokeWidth="0.5"/>
+      <path d="M3 2L8 2L14 8L8 14L2 8L2 3C2 2.44772 2.44772 2 3 2Z" fill="#E8C872" stroke="#B8860B" strokeWidth="0.5"/>
       <circle cx="5" cy="5" r="1" fill="white"/>
     </svg>
   ),
   tag: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M4 3L8 3L13 8L8 13L3 8L3 4C3 3.44772 3.44772 3 4 3Z" fill="#87CEEB" stroke="#4682B4" strokeWidth="0.5"/>
+      <path d="M4 3L8 3L13 8L8 13L3 8L3 4C3 3.44772 3.44772 3 4 3Z" fill="#E8C872" stroke="#B8860B" strokeWidth="0.5"/>
       <circle cx="5.5" cy="5.5" r="0.8" fill="white"/>
     </svg>
   ),
@@ -204,8 +222,15 @@ const Icons = {
   ),
   aoi: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="2" y="2" width="12" height="12" rx="2" fill="#DDA0DD" stroke="#9932CC" strokeWidth="0.5"/>
-      <text x="8" y="11" textAnchor="middle" fontSize="7" fill="#4B0082" fontWeight="bold">AOI</text>
+      <path d="M2 4C2 3.44772 2.44772 3 3 3H6L7.5 5H13C13.5523 5 14 5.44772 14 6V12C14 12.5523 13.5523 13 13 13H3C2.44772 13 2 12.5523 2 12V4Z" fill="#E8C872" stroke="#B8860B" strokeWidth="0.5"/>
+      <text x="8" y="11" textAnchor="middle" fontSize="5" fill="#6B4C00" fontWeight="bold">AOI</text>
+    </svg>
+  ),
+  aoiOpen: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 4C2 3.44772 2.44772 3 3 3H6L7.5 5H13C13.5523 5 14 5.44772 14 6V7H4L2 12V4Z" fill="#E8C872" stroke="#B8860B" strokeWidth="0.5"/>
+      <path d="M2 12L4 7H15L13 12H2Z" fill="#F5DEB3" stroke="#B8860B" strokeWidth="0.5"/>
+      <text x="9" y="11" textAnchor="middle" fontSize="4" fill="#6B4C00" fontWeight="bold">AOI</text>
     </svg>
   ),
   description: (
@@ -415,10 +440,13 @@ export function ProgramNavigator({
     return programsToDisplay(programs);
   }, [displayController, programs]);
 
-  // Expansion state for tree nodes
+  // Expansion state for tree nodes - open all top-level folders by default
   const [expanded, setExpanded] = useState<Set<string>>(
-    new Set(['controller', 'tasks', 'mainTask', 'program-0'])
+    new Set(['controller', 'tasks', 'mainTask', 'aois', 'dataTypes', 'io'])
   );
+
+  // Internal selection state for non-routine items
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
   const toggleExpanded = (key: string) => {
     setExpanded((prev) => {
@@ -468,11 +496,11 @@ export function ProgramNavigator({
 
   const headerStyle: React.CSSProperties = {
     padding: '8px 12px',
-    backgroundColor: '#e8e8e8',
-    borderBottom: '1px solid #c0c0c0',
+    backgroundColor: '#1e3f6f',
+    borderBottom: '1px solid #2b579a',
     fontWeight: 600,
     fontSize: '12px',
-    color: '#333',
+    color: '#ffffff',
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
@@ -489,15 +517,19 @@ export function ProgramNavigator({
 
       <div style={treeContainerStyle}>
         <div style={{ padding: '4px 0' }}>
-        {/* Controller Root */}
+        {/* Controller - now at top level */}
         <TreeItem
-          icon={Icons.controller}
-          label={controllerName}
+          icon={expanded.has('controller') ? Icons.folderOpen : Icons.folder}
+          label={`Controller ${controllerName}`}
           depth={0}
           isExpandable={true}
           isExpanded={expanded.has('controller')}
+          isSelected={selectedItem === 'controller-info'}
           onToggle={() => toggleExpanded('controller')}
-          onClick={onControllerInfoSelect}
+          onClick={() => {
+            setSelectedItem('controller-info');
+            onControllerInfoSelect?.();
+          }}
         />
 
         {expanded.has('controller') && (
@@ -507,338 +539,356 @@ export function ProgramNavigator({
               icon={Icons.tags}
               label="Controller Tags"
               depth={1}
-              badge={`${displayController?.tagCount ?? 0}`}
-              onClick={onControllerTagsSelect}
+              isSelected={selectedItem === 'controller-tags'}
+              onClick={() => {
+                setSelectedItem('controller-tags');
+                onControllerTagsSelect?.();
+              }}
             />
+          </>
+        )}
 
-            {/* Tasks */}
+        {/* Tasks - now at top level */}
+        <TreeItem
+          icon={expanded.has('tasks') ? Icons.folderOpen : Icons.folder}
+          label="Tasks"
+          depth={0}
+          isExpandable={true}
+          isExpanded={expanded.has('tasks')}
+          onToggle={() => toggleExpanded('tasks')}
+        />
+
+        {expanded.has('tasks') && (
+          <>
+            {/* MainTask */}
             <TreeItem
-              icon={expanded.has('tasks') ? Icons.folderOpen : Icons.folder}
-              label="Tasks"
+              icon={expanded.has('mainTask') ? Icons.taskOpen : Icons.task}
+              label="MainTask"
               depth={1}
               isExpandable={true}
-              isExpanded={expanded.has('tasks')}
-              onToggle={() => toggleExpanded('tasks')}
+              isExpanded={expanded.has('mainTask')}
+              onToggle={() => toggleExpanded('mainTask')}
             />
 
-            {expanded.has('tasks') && (
-              <>
-                {/* MainTask */}
-                <TreeItem
-                  icon={Icons.task}
-                  label="MainTask"
-                  depth={2}
-                  isExpandable={true}
-                  isExpanded={expanded.has('mainTask')}
-                  onToggle={() => toggleExpanded('mainTask')}
-                />
+            {expanded.has('mainTask') && displayPrograms.map((program, pIdx) => {
+              const programKey = `program-${pIdx}`;
+              const programName = program.name;
 
-                {expanded.has('mainTask') && displayPrograms.map((program, pIdx) => {
-                  const programKey = `program-${pIdx}`;
-                  const programName = program.name;
-
-                  return (
-                    <React.Fragment key={programKey}>
-                      <TreeItem
-                        icon={Icons.program}
-                        label={programName}
-                        depth={3}
-                        isExpandable={true}
-                        isExpanded={expanded.has(programKey)}
-                        onToggle={() => toggleExpanded(programKey)}
-                      />
-
-                      {expanded.has(programKey) && (
-                        <>
-                          {/* Program Tags */}
-                          <TreeItem
-                            icon={Icons.tags}
-                            label="Program Tags"
-                            depth={4}
-                            onClick={() => onProgramTagsSelect?.(pIdx)}
-                          />
-
-                          {/* Routines */}
-                          {program.routines.map((routine, rIdx) => {
-                            const isSelected =
-                              selectedRoutine?.programIndex === pIdx &&
-                              selectedRoutine?.routineIndex === rIdx;
-
-                            return (
-                              <TreeItem
-                                key={routine.name}
-                                icon={Icons.routine}
-                                label={routine.name}
-                                depth={4}
-                                isSelected={isSelected}
-                                badge={`${routine.rungCount}`}
-                                onClick={() => {
-                                  const originalRoutine = getOriginalRoutine(pIdx, rIdx);
-                                  if (originalRoutine) {
-                                    onRoutineSelect?.(pIdx, rIdx, originalRoutine);
-                                  }
-                                }}
-                              />
-                            );
-                          })}
-                        </>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-
-                {/* Unscheduled Programs */}
-                <TreeItem
-                  icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
-                  label="Unscheduled"
-                  depth={2}
-                  isExpandable={false}
-                />
-              </>
-            )}
-
-            {/* Motion Groups (unsupported) */}
-            <TreeItem
-              icon={Icons.motionGroup}
-              label="Motion Groups"
-              depth={1}
-              badge="Unsupported"
-            />
-
-            {/* Add-On Instructions */}
-            <TreeItem
-              icon={expanded.has('aois') ? Icons.folderOpen : Icons.folder}
-              label="Add-On Instructions"
-              depth={1}
-              isExpandable={true}
-              isExpanded={expanded.has('aois')}
-              onToggle={() => toggleExpanded('aois')}
-              badge={`${displayController?.aoiCount ?? 0}`}
-            />
-
-            {expanded.has('aois') && controller && (
-              controller.aois.map((aoi) => (
-                <React.Fragment key={aoi.name}>
+              return (
+                <React.Fragment key={programKey}>
                   <TreeItem
-                    icon={expanded.has(`aoi-${aoi.name}`) ? Icons.folderOpen : Icons.aoi}
-                    label={aoi.name}
+                    icon={expanded.has(programKey) ? Icons.programOpen : Icons.program}
+                    label={programName}
                     depth={2}
                     isExpandable={true}
-                    isExpanded={expanded.has(`aoi-${aoi.name}`)}
-                    onToggle={() => toggleExpanded(`aoi-${aoi.name}`)}
-                    badge={aoi.revision}
+                    isExpanded={expanded.has(programKey)}
+                    onToggle={() => toggleExpanded(programKey)}
                   />
-                  {expanded.has(`aoi-${aoi.name}`) && (
+
+                  {expanded.has(programKey) && (
                     <>
-                      {/* AOI Description */}
-                      {aoi.description && (
-                        <TreeItem
-                          icon={Icons.description}
-                          label={aoi.description.length > 40 ? `${aoi.description.substring(0, 40)}...` : aoi.description}
-                          depth={3}
-                        />
-                      )}
-                      {/* Parameters */}
+                      {/* Program Tags */}
                       <TreeItem
                         icon={Icons.tags}
-                        label="Parameters"
+                        label="Program Tags"
                         depth={3}
-                        onClick={() => onAOIParametersSelect?.(aoi)}
-                        badge={`${aoi.parameters.length}`}
+                        isSelected={selectedItem === `program-tags-${pIdx}`}
+                        onClick={() => {
+                          setSelectedItem(`program-tags-${pIdx}`);
+                          onProgramTagsSelect?.(pIdx);
+                        }}
                       />
-                      {/* Local Tags */}
-                      <TreeItem
-                        icon={Icons.tags}
-                        label="Local Tags"
-                        depth={3}
-                        onClick={() => onAOILocalTagsSelect?.(aoi)}
-                        badge={`${aoi.localTags.length}`}
-                      />
-                      {/* Routines folder */}
-                      <TreeItem
-                        icon={expanded.has(`aoi-${aoi.name}-routines`) ? Icons.folderOpen : Icons.folder}
-                        label="Routines"
-                        depth={3}
-                        isExpandable={aoi.routines.length > 0}
-                        isExpanded={expanded.has(`aoi-${aoi.name}-routines`)}
-                        onToggle={() => toggleExpanded(`aoi-${aoi.name}-routines`)}
-                        badge={`${aoi.routines.length}`}
-                      />
-                      {expanded.has(`aoi-${aoi.name}-routines`) && aoi.routines.map((routine, routineIdx) => {
-                        const isAOIRoutineSelected = 
-                          selectedAOIRoutine?.aoiName === aoi.name && 
-                          selectedAOIRoutine?.routineIndex === routineIdx;
+
+                      {/* Routines */}
+                      {program.routines.map((routine, rIdx) => {
+                        const isRoutineSelected =
+                          selectedRoutine?.programIndex === pIdx &&
+                          selectedRoutine?.routineIndex === rIdx;
+
                         return (
                           <TreeItem
                             key={routine.name}
                             icon={Icons.routine}
                             label={routine.name}
-                            depth={4}
-                            isSelected={isAOIRoutineSelected}
-                            badge={routine.type === 'RLL' ? `${routine.rungs.length} rungs` : routine.type}
-                            onClick={routine.type === 'RLL' ? () => onAOIRoutineSelect?.(aoi, routineIdx, routine) : undefined}
+                            depth={3}
+                            isSelected={isRoutineSelected || selectedItem === `routine-${pIdx}-${rIdx}`}
+                            onClick={() => {
+                              setSelectedItem(`routine-${pIdx}-${rIdx}`);
+                              const originalRoutine = getOriginalRoutine(pIdx, rIdx);
+                              if (originalRoutine) {
+                                onRoutineSelect?.(pIdx, rIdx, originalRoutine);
+                              }
+                            }}
                           />
                         );
                       })}
                     </>
                   )}
                 </React.Fragment>
-              ))
-            )}
+              );
+            })}
 
-            {/* Data Types */}
+            {/* Unscheduled Programs */}
             <TreeItem
-              icon={expanded.has('dataTypes') ? Icons.folderOpen : Icons.folder}
-              label="Data Types"
+              icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
+              label="Unscheduled"
               depth={1}
-              isExpandable={true}
-              isExpanded={expanded.has('dataTypes')}
-              onToggle={() => toggleExpanded('dataTypes')}
-              badge={controller ? `${controller.dataTypes.length}` : undefined}
+              isExpandable={false}
             />
-
-            {expanded.has('dataTypes') && dataTypeCategories && (
-              <>
-                {/* User Defined */}
-                <TreeItem
-                  icon={expanded.has('dt-user') ? Icons.folderOpen : Icons.folder}
-                  label="User Defined"
-                  depth={2}
-                  isExpandable={dataTypeCategories.userDefined.length > 0}
-                  isExpanded={expanded.has('dt-user')}
-                  onToggle={() => toggleExpanded('dt-user')}
-                  badge={`${dataTypeCategories.userDefined.length}`}
-                />
-                {expanded.has('dt-user') && dataTypeCategories.userDefined.map((dt) => (
-                  <TreeItem
-                    key={dt.name}
-                    icon={Icons.dataType}
-                    label={dt.name}
-                    depth={3}
-                    onClick={() => {
-                      const original = getOriginalDataType(dt.name);
-                      if (original) onDataTypeSelect?.(original);
-                    }}
-                  />
-                ))}
-
-                {/* Strings */}
-                <TreeItem
-                  icon={expanded.has('dt-string') ? Icons.folderOpen : Icons.folder}
-                  label="Strings"
-                  depth={2}
-                  isExpandable={dataTypeCategories.strings.length > 0}
-                  isExpanded={expanded.has('dt-string')}
-                  onToggle={() => toggleExpanded('dt-string')}
-                  badge={`${dataTypeCategories.strings.length}`}
-                />
-                {expanded.has('dt-string') && dataTypeCategories.strings.map((dt) => (
-                  <TreeItem
-                    key={dt.name}
-                    icon={Icons.dataType}
-                    label={dt.name}
-                    depth={3}
-                    onClick={() => {
-                      const original = getOriginalDataType(dt.name);
-                      if (original) onDataTypeSelect?.(original);
-                    }}
-                  />
-                ))}
-
-                {/* Add-On Defined */}
-                <TreeItem
-                  icon={expanded.has('dt-addon') ? Icons.folderOpen : Icons.folder}
-                  label="Add-On Defined"
-                  depth={2}
-                  isExpandable={dataTypeCategories.addOnDefined.length > 0}
-                  isExpanded={expanded.has('dt-addon')}
-                  onToggle={() => toggleExpanded('dt-addon')}
-                  badge={`${dataTypeCategories.addOnDefined.length}`}
-                />
-                {expanded.has('dt-addon') && dataTypeCategories.addOnDefined.map((dt) => (
-                  <TreeItem
-                    key={dt.name}
-                    icon={Icons.dataType}
-                    label={dt.name}
-                    depth={3}
-                    onClick={() => {
-                      const original = getOriginalDataType(dt.name);
-                      if (original) onDataTypeSelect?.(original);
-                    }}
-                  />
-                ))}
-
-                {/* Predefined */}
-                <TreeItem
-                  icon={expanded.has('dt-predefined') ? Icons.folderOpen : Icons.folder}
-                  label="Predefined"
-                  depth={2}
-                  isExpandable={dataTypeCategories.predefined.length > 0}
-                  isExpanded={expanded.has('dt-predefined')}
-                  onToggle={() => toggleExpanded('dt-predefined')}
-                  badge={`${dataTypeCategories.predefined.length}`}
-                />
-                {expanded.has('dt-predefined') && dataTypeCategories.predefined.map((dt) => (
-                  <TreeItem
-                    key={dt.name}
-                    icon={Icons.dataType}
-                    label={dt.name}
-                    depth={3}
-                    onClick={() => {
-                      const original = getOriginalDataType(dt.name);
-                      if (original) onDataTypeSelect?.(original);
-                    }}
-                  />
-                ))}
-
-                {/* Module Defined */}
-                <TreeItem
-                  icon={expanded.has('dt-module') ? Icons.folderOpen : Icons.folder}
-                  label="Module Defined"
-                  depth={2}
-                  isExpandable={dataTypeCategories.moduleDefined.length > 0}
-                  isExpanded={expanded.has('dt-module')}
-                  onToggle={() => toggleExpanded('dt-module')}
-                  badge={`${dataTypeCategories.moduleDefined.length}`}
-                />
-                {expanded.has('dt-module') && dataTypeCategories.moduleDefined.map((dt) => (
-                  <TreeItem
-                    key={dt.name}
-                    icon={Icons.dataType}
-                    label={dt.name}
-                    depth={3}
-                    onClick={() => {
-                      const original = getOriginalDataType(dt.name);
-                      if (original) onDataTypeSelect?.(original);
-                    }}
-                  />
-                ))}
-              </>
-            )}
-
-            {/* I/O Configuration */}
-            <TreeItem
-              icon={Icons.io}
-              label="I/O Configuration"
-              depth={1}
-              isExpandable={true}
-              isExpanded={expanded.has('io')}
-              onToggle={() => toggleExpanded('io')}
-              badge={`${displayController?.moduleCount ?? 0}`}
-            />
-
-            {expanded.has('io') && controller && (
-              controller.modules.map((mod) => (
-                <TreeItem
-                  key={mod.id}
-                  icon={Icons.ioModule}
-                  label={`Slot ${mod.slot ?? 0} - Module ${mod.id}`}
-                  depth={2}
-                  onClick={() => onIODeviceSelect?.(mod.id)}
-                />
-              ))
-            )}
           </>
+        )}
+
+        {/* Motion Groups (unsupported) - now at top level */}
+        <TreeItem
+          icon={Icons.motionGroup}
+          label="Motion Groups"
+          depth={0}
+        />
+
+        {/* Add-On Instructions - now at top level */}
+        <TreeItem
+          icon={expanded.has('aois') ? Icons.folderOpen : Icons.folder}
+          label="Add-On Instructions"
+          depth={0}
+          isExpandable={true}
+          isExpanded={expanded.has('aois')}
+          onToggle={() => toggleExpanded('aois')}
+        />
+
+        {expanded.has('aois') && controller && (
+          controller.aois.map((aoi) => (
+            <React.Fragment key={aoi.name}>
+              <TreeItem
+                icon={expanded.has(`aoi-${aoi.name}`) ? Icons.aoiOpen : Icons.aoi}
+                label={aoi.name}
+                depth={1}
+                isExpandable={true}
+                isExpanded={expanded.has(`aoi-${aoi.name}`)}
+                onToggle={() => toggleExpanded(`aoi-${aoi.name}`)}
+              />
+              {expanded.has(`aoi-${aoi.name}`) && (
+                <>
+                  {/* AOI Description */}
+                  {aoi.description && (
+                    <TreeItem
+                      icon={Icons.description}
+                      label={aoi.description.length > 40 ? `${aoi.description.substring(0, 40)}...` : aoi.description}
+                      depth={2}
+                    />
+                  )}
+                  {/* Parameters */}
+                  <TreeItem
+                    icon={Icons.tags}
+                    label="Parameters"
+                    depth={2}
+                    isSelected={selectedItem === `aoi-params-${aoi.name}`}
+                    onClick={() => {
+                      setSelectedItem(`aoi-params-${aoi.name}`);
+                      onAOIParametersSelect?.(aoi);
+                    }}
+                  />
+                  {/* Local Tags */}
+                  <TreeItem
+                    icon={Icons.tags}
+                    label="Local Tags"
+                    depth={2}
+                    isSelected={selectedItem === `aoi-local-${aoi.name}`}
+                    onClick={() => {
+                      setSelectedItem(`aoi-local-${aoi.name}`);
+                      onAOILocalTagsSelect?.(aoi);
+                    }}
+                  />
+                  {/* Routines folder */}
+                  <TreeItem
+                    icon={expanded.has(`aoi-${aoi.name}-routines`) ? Icons.folderOpen : Icons.folder}
+                    label="Routines"
+                    depth={2}
+                    isExpandable={aoi.routines.length > 0}
+                    isExpanded={expanded.has(`aoi-${aoi.name}-routines`)}
+                    onToggle={() => toggleExpanded(`aoi-${aoi.name}-routines`)}
+                  />
+                  {expanded.has(`aoi-${aoi.name}-routines`) && aoi.routines.map((routine, routineIdx) => {
+                    const isAOIRoutineSelected = 
+                      selectedAOIRoutine?.aoiName === aoi.name && 
+                      selectedAOIRoutine?.routineIndex === routineIdx;
+                    return (
+                      <TreeItem
+                        key={routine.name}
+                        icon={Icons.routine}
+                        label={routine.name}
+                        depth={3}
+                        isSelected={isAOIRoutineSelected || selectedItem === `aoi-routine-${aoi.name}-${routineIdx}`}
+                        onClick={routine.type === 'RLL' ? () => {
+                          setSelectedItem(`aoi-routine-${aoi.name}-${routineIdx}`);
+                          onAOIRoutineSelect?.(aoi, routineIdx, routine);
+                        } : undefined}
+                      />
+                    );
+                  })}
+                </>
+              )}
+            </React.Fragment>
+          ))
+        )}
+
+        {/* Data Types - now at top level */}
+        <TreeItem
+          icon={expanded.has('dataTypes') ? Icons.folderOpen : Icons.folder}
+          label="Data Types"
+          depth={0}
+          isExpandable={true}
+          isExpanded={expanded.has('dataTypes')}
+          onToggle={() => toggleExpanded('dataTypes')}
+        />
+
+        {expanded.has('dataTypes') && dataTypeCategories && (
+          <>
+            {/* User Defined */}
+            <TreeItem
+              icon={expanded.has('dt-user') ? Icons.folderOpen : Icons.folder}
+              label="User Defined"
+              depth={1}
+              isExpandable={dataTypeCategories.userDefined.length > 0}
+              isExpanded={expanded.has('dt-user')}
+              onToggle={() => toggleExpanded('dt-user')}
+            />
+            {expanded.has('dt-user') && dataTypeCategories.userDefined.map((dt) => (
+              <TreeItem
+                key={dt.name}
+                icon={Icons.dataType}
+                label={dt.name}
+                depth={2}
+                isSelected={selectedItem === `dt-${dt.name}`}
+                onClick={() => {
+                  setSelectedItem(`dt-${dt.name}`);
+                  const original = getOriginalDataType(dt.name);
+                  if (original) onDataTypeSelect?.(original);
+                }}
+              />
+            ))}
+
+            {/* Strings */}
+            <TreeItem
+              icon={expanded.has('dt-string') ? Icons.folderOpen : Icons.folder}
+              label="Strings"
+              depth={1}
+              isExpandable={dataTypeCategories.strings.length > 0}
+              isExpanded={expanded.has('dt-string')}
+              onToggle={() => toggleExpanded('dt-string')}
+            />
+            {expanded.has('dt-string') && dataTypeCategories.strings.map((dt) => (
+              <TreeItem
+                key={dt.name}
+                icon={Icons.dataType}
+                label={dt.name}
+                depth={2}
+                isSelected={selectedItem === `dt-${dt.name}`}
+                onClick={() => {
+                  setSelectedItem(`dt-${dt.name}`);
+                  const original = getOriginalDataType(dt.name);
+                  if (original) onDataTypeSelect?.(original);
+                }}
+              />
+            ))}
+
+            {/* Add-On Defined */}
+            <TreeItem
+              icon={expanded.has('dt-addon') ? Icons.folderOpen : Icons.folder}
+              label="Add-On Defined"
+              depth={1}
+              isExpandable={dataTypeCategories.addOnDefined.length > 0}
+              isExpanded={expanded.has('dt-addon')}
+              onToggle={() => toggleExpanded('dt-addon')}
+            />
+            {expanded.has('dt-addon') && dataTypeCategories.addOnDefined.map((dt) => (
+              <TreeItem
+                key={dt.name}
+                icon={Icons.dataType}
+                label={dt.name}
+                depth={2}
+                isSelected={selectedItem === `dt-${dt.name}`}
+                onClick={() => {
+                  setSelectedItem(`dt-${dt.name}`);
+                  const original = getOriginalDataType(dt.name);
+                  if (original) onDataTypeSelect?.(original);
+                }}
+              />
+            ))}
+
+            {/* Predefined */}
+            <TreeItem
+              icon={expanded.has('dt-predefined') ? Icons.folderOpen : Icons.folder}
+              label="Predefined"
+              depth={1}
+              isExpandable={dataTypeCategories.predefined.length > 0}
+              isExpanded={expanded.has('dt-predefined')}
+              onToggle={() => toggleExpanded('dt-predefined')}
+            />
+            {expanded.has('dt-predefined') && dataTypeCategories.predefined.map((dt) => (
+              <TreeItem
+                key={dt.name}
+                icon={Icons.dataType}
+                label={dt.name}
+                depth={2}
+                isSelected={selectedItem === `dt-${dt.name}`}
+                onClick={() => {
+                  setSelectedItem(`dt-${dt.name}`);
+                  const original = getOriginalDataType(dt.name);
+                  if (original) onDataTypeSelect?.(original);
+                }}
+              />
+            ))}
+
+            {/* Module Defined */}
+            <TreeItem
+              icon={expanded.has('dt-module') ? Icons.folderOpen : Icons.folder}
+              label="Module Defined"
+              depth={1}
+              isExpandable={dataTypeCategories.moduleDefined.length > 0}
+              isExpanded={expanded.has('dt-module')}
+              onToggle={() => toggleExpanded('dt-module')}
+            />
+            {expanded.has('dt-module') && dataTypeCategories.moduleDefined.map((dt) => (
+              <TreeItem
+                key={dt.name}
+                icon={Icons.dataType}
+                label={dt.name}
+                depth={2}
+                isSelected={selectedItem === `dt-${dt.name}`}
+                onClick={() => {
+                  setSelectedItem(`dt-${dt.name}`);
+                  const original = getOriginalDataType(dt.name);
+                  if (original) onDataTypeSelect?.(original);
+                }}
+              />
+            ))}
+          </>
+        )}
+
+        {/* I/O Configuration - now at top level */}
+        <TreeItem
+          icon={Icons.io}
+          label="I/O Configuration"
+          depth={0}
+          isExpandable={true}
+          isExpanded={expanded.has('io')}
+          onToggle={() => toggleExpanded('io')}
+        />
+
+        {expanded.has('io') && controller && (
+          controller.modules.map((mod) => (
+            <TreeItem
+              key={mod.id}
+              icon={Icons.ioModule}
+              label={`Slot ${mod.slot ?? 0} - Module ${mod.id}`}
+              depth={1}
+              isSelected={selectedItem === `io-module-${mod.id}`}
+              onClick={() => {
+                setSelectedItem(`io-module-${mod.id}`);
+                onIODeviceSelect?.(mod.id);
+              }}
+            />
+          ))
         )}
         </div>
       </div>

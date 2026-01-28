@@ -17,6 +17,8 @@ import type {
   NormalizedAOI,
 } from '../src';
 import { DataTypeTable } from './DataTypeTable';
+import { TabBar, TabData } from './TabBar';
+import { useTabs } from './useTabs';
 
 // Import the sample data
 import controllerData from '../examples/controller_output.json';
@@ -25,27 +27,15 @@ import controllerData from '../examples/controller_output.json';
 // MAIN APP COMPONENT
 // ============================================================================
 
-// View types for main content area
-type MainViewType = 'routine' | 'controller-tags' | 'program-tags' | 'controller-info' | 'data-type' | 'aoi-parameters' | 'aoi-local-tags' | 'aoi-routine';
-
 export default function App() {
   const [controller, setController] = useState<NormalizedController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [selectedRoutine, setSelectedRoutine] = useState<{
-    programIndex: number;
-    routineIndex: number;
-  } | null>(null);
-  const [selectedProgramIndex, setSelectedProgramIndex] = useState<number | null>(null);
-  const [selectedDataType, setSelectedDataType] = useState<NormalizedDataType | null>(null);
-  const [selectedAOI, setSelectedAOI] = useState<NormalizedAOI | null>(null);
-  const [selectedAOIRoutine, setSelectedAOIRoutine] = useState<{
-    aoiName: string;
-    routineIndex: number;
-  } | null>(null);
-  const [mainViewType, setMainViewType] = useState<MainViewType>('routine');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Tab management
+  const { tabs, activeTabId, openTab, closeTab, selectTab, closeAllTabs } = useTabs();
 
   // Load demo data on mount
   useEffect(() => {
@@ -53,10 +43,6 @@ export default function App() {
       const normalized = jsonToNormalized(controllerData);
       setController(normalized);
       setFileName(null);
-      // Select first routine by default
-      if (normalized.programs.length > 0 && normalized.programs[0].routines.length > 0) {
-        setSelectedRoutine({ programIndex: 0, routineIndex: 0 });
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse controller data');
     }
@@ -78,18 +64,7 @@ export default function App() {
       if (result.success && result.data) {
         setController(result.data);
         setFileName(file.name);
-        setSelectedDataType(null);
-        setSelectedProgramIndex(null);
-        setSelectedAOI(null);
-        setSelectedAOIRoutine(null);
-        setMainViewType('routine');
-        
-        // Select first routine by default
-        if (result.data.programs.length > 0 && result.data.programs[0].routines.length > 0) {
-          setSelectedRoutine({ programIndex: 0, routineIndex: 0 });
-        } else {
-          setSelectedRoutine(null);
-        }
+        closeAllTabs();
       } else {
         const errorMsg = result.errors?.map(e => e.message).join(', ') || 'Failed to parse file';
         setError(errorMsg);
@@ -103,7 +78,7 @@ export default function App() {
         fileInputRef.current.value = '';
       }
     }
-  }, []);
+  }, [closeAllTabs, openTab]);
 
   /**
    * Load demo data (reset to default)
@@ -114,78 +89,34 @@ export default function App() {
       setController(normalized);
       setFileName(null);
       setError(null);
-      setSelectedDataType(null);
-      setSelectedProgramIndex(null);
-      setSelectedAOI(null);
-      setSelectedAOIRoutine(null);
-      setMainViewType('routine');
-      
-      if (normalized.programs.length > 0 && normalized.programs[0].routines.length > 0) {
-        setSelectedRoutine({ programIndex: 0, routineIndex: 0 });
-      }
+      closeAllTabs();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load demo data');
     }
-  }, []);
+  }, [closeAllTabs, openTab]);
 
-  // Get the selected routine
-  const parsedRoutine: NormalizedRoutine | null = useMemo(() => {
-    if (!controller || !selectedRoutine) return null;
-    const routine = controller.programs[selectedRoutine.programIndex]?.routines[selectedRoutine.routineIndex];
-    return routine || null;
-  }, [controller, selectedRoutine]);
+  // Get active tab data for navigator highlight
+  const activeTabData = useMemo(() => {
+    if (!activeTabId) return null;
+    const tab = tabs.find(t => t.id === activeTabId);
+    return tab?.data || null;
+  }, [activeTabId, tabs]);
 
-  // Get program tags if viewing program tags
-  const programTags = useMemo(() => {
-    if (selectedProgramIndex === null || !controller) return [];
-    const program = controller.programs[selectedProgramIndex];
-    return program?.tags ?? [];
-  }, [controller, selectedProgramIndex]);
+  // Derive selected routine from active tab for navigator
+  const selectedRoutine = useMemo(() => {
+    if (activeTabData?.type === 'routine') {
+      return { programIndex: activeTabData.programIndex, routineIndex: activeTabData.routineIndex };
+    }
+    return null;
+  }, [activeTabData]);
 
-  const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, _routine: NormalizedRoutine) => {
-    setSelectedRoutine({ programIndex, routineIndex });
-    setMainViewType('routine');
-  }, []);
-
-  const handleControllerTagsSelect = useCallback(() => {
-    setMainViewType('controller-tags');
-  }, []);
-
-  const handleProgramTagsSelect = useCallback((programIndex: number) => {
-    setSelectedProgramIndex(programIndex);
-    setMainViewType('program-tags');
-  }, []);
-
-  const handleControllerInfoSelect = useCallback(() => {
-    setMainViewType('controller-info');
-  }, []);
-
-  const handleDataTypeSelect = useCallback((dataType: NormalizedDataType) => {
-    setSelectedDataType(dataType);
-    setMainViewType('data-type');
-  }, []);
-
-  const handleAOIParametersSelect = useCallback((aoi: NormalizedAOI) => {
-    setSelectedAOI(aoi);
-    setMainViewType('aoi-parameters');
-  }, []);
-
-  const handleAOILocalTagsSelect = useCallback((aoi: NormalizedAOI) => {
-    setSelectedAOI(aoi);
-    setMainViewType('aoi-local-tags');
-  }, []);
-
-  const handleAOIRoutineSelect = useCallback((aoi: NormalizedAOI, routineIndex: number, _routine: NormalizedRoutine) => {
-    setSelectedAOI(aoi);
-    setSelectedAOIRoutine({ aoiName: aoi.name, routineIndex });
-    setMainViewType('aoi-routine');
-  }, []);
-
-  // Get the selected AOI routine
-  const selectedAOIRoutineData: NormalizedRoutine | null = useMemo(() => {
-    if (!selectedAOI || !selectedAOIRoutine) return null;
-    return selectedAOI.routines[selectedAOIRoutine.routineIndex] || null;
-  }, [selectedAOI, selectedAOIRoutine]);
+  // Derive selected AOI routine from active tab for navigator
+  const selectedAOIRoutine = useMemo(() => {
+    if (activeTabData?.type === 'aoi-routine') {
+      return { aoiName: activeTabData.aoiName, routineIndex: activeTabData.routineIndex };
+    }
+    return null;
+  }, [activeTabData]);
 
   // Get all data types for DataTypeTable
   const allDataTypes = useMemo(() => {
@@ -193,120 +124,239 @@ export default function App() {
     return controller.dataTypes;
   }, [controller]);
 
-  // Render main content based on view type
-  const renderMainContent = () => {
+  /**
+   * Render content for a specific tab
+   */
+  const renderTabContent = useCallback((tabData: TabData, isActive: boolean) => {
     if (!controller) return null;
 
-    switch (mainViewType) {
+    // Use visibility to keep inactive tabs mounted but hidden
+    const containerStyle: React.CSSProperties = {
+      display: isActive ? 'flex' : 'none',
+      flex: 1,
+      flexDirection: 'column',
+      overflow: 'hidden',
+      height: '100%',
+    };
+
+    switch (tabData.type) {
       case 'controller-tags':
         return (
-          <>
+          <div key="controller-tags" style={containerStyle}>
             <div style={styles.infoPanelContent}>
               <TagTable tags={controller.tags} />
             </div>
-          </>
+          </div>
         );
-      case 'program-tags':
+      case 'program-tags': {
+        const program = controller.programs[tabData.programIndex];
+        const tags = program?.tags ?? [];
         return (
-          <>
+          <div key={`program-tags-${tabData.programIndex}`} style={containerStyle}>
             <div style={styles.infoPanelContent}>
-              {programTags.length > 0 ? (
-                <TagTable tags={programTags} />
+              {tags.length > 0 ? (
+                <TagTable tags={tags} />
               ) : (
                 <p style={styles.noSelection}>No program-specific tags defined</p>
               )}
             </div>
-          </>
+          </div>
         );
+      }
       case 'controller-info':
         return (
-          <>
+          <div key="controller-info" style={containerStyle}>
             <div style={styles.infoPanelContent}>
               <ControllerInfo controller={controller} />
             </div>
-          </>
+          </div>
         );
-      case 'data-type':
-        if (selectedDataType) {
+      case 'data-type': {
+        const dataType = controller.dataTypes.find(dt => dt.name === tabData.dataTypeName);
+        if (dataType) {
           return (
-            <>
+            <div key={`data-type-${tabData.dataTypeName}`} style={containerStyle}>
               <div style={styles.infoPanelContent}>
-                <DataTypeTable dataType={selectedDataType} allDataTypes={allDataTypes} />
+                <DataTypeTable dataType={dataType} allDataTypes={allDataTypes} />
               </div>
-            </>
+            </div>
           );
         }
-        return <p style={styles.noSelection}>Select a data type from the Controller Organizer</p>;
-      case 'aoi-parameters':
-        if (selectedAOI) {
+        return (
+          <div key={`data-type-${tabData.dataTypeName}`} style={containerStyle}>
+            <p style={styles.noSelection}>Data type not found</p>
+          </div>
+        );
+      }
+      case 'aoi-parameters': {
+        const aoi = controller.aois.find(a => a.name === tabData.aoiName);
+        if (aoi) {
           return (
-            <>
+            <div key={`aoi-parameters-${tabData.aoiName}`} style={containerStyle}>
               <div style={styles.infoPanelContent}>
-                <AOIParameterTable parameters={selectedAOI.parameters} />
+                <AOIParameterTable parameters={aoi.parameters} />
               </div>
-            </>
+            </div>
           );
         }
-        return <p style={styles.noSelection}>Select an AOI from the Controller Organizer</p>;
-      case 'aoi-local-tags':
-        if (selectedAOI) {
+        return (
+          <div key={`aoi-parameters-${tabData.aoiName}`} style={containerStyle}>
+            <p style={styles.noSelection}>AOI not found</p>
+          </div>
+        );
+      }
+      case 'aoi-local-tags': {
+        const aoi = controller.aois.find(a => a.name === tabData.aoiName);
+        if (aoi) {
           return (
-            <>
+            <div key={`aoi-local-tags-${tabData.aoiName}`} style={containerStyle}>
               <div style={styles.infoPanelContent}>
-                <AOILocalTagTable localTags={selectedAOI.localTags} />
+                <AOILocalTagTable localTags={aoi.localTags} />
               </div>
-            </>
+            </div>
           );
         }
-        return <p style={styles.noSelection}>Select an AOI from the Controller Organizer</p>;
-      case 'aoi-routine':
-        if (selectedAOI && selectedAOIRoutineData) {
-          const isAOISTRoutine = selectedAOIRoutineData.type === 'ST';
+        return (
+          <div key={`aoi-local-tags-${tabData.aoiName}`} style={containerStyle}>
+            <p style={styles.noSelection}>AOI not found</p>
+          </div>
+        );
+      }
+      case 'aoi-routine': {
+        const aoi = controller.aois.find(a => a.name === tabData.aoiName);
+        const routine = aoi?.routines[tabData.routineIndex];
+        if (aoi && routine) {
+          const isSTRoutine = routine.type === 'ST';
           return (
-            <>
-              <div style={styles.ladderContent}>
-                {isAOISTRoutine ? (
-                  <StructuredTextViewer
-                    routine={selectedAOIRoutineData}
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                ) : (
-                  <VirtualizedLadderDiagram
-                    routine={selectedAOIRoutineData}
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                )}
-              </div>
-            </>
-          );
-        }
-        return <p style={styles.noSelection}>Select an AOI routine from the Controller Organizer</p>;
-      case 'routine':
-      default:
-        if (parsedRoutine) {
-          // Render different viewers based on routine type
-          const isSTRoutine = parsedRoutine.type === 'ST';
-          return (
-            <>
+            <div key={`aoi-routine-${tabData.aoiName}-${tabData.routineIndex}`} style={containerStyle}>
               <div style={styles.ladderContent}>
                 {isSTRoutine ? (
                   <StructuredTextViewer
-                    routine={parsedRoutine}
+                    routine={routine}
                     style={{ width: '100%', height: '100%' }}
                   />
                 ) : (
                   <VirtualizedLadderDiagram
-                    routine={parsedRoutine}
+                    routine={routine}
                     style={{ width: '100%', height: '100%' }}
                   />
                 )}
               </div>
-            </>
+            </div>
           );
         }
-        return <p style={styles.noSelection}>Select a routine from the Controller Organizer</p>;
+        return (
+          <div key={`aoi-routine-${tabData.aoiName}-${tabData.routineIndex}`} style={containerStyle}>
+            <p style={styles.noSelection}>AOI routine not found</p>
+          </div>
+        );
+      }
+      case 'routine': {
+        const routine = controller.programs[tabData.programIndex]?.routines[tabData.routineIndex];
+        if (routine) {
+          const isSTRoutine = routine.type === 'ST';
+          return (
+            <div key={`routine-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
+              <div style={styles.ladderContent}>
+                {isSTRoutine ? (
+                  <StructuredTextViewer
+                    routine={routine}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                ) : (
+                  <VirtualizedLadderDiagram
+                    routine={routine}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div key={`routine-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
+            <p style={styles.noSelection}>Routine not found</p>
+          </div>
+        );
+      }
+      default:
+        return null;
     }
+  }, [controller, allDataTypes]);
+
+  // Render main content based on active tab
+  const renderMainContent = () => {
+    if (!controller) return null;
+
+    if (tabs.length === 0) {
+      return (
+        <div style={styles.emptyState}>
+          <p style={styles.emptyStateTitle}>No Content Selected</p>
+          <p style={styles.emptyStateText}>Select an item from the navigation panel to view its contents</p>
+        </div>
+      );
+    }
+
+    // Render all tabs (keeping inactive ones mounted but hidden for performance)
+    return (
+      <>
+        {tabs.map(tab => renderTabContent(tab.data, tab.id === activeTabId))}
+      </>
+    );
   };
+
+  // Event handlers for navigator selections
+  const handleRoutineSelect = useCallback((programIndex: number, routineIndex: number, routine: NormalizedRoutine) => {
+    openTab(
+      { type: 'routine', programIndex, routineIndex },
+      routine.name
+    );
+  }, [openTab]);
+
+  const handleControllerTagsSelect = useCallback(() => {
+    openTab({ type: 'controller-tags' }, 'Controller Tags');
+  }, [openTab]);
+
+  const handleProgramTagsSelect = useCallback((programIndex: number) => {
+    if (!controller) return;
+    const program = controller.programs[programIndex];
+    openTab(
+      { type: 'program-tags', programIndex, programName: program.name },
+      `${program.name} Tags`
+    );
+  }, [controller, openTab]);
+
+  const handleControllerInfoSelect = useCallback(() => {
+    openTab({ type: 'controller-info' }, 'Controller Info');
+  }, [openTab]);
+
+  const handleDataTypeSelect = useCallback((dataType: NormalizedDataType) => {
+    openTab(
+      { type: 'data-type', dataTypeName: dataType.name },
+      dataType.name
+    );
+  }, [openTab]);
+
+  const handleAOIParametersSelect = useCallback((aoi: NormalizedAOI) => {
+    openTab(
+      { type: 'aoi-parameters', aoiName: aoi.name },
+      `${aoi.name} Parameters`
+    );
+  }, [openTab]);
+
+  const handleAOILocalTagsSelect = useCallback((aoi: NormalizedAOI) => {
+    openTab(
+      { type: 'aoi-local-tags', aoiName: aoi.name },
+      `${aoi.name} Local Tags`
+    );
+  }, [openTab]);
+
+  const handleAOIRoutineSelect = useCallback((aoi: NormalizedAOI, routineIndex: number, routine: NormalizedRoutine) => {
+    openTab(
+      { type: 'aoi-routine', aoiName: aoi.name, routineIndex },
+      `${aoi.name}:${routine.name}`
+    );
+  }, [openTab]);
 
   if (error) {
     return (
@@ -393,7 +443,15 @@ export default function App() {
 
           {/* Main Content Area */}
           <div style={styles.diagramContainer}>
-            {renderMainContent()}
+            <TabBar
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onTabSelect={selectTab}
+              onTabClose={closeTab}
+            />
+            <div style={styles.tabContent}>
+              {renderMainContent()}
+            </div>
           </div>
         </div>
       </main>
@@ -503,39 +561,46 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
     minHeight: 0,
   },
+  tabContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    minHeight: 0,
+    position: 'relative' as const,
+  },
   ladderContent: {
     flex: 1,
     overflow: 'hidden',
     display: 'flex',
-  },
-  routineTitle: {
-    margin: 0,
-    padding: '8px 12px',
-    fontSize: '13px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    backgroundColor: '#f5f5f5',
-    borderBottom: `1px solid ${colors.border}`,
-    flexShrink: 0,
-  },
-  routineBadge: {
-    fontSize: '10px',
-    padding: '2px 6px',
-    backgroundColor: colors.primary,
-    color: 'white',
-    borderRadius: '2px',
-  },
-  routineCount: {
-    fontSize: '11px',
-    color: colors.textLight,
-    marginLeft: 'auto',
   },
   noSelection: {
     color: colors.textLight,
     textAlign: 'center',
     padding: '40px',
     fontSize: '13px',
+  },
+  emptyState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    padding: '40px',
+    backgroundColor: '#f5f5f5',
+  },
+  emptyStateTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#666666',
+    marginBottom: '8px',
+  },
+  emptyStateText: {
+    fontSize: '13px',
+    color: '#999999',
+    textAlign: 'center',
+    maxWidth: '300px',
+    lineHeight: 1.5,
   },
   infoPanelContent: {
     flex: 1,
