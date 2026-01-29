@@ -237,6 +237,27 @@ export default function App() {
         const routine = aoi?.routines[tabData.routineIndex];
         if (aoi && routine) {
           const isSTRoutine = routine.type === 'ST';
+          const isRLLRoutine = routine.type === 'RLL';
+          
+          // Show unsupported format notice for FBD, SFC, and other non-supported types
+          if (!isSTRoutine && !isRLLRoutine) {
+            return (
+              <div key={`aoi-routine-${tabData.aoiName}-${tabData.routineIndex}`} style={containerStyle}>
+                <div style={styles.emptyState}>
+                  <p style={styles.emptyStateTitle}>{routine.type} Visualization Not Supported</p>
+                  <p style={styles.emptyStateText}>
+                    {routine.type === 'FBD' 
+                      ? 'Function Block Diagram (FBD) visualization is not yet supported'
+                      : routine.type === 'SFC'
+                        ? 'Sequential Function Chart (SFC) visualization is not yet supported'
+                        : `${routine.type} routine visualization is not yet supported`
+                    }
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          
           return (
             <div key={`aoi-routine-${tabData.aoiName}-${tabData.routineIndex}`} style={containerStyle}>
               <div style={styles.ladderContent}>
@@ -265,6 +286,27 @@ export default function App() {
         const routine = controller.programs[tabData.programIndex]?.routines[tabData.routineIndex];
         if (routine) {
           const isSTRoutine = routine.type === 'ST';
+          const isRLLRoutine = routine.type === 'RLL';
+          
+          // Show unsupported format notice for FBD, SFC, and other non-supported types
+          if (!isSTRoutine && !isRLLRoutine) {
+            return (
+              <div key={`routine-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
+                <div style={styles.emptyState}>
+                  <p style={styles.emptyStateTitle}>{routine.type} Visualization Not Supported</p>
+                  <p style={styles.emptyStateText}>
+                    {routine.type === 'FBD' 
+                      ? 'Function Block Diagram (FBD) visualization is not yet supported'
+                      : routine.type === 'SFC'
+                        ? 'Sequential Function Chart (SFC) visualization is not yet supported'
+                        : `${routine.type} routine visualization is not yet supported`
+                    }
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          
           return (
             <div key={`routine-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
               <div style={styles.ladderContent}>
