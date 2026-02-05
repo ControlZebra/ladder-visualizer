@@ -240,66 +240,90 @@ const DEFAULT_THEME: LadderDiagramTheme = {
 
 ---
 
-### 3. Update Symbol Components
+### 3. Update Symbol Components ✅
 
 **Location**: `src/components/svg/ContactSymbol.tsx`, `CoilSymbol.tsx`, `BoxSymbol.tsx`
 
-- [ ] Add `color` prop to `ContactSymbol` (default: `'#333333'`)
-- [ ] Add `ncColor` prop to `ContactSymbol` for normally-closed (default: `'#d32f2f'`)
-- [ ] Add `color` prop to `CoilSymbol` (default: `'#333333'`)
-- [ ] Add `borderColor`, `bgColor`, `textColor` props to `BoxSymbol`
-- [ ] Update SVG `stroke` and `fill` attributes to use props
+**Status: COMPLETE** - All symbol components already have theme props implemented:
+
+- [x] Add `color` prop to `ContactSymbol` (default: `'#333333'`)
+- [x] Add `ncColor` prop to `ContactSymbol` for normally-closed (default: inherits from color)
+- [x] Add `energizedColor` and `energizedFill` props to `ContactSymbol`
+- [x] Add `color` prop to `CoilSymbol` (default: `'#333333'`)
+- [x] Add `energizedColor` and `energizedFill` props to `CoilSymbol`
+- [x] Add `borderColor`, `bgColor`, `textColor` props to `BoxSymbol`
+- [x] Add `energizedColor` prop to `BoxSymbol`
+- [x] Update SVG `stroke` and `fill` attributes to use props
+- [x] Theme types defined in `src/types/theme.ts` (`ContactThemeProps`, `CoilThemeProps`, `BoxThemeProps`)
 
 Example for ContactSymbol:
 ```tsx
-export interface ContactSymbolProps {
-  // ... existing props
-  color?: string;
-  ncColor?: string;  // for normally closed diagonal line
+export interface ContactSymbolProps extends ContactThemeProps {
+  mnemonic: 'XIC' | 'XIO' | string;
+  energized?: boolean;
 }
 
 export function ContactSymbol({ 
+  mnemonic, 
+  energized = false,
   color = '#333333',
-  ncColor = '#d32f2f',
-  ...props 
+  ncColor,
+  energizedColor = '#00aa00',
+  energizedFill = '#90EE90',
 }: ContactSymbolProps) {
-  // Use color and ncColor in SVG rendering
+  // Uses color, ncColor, energizedColor, energizedFill in SVG rendering
 }
 ```
 
 ---
 
-### 4. Update tableStyles.ts
+### 4. Update tableStyles.ts ✅
 
 **Location**: `src/components/table/tableStyles.ts`
 
-Convert hardcoded colors to CSS variable references:
+**Status: COMPLETE** - All hardcoded colors replaced with CSS variable references:
 
-```tsx
-// BEFORE:
-header: {
-  background: 'linear-gradient(180deg, #f7f8fa 0%, #e3e7eb 100%)',
-  color: '#1e1e1e',
-  // ...
-}
+- [x] Replace all hardcoded colors with `var(--table-*)` references
+- [x] Update `tableStyles.header` to use CSS variables
+- [x] Update `tableStyles.cell` to use CSS variables
+- [x] Update `tableStyles.filterInput` to use CSS variables
+- [x] Update `tableStyles.rowHoverBg` and `alternateRowBg`
+- [x] Update `badgeStyles` colors to use CSS variables
+- [x] Add optional `className` support to GenericTable (already existed)
+- [x] Add dark mode badge colors to `variables.css`
 
-// AFTER:
-header: {
-  background: 'var(--table-header-bg)',
-  color: 'var(--table-header-text)',
-  // ...
-}
+CSS Variables used:
+```css
+/* Header */
+--table-header-bg
+--table-header-text
+--table-header-border
+--table-header-border-right
+
+/* Cells */
+--table-cell-bg
+--table-cell-text
+--table-cell-border
+--table-cell-border-right
+--table-row-alt-bg
+--table-row-hover-bg
+
+/* Filter */
+--table-filter-bg
+--table-filter-border
+--table-filter-text
+--table-container-border
+--table-count-text
+
+/* Badges */
+--badge-input-bg, --badge-input-text, --badge-input-border
+--badge-output-bg, --badge-output-text, --badge-output-border
+--badge-inout-bg, --badge-inout-text, --badge-inout-border
+
+/* Typography */
+--lv-font-family
+--lv-font-mono
 ```
-
-**Tasks:**
-
-- [ ] Replace all hardcoded colors with `var(--table-*)` references
-- [ ] Update `tableStyles.header` to use CSS variables
-- [ ] Update `tableStyles.cell` to use CSS variables
-- [ ] Update `tableStyles.filterInput` to use CSS variables
-- [ ] Update `tableStyles.rowHoverBg` and `alternateRowBg`
-- [ ] Update `badgeStyles` colors to use CSS variables
-- [ ] Add optional `className` support to GenericTable
 
 ---
 

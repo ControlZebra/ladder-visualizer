@@ -1,9 +1,5 @@
 import type { ContactThemeProps } from '../../types/theme';
-
-/** Default colors for different states */
-const DEFAULT_WIRE_COLOR = '#333333';
-const DEFAULT_ENERGIZED_COLOR = '#00aa00';
-const DEFAULT_ENERGIZED_FILL = '#90EE90';
+import { DEFAULT_THEME } from '../../types/theme';
 
 export interface ContactSymbolProps extends ContactThemeProps {
   mnemonic: 'XIC' | 'XIO' | string;
@@ -15,18 +11,18 @@ export interface ContactSymbolProps extends ContactThemeProps {
  * 
  * @param mnemonic - Contact type: 'XIC' (normally open) or 'XIO' (normally closed)
  * @param energized - Whether the contact is energized (active)
- * @param color - Override stroke color for contact lines (default: #333)
+ * @param color - Override stroke color for contact lines (default: DEFAULT_THEME.contactColor)
  * @param ncColor - Override color for normally-closed diagonal (default: inherits from color)
- * @param energizedColor - Override energized state stroke color (default: #00aa00)
- * @param energizedFill - Override energized state fill color (default: #90EE90)
+ * @param energizedColor - Override energized state stroke color (default: DEFAULT_THEME.energizedColor)
+ * @param energizedFill - Override energized state fill color (default: DEFAULT_THEME.energizedFill)
  */
 export function ContactSymbol({ 
   mnemonic, 
   energized = false,
-  color = DEFAULT_WIRE_COLOR,
+  color = DEFAULT_THEME.contactColor,
   ncColor,
-  energizedColor = DEFAULT_ENERGIZED_COLOR,
-  energizedFill = DEFAULT_ENERGIZED_FILL,
+  energizedColor = DEFAULT_THEME.energizedColor,
+  energizedFill = DEFAULT_THEME.energizedFill,
 }: ContactSymbolProps) {
   const strokeColor = energized ? energizedColor : color;
   const strokeWidth = energized ? 2 : 1.5;

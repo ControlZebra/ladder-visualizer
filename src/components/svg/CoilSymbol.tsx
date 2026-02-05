@@ -1,12 +1,8 @@
 import type { CoilThemeProps } from '../../types/theme';
+import { DEFAULT_THEME } from '../../types/theme';
 
 /** Coil symbol dimensions */
 const COIL_CENTER_Y = 10;
-
-/** Default colors for different states */
-const DEFAULT_WIRE_COLOR = '#333333';
-const DEFAULT_ENERGIZED_COLOR = '#00aa00';
-const DEFAULT_ENERGIZED_FILL = '#90EE90';
 
 export interface CoilSymbolProps extends CoilThemeProps {
   mnemonic: 'OTE' | 'OTL' | 'OTU' | string;
@@ -19,16 +15,16 @@ export interface CoilSymbolProps extends CoilThemeProps {
  * 
  * @param mnemonic - Coil type: 'OTE' (output energize), 'OTL' (latch), 'OTU' (unlatch)
  * @param energized - Whether the coil is energized (active)
- * @param color - Override stroke color for coil (default: #333)
- * @param energizedColor - Override energized state stroke color (default: #00aa00)
- * @param energizedFill - Override energized state fill color (default: #90EE90)
+ * @param color - Override stroke color for coil (default: DEFAULT_THEME.coilColor)
+ * @param energizedColor - Override energized state stroke color (default: DEFAULT_THEME.energizedColor)
+ * @param energizedFill - Override energized state fill color (default: DEFAULT_THEME.energizedFill)
  */
 export function CoilSymbol({ 
   mnemonic, 
   energized = false,
-  color = DEFAULT_WIRE_COLOR,
-  energizedColor = DEFAULT_ENERGIZED_COLOR,
-  energizedFill = DEFAULT_ENERGIZED_FILL,
+  color = DEFAULT_THEME.coilColor,
+  energizedColor = DEFAULT_THEME.energizedColor,
+  energizedFill = DEFAULT_THEME.energizedFill,
 }: CoilSymbolProps) {
   const centerX = 15;
   const centerY = COIL_CENTER_Y;

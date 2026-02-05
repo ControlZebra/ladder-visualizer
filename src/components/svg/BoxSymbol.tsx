@@ -1,14 +1,11 @@
 import { globalInstructionRegistry } from '../../types/instruction-registry';
 import type { BoxThemeProps } from '../../types/theme';
+import { DEFAULT_THEME } from '../../types/theme';
 
 const LINE_HEIGHT = 16;
 const CHAR_WIDTH = 7;
 const PADDING = 10;
 const CONNECTOR_LENGTH = 10;
-
-/** Default colors */
-const DEFAULT_BORDER_COLOR = 'currentColor';
-const DEFAULT_ENERGIZED_COLOR = '#00aa00';
 
 /** Full instruction names mapping */
 const INSTRUCTION_NAMES: Record<string, string> = {
@@ -147,16 +144,16 @@ export interface BoxSymbolProps extends BoxThemeProps {
  * @param borderColor - Override border/stroke color (default: currentColor)
  * @param bgColor - Override background fill color (default: none)
  * @param textColor - Override text color (default: inherits from borderColor)
- * @param energizedColor - Override energized state stroke color (default: #00aa00)
+ * @param energizedColor - Override energized state stroke color (default: DEFAULT_THEME.energizedColor)
  */
 export function BoxSymbol({ 
   mnemonic, 
   operands = [], 
   energized = false,
-  borderColor = DEFAULT_BORDER_COLOR,
+  borderColor = 'currentColor',
   bgColor,
   textColor,
-  energizedColor = DEFAULT_ENERGIZED_COLOR,
+  energizedColor = DEFAULT_THEME.energizedColor,
 }: BoxSymbolProps) {
   const instructionName = getInstructionName(mnemonic);
   const paramLabels = getParamLabels(mnemonic);

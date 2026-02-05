@@ -60,11 +60,13 @@
   --table-header-bg: linear-gradient(180deg, #f7f8fa 0%, #e3e7eb 100%);
   --table-header-text: #1e1e1e;
   --table-header-border: #a0a0a0;
+  --table-header-border-right: #d0d0d0;
   
   /* Cells */
   --table-cell-bg: #ffffff;
   --table-cell-text: #1e1e1e;
   --table-cell-border: #e0e0e0;
+  --table-cell-border-right: #e8e8e8;
   --table-row-alt-bg: #f5f5f5;
   --table-row-hover-bg: #cce8ff;
   --table-row-selected-bg: #0078d4;
@@ -74,6 +76,21 @@
   --table-filter-bg: #ffffff;
   --table-filter-border: #7a7a7a;
   --table-filter-text: #1e1e1e;
+  
+  /* Table container */
+  --table-container-border: #a0a0a0;
+  --table-count-text: #444444;
+  
+  /* Badge colors */
+  --badge-input-bg: #dff0d8;
+  --badge-input-text: #3c763d;
+  --badge-input-border: #b2dba1;
+  --badge-output-bg: #f2dede;
+  --badge-output-text: #a94442;
+  --badge-output-border: #dca7a7;
+  --badge-inout-bg: #d9edf7;
+  --badge-inout-text: #31708f;
+  --badge-inout-border: #9acfea;
   
   /* ============================================
    * NAVIGATOR COLORS
@@ -147,9 +164,11 @@
   --table-header-bg: linear-gradient(180deg, #3a3a3a 0%, #2d2d2d 100%);
   --table-header-text: #e0e0e0;
   --table-header-border: #555555;
+  --table-header-border-right: #3a3a3a;
   --table-cell-bg: #1e1e1e;
   --table-cell-text: #e0e0e0;
   --table-cell-border: #3a3a3a;
+  --table-cell-border-right: #2d2d2d;
   --table-row-alt-bg: #252525;
   --table-row-hover-bg: #3a3a3a;
   --table-row-selected-bg: #264f78;
@@ -157,6 +176,19 @@
   --table-filter-bg: #2d2d2d;
   --table-filter-border: #555555;
   --table-filter-text: #e0e0e0;
+  --table-container-border: #555555;
+  --table-count-text: #aaaaaa;
+  
+  /* Badge colors (dark mode) */
+  --badge-input-bg: #1e3a2e;
+  --badge-input-text: #6fcc7f;
+  --badge-input-border: #3d6b4c;
+  --badge-output-bg: #3a2020;
+  --badge-output-text: #e08080;
+  --badge-output-border: #7a4545;
+  --badge-inout-bg: #1e3a4a;
+  --badge-inout-text: #6fb8e0;
+  --badge-inout-border: #3d6b8a;
   
   /* Navigator */
   --navigator-bg: #1e1e1e;
