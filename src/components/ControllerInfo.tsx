@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { NormalizedController } from '../types';
+import { controllerInfoDefaults, uiDefaults } from '../styles/cssDefaults';
 
 export interface ControllerInfoProps {
   /** Controller data */
@@ -10,6 +11,14 @@ export interface ControllerInfoProps {
 
 /**
  * React component that displays controller metadata.
+ * 
+ * Supports theming via CSS custom properties:
+ * - `--controller-info-bg`: Background color
+ * - `--controller-info-border`: Border color
+ * - `--controller-info-title-color`: Title text color
+ * - `--controller-info-label-color`: Label text color
+ * - `--controller-info-value-color`: Value text color
+ * - `--lv-font-family`: Font family
  */
 export function ControllerInfo({ controller, className = '' }: ControllerInfoProps) {
   const info = useMemo(() => {
@@ -49,9 +58,10 @@ export function ControllerInfo({ controller, className = '' }: ControllerInfoPro
 
   const cardStyle: React.CSSProperties = {
     padding: '16px',
-    backgroundColor: '#fff',
-    border: '1px solid #e0e0e0',
+    backgroundColor: `var(--controller-info-bg, ${controllerInfoDefaults.bg})`,
+    border: `1px solid var(--controller-info-border, ${controllerInfoDefaults.border})`,
     borderRadius: '4px',
+    fontFamily: `var(--lv-font-family, ${uiDefaults.fontFamily})`,
   };
 
   const rowStyle: React.CSSProperties = {
@@ -63,11 +73,11 @@ export function ControllerInfo({ controller, className = '' }: ControllerInfoPro
 
   const labelStyle: React.CSSProperties = {
     minWidth: '140px',
-    color: '#333',
+    color: `var(--controller-info-label-color, ${controllerInfoDefaults.labelColor})`,
   };
 
   const valueStyle: React.CSSProperties = {
-    color: '#000',
+    color: `var(--controller-info-value-color, ${controllerInfoDefaults.valueColor})`,
   };
 
   const Property = ({ label, value }: { label: string; value: string | number }) => (
@@ -79,7 +89,7 @@ export function ControllerInfo({ controller, className = '' }: ControllerInfoPro
 
   return (
     <div className={`controller-info ${className}`} style={cardStyle}>
-      <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '14px', fontWeight: 'normal' }}>
+      <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '14px', fontWeight: 'normal', color: `var(--controller-info-title-color, ${controllerInfoDefaults.titleColor})` }}>
         Project Properties
       </h3>
 

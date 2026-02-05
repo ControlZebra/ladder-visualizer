@@ -7,6 +7,7 @@ import type {
   NormalizedAOI,
   NormalizedModule,
 } from '../types';
+import { navigatorDefaults, uiDefaults } from '../styles/cssDefaults';
 
 // ============================================================================
 // INTERNAL DISPLAY TYPES (for tree rendering)
@@ -359,9 +360,16 @@ function TreeItem({
     padding: '4px 8px',
     paddingLeft: `${8 + depth * 16}px`,
     cursor: onClick ? 'pointer' : 'default',
-    backgroundColor: isSelected ? '#cce5ff' : isHovered ? '#f0f0f0' : 'transparent',
-    borderLeft: isSelected ? '3px solid #0066cc' : '3px solid transparent',
-    fontSize: '12px',
+    backgroundColor: isSelected 
+      ? `var(--navigator-item-selected-bg, ${navigatorDefaults.itemSelectedBg})` 
+      : isHovered 
+        ? `var(--navigator-item-hover-bg, ${navigatorDefaults.itemHoverBg})` 
+        : 'transparent',
+    borderLeft: isSelected 
+      ? `3px solid var(--navigator-item-selected-border, ${navigatorDefaults.itemSelectedBorder})` 
+      : '3px solid transparent',
+    fontSize: `var(--lv-font-size-base, ${uiDefaults.fontSizeBase})`,
+    color: `var(--navigator-text, ${navigatorDefaults.text})`,
     userSelect: 'none',
     minHeight: '24px',
   };
@@ -390,11 +398,11 @@ function TreeItem({
   };
 
   const badgeStyle: React.CSSProperties = {
-    fontSize: '10px',
+    fontSize: `var(--lv-font-size-sm, ${uiDefaults.fontSizeSm})`,
     padding: '1px 5px',
-    backgroundColor: '#e0e0e0',
+    backgroundColor: `var(--navigator-badge-bg, ${navigatorDefaults.badgeBg})`,
     borderRadius: '3px',
-    color: '#666',
+    color: `var(--navigator-badge-text, ${navigatorDefaults.badgeText})`,
     marginLeft: '8px',
   };
 
@@ -460,6 +468,22 @@ export interface ProgramNavigatorProps {
 
 /**
  * React component for navigating programs and routines in a Studio 5000-style tree.
+ * 
+ * Supports theming via CSS custom properties:
+ * - `--navigator-bg`: Background color
+ * - `--navigator-text`: Text color
+ * - `--navigator-border`: Border color
+ * - `--navigator-header-bg`: Header background color
+ * - `--navigator-header-text`: Header text color
+ * - `--navigator-header-border`: Header border color
+ * - `--navigator-item-hover-bg`: Item hover background
+ * - `--navigator-item-selected-bg`: Item selected background
+ * - `--navigator-item-selected-border`: Item selected border color
+ * - `--navigator-badge-bg`: Badge background color
+ * - `--navigator-badge-text`: Badge text color
+ * - `--lv-font-family`: Font family
+ * - `--lv-font-size-base`: Base font size
+ * - `--lv-font-size-sm`: Small font size (badges)
  */
 export function ProgramNavigator({
   controller,
@@ -528,10 +552,10 @@ export function ProgramNavigator({
   const dataTypeCategories = displayController?.dataTypes ?? null;
 
   const containerStyle: React.CSSProperties = {
-    backgroundColor: '#fafafa',
-    border: '1px solid #c0c0c0',
+    backgroundColor: `var(--navigator-bg, ${navigatorDefaults.bg})`,
+    border: `1px solid var(--navigator-border, ${navigatorDefaults.border})`,
     borderRadius: '0',
-    fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
+    fontFamily: `var(--lv-font-family, ${uiDefaults.fontFamily})`,
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
@@ -547,11 +571,11 @@ export function ProgramNavigator({
 
   const headerStyle: React.CSSProperties = {
     padding: '8px 12px',
-    backgroundColor: '#1e3f6f',
-    borderBottom: '1px solid #2b579a',
+    backgroundColor: `var(--navigator-header-bg, ${navigatorDefaults.headerBg})`,
+    borderBottom: `1px solid var(--navigator-header-border, ${navigatorDefaults.headerBorder})`,
     fontWeight: 600,
-    fontSize: '12px',
-    color: '#ffffff',
+    fontSize: `var(--lv-font-size-base, ${uiDefaults.fontSizeBase})`,
+    color: `var(--navigator-header-text, ${navigatorDefaults.headerText})`,
     display: 'flex',
     alignItems: 'center',
     gap: '8px',

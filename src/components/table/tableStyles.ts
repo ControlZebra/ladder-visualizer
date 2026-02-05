@@ -1,4 +1,5 @@
 import type React from 'react';
+import { tableDefaults, badgeDefaults, uiDefaults } from '../../styles/cssDefaults';
 
 /**
  * Shared styles for all table components.
@@ -44,14 +45,14 @@ export const tableStyles = {
     padding: '6px 8px',
     textAlign: 'left' as const,
     cursor: 'pointer',
-    background: 'var(--table-header-bg, linear-gradient(180deg, #f7f8fa 0%, #e3e7eb 100%))',
-    borderBottom: '1px solid var(--table-header-border, #a0a0a0)',
-    borderRight: '1px solid var(--table-header-border-right, #d0d0d0)',
+    background: `var(--table-header-bg, ${tableDefaults.headerBg})`,
+    borderBottom: `1px solid var(--table-header-border, ${tableDefaults.headerBorder})`,
+    borderRight: `1px solid var(--table-header-border-right, ${tableDefaults.headerBorderRight})`,
     fontWeight: 600,
     fontSize: '12px',
-    fontFamily: "var(--lv-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif)",
+    fontFamily: `var(--lv-font-family, ${uiDefaults.fontFamily})`,
     userSelect: 'none' as const,
-    color: 'var(--table-header-text, #1e1e1e)',
+    color: `var(--table-header-text, ${tableDefaults.headerText})`,
     whiteSpace: 'nowrap' as const,
   } satisfies React.CSSProperties,
 
@@ -72,17 +73,17 @@ export const tableStyles = {
   /** Table body cell style - Windows grid cell */
   cell: {
     padding: '4px 8px',
-    borderBottom: '1px solid var(--table-cell-border, #e0e0e0)',
-    borderRight: '1px solid var(--table-cell-border-right, #e8e8e8)',
+    borderBottom: `1px solid var(--table-cell-border, ${tableDefaults.cellBorder})`,
+    borderRight: `1px solid var(--table-cell-border-right, ${tableDefaults.cellBorderRight})`,
     fontSize: '12px',
-    fontFamily: "var(--lv-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif)",
-    color: 'var(--table-cell-text, #1e1e1e)',
-    backgroundColor: 'var(--table-cell-bg, #ffffff)',
+    fontFamily: `var(--lv-font-family, ${uiDefaults.fontFamily})`,
+    color: `var(--table-cell-text, ${tableDefaults.cellText})`,
+    backgroundColor: `var(--table-cell-bg, ${tableDefaults.cellBg})`,
   } satisfies React.CSSProperties,
 
   /** Monospace cell style (for code-like values) - now uses default font */
   monoCell: {
-    fontFamily: "var(--lv-font-mono, var(--lv-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif))",
+    fontFamily: `var(--lv-font-mono, var(--lv-font-family, ${uiDefaults.fontFamily}))`,
   } satisfies React.CSSProperties,
 
   /** Bold cell style */
@@ -103,12 +104,12 @@ export const tableStyles = {
     padding: '4px 8px',
     width: '100%',
     maxWidth: '250px',
-    border: '1px solid var(--table-filter-border, #7a7a7a)',
+    border: `1px solid var(--table-filter-border, ${tableDefaults.filterBorder})`,
     borderRadius: '0px',
     fontSize: '12px',
-    fontFamily: "var(--lv-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif)",
-    backgroundColor: 'var(--table-filter-bg, #ffffff)',
-    color: 'var(--table-filter-text, #1e1e1e)',
+    fontFamily: `var(--lv-font-family, ${uiDefaults.fontFamily})`,
+    backgroundColor: `var(--table-filter-bg, ${tableDefaults.filterBg})`,
+    color: `var(--table-filter-text, ${tableDefaults.filterText})`,
   } satisfies React.CSSProperties,
 
   /** Filter container style */
@@ -122,9 +123,9 @@ export const tableStyles = {
 
   /** Count text style */
   countText: {
-    color: 'var(--table-count-text, #444444)',
+    color: `var(--table-count-text, ${tableDefaults.countText})`,
     fontSize: '12px',
-    fontFamily: "var(--lv-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif)",
+    fontFamily: `var(--lv-font-family, ${uiDefaults.fontFamily})`,
   } satisfies React.CSSProperties,
 
   /** Table container style - Windows DataGridView border with scroll */
@@ -132,8 +133,8 @@ export const tableStyles = {
     flex: 1,
     overflowY: 'auto' as const,
     overflowX: 'auto' as const,
-    border: '1px solid var(--table-container-border, #a0a0a0)',
-    backgroundColor: 'var(--table-cell-bg, #ffffff)',
+    border: `1px solid var(--table-container-border, ${tableDefaults.containerBorder})`,
+    backgroundColor: `var(--table-cell-bg, ${tableDefaults.cellBg})`,
     minHeight: 0,
   } satisfies React.CSSProperties,
 
@@ -142,7 +143,7 @@ export const tableStyles = {
     width: '100%',
     borderCollapse: 'collapse' as const,
     fontSize: '12px',
-    backgroundColor: 'var(--table-cell-bg, #ffffff)',
+    backgroundColor: `var(--table-cell-bg, ${tableDefaults.cellBg})`,
   } satisfies React.CSSProperties,
 
   /** Clickable row style */
@@ -156,10 +157,10 @@ export const tableStyles = {
   } satisfies React.CSSProperties,
 
   /** Row hover background color - Windows selection blue */
-  rowHoverBg: 'var(--table-row-hover-bg, #cce8ff)',
+  rowHoverBg: `var(--table-row-hover-bg, ${tableDefaults.rowHoverBg})`,
 
   /** Alternating row background - light gray */
-  alternateRowBg: 'var(--table-row-alt-bg, #f5f5f5)',
+  alternateRowBg: `var(--table-row-alt-bg, ${tableDefaults.rowAltBg})`,
 };
 
 /**
@@ -187,26 +188,26 @@ export const badgeStyles = {
     borderRadius: '2px',
     fontSize: '11px',
     fontWeight: 500,
-    fontFamily: "var(--lv-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif)",
+    fontFamily: `var(--lv-font-family, ${uiDefaults.fontFamily})`,
     border: '1px solid',
   } satisfies React.CSSProperties,
 
   input: {
-    backgroundColor: 'var(--badge-input-bg, #dff0d8)',
-    color: 'var(--badge-input-text, #3c763d)',
-    borderColor: 'var(--badge-input-border, #b2dba1)',
+    backgroundColor: `var(--badge-input-bg, ${badgeDefaults.inputBg})`,
+    color: `var(--badge-input-text, ${badgeDefaults.inputText})`,
+    borderColor: `var(--badge-input-border, ${badgeDefaults.inputBorder})`,
   } satisfies React.CSSProperties,
 
   output: {
-    backgroundColor: 'var(--badge-output-bg, #f2dede)',
-    color: 'var(--badge-output-text, #a94442)',
-    borderColor: 'var(--badge-output-border, #dca7a7)',
+    backgroundColor: `var(--badge-output-bg, ${badgeDefaults.outputBg})`,
+    color: `var(--badge-output-text, ${badgeDefaults.outputText})`,
+    borderColor: `var(--badge-output-border, ${badgeDefaults.outputBorder})`,
   } satisfies React.CSSProperties,
 
   inout: {
-    backgroundColor: 'var(--badge-inout-bg, #d9edf7)',
-    color: 'var(--badge-inout-text, #31708f)',
-    borderColor: 'var(--badge-inout-border, #9acfea)',
+    backgroundColor: `var(--badge-inout-bg, ${badgeDefaults.inoutBg})`,
+    color: `var(--badge-inout-text, ${badgeDefaults.inoutText})`,
+    borderColor: `var(--badge-inout-border, ${badgeDefaults.inoutBorder})`,
   } satisfies React.CSSProperties,
 };
 

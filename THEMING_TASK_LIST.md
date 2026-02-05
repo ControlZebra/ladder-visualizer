@@ -327,64 +327,101 @@ CSS Variables used:
 
 ---
 
-### 5. Update ProgramNavigator.tsx
+### 5. Update ProgramNavigator.tsx ✅
 
 **Location**: `src/components/ProgramNavigator.tsx`
 
-**Tasks:**
+**Status: COMPLETE** - All inline styles replaced with CSS variable references:
 
-- [ ] Extract inline styles to use CSS variables
-- [ ] Add optional `className` prop to `ProgramNavigatorProps`
-- [ ] Add optional `theme` prop for icon colors (or leave icons as-is since they're SVG)
-- [ ] Update `styles` object (around line 300+) to use CSS variables:
+- [x] Extract inline styles to use CSS variables
+- [x] Add optional `className` prop to `ProgramNavigatorProps` (already existed)
+- [x] Update `containerStyle` object to use CSS variables
+- [x] Update `headerStyle` to use CSS variables
+- [x] Update TreeItem hover/selected states to use CSS variables
+- [x] Update badge styling to use CSS variables
+- [x] Add JSDoc documenting theme props
 
-```tsx
-// BEFORE:
-const styles = {
-  container: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e0e0e0',
-    // ...
-  },
-  treeItem: {
-    // hardcoded colors
-  },
-  // ...
-};
+CSS Variables used:
+```css
+/* Container */
+--navigator-bg
+--navigator-border
+--navigator-text
+--lv-font-family
 
-// AFTER:
-const styles = {
-  container: {
-    backgroundColor: 'var(--navigator-bg)',
-    border: '1px solid var(--navigator-border)',
-    // ...
-  },
-  // ...
-};
+/* Header */
+--navigator-header-bg
+--navigator-header-text
+--navigator-header-border
+--lv-font-size-base
+
+/* Tree items */
+--navigator-item-hover-bg
+--navigator-item-selected-bg
+--navigator-item-selected-border
+
+/* Badges */
+--navigator-badge-bg
+--navigator-badge-text
+--lv-font-size-sm
 ```
-
-- [ ] Update TreeItem hover/selected states to use CSS variables
-- [ ] Update badge styling to use CSS variables
 
 ---
 
-### 6. Update ControllerInfo.tsx
+### 6. Update ControllerInfo.tsx ✅
 
 **Location**: `src/components/ControllerInfo.tsx`
 
-- [ ] Replace inline `cardStyle` colors with CSS variables
-- [ ] Add optional `className` prop
-- [ ] Update property label/value colors to use CSS variables
+**Status: COMPLETE** - All inline styles replaced with CSS variable references:
+
+- [x] Replace inline `cardStyle` colors with CSS variables
+- [x] Add optional `className` prop (already existed)
+- [x] Update property label/value colors to use CSS variables
+- [x] Add JSDoc documenting theme props
+
+CSS Variables used:
+```css
+--controller-info-bg
+--controller-info-border
+--controller-info-title-color
+--controller-info-label-color
+--controller-info-value-color
+--lv-font-family
+```
 
 ---
 
-### 7. Update StructuredTextViewer.tsx
+### 7. Update StructuredTextViewer.tsx ✅
 
 **Location**: `src/components/StructuredTextViewer.tsx`
 
-- [ ] Add CSS variables for syntax highlighting colors
-- [ ] Add `className` prop support
-- [ ] Ensure background and text colors are themeable
+**Status: COMPLETE** - All syntax highlighting colors replaced with CSS variable references:
+
+- [x] Add CSS variables for syntax highlighting colors
+- [x] Add `className` prop support (already existed)
+- [x] Ensure background and text colors are themeable
+- [x] Add JSDoc documenting theme props
+
+CSS Variables used:
+```css
+/* Container */
+--st-bg
+--st-text
+--st-line-number-color
+--st-line-number-border
+--st-empty-state-color
+--lv-font-mono
+
+/* Syntax highlighting */
+--st-keyword-color
+--st-type-color
+--st-function-color
+--st-string-color
+--st-number-color
+--st-comment-color
+--st-operator-color
+--st-identifier-color
+```
 
 ---
 

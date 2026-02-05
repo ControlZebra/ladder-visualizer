@@ -109,6 +109,42 @@
   --navigator-badge-bg: #f0f0f0;
   --navigator-badge-text: #666666;
   
+  /* Header */
+  --navigator-header-bg: #1e3f6f;
+  --navigator-header-text: #ffffff;
+  --navigator-header-border: #2b579a;
+  
+  /* ============================================
+   * CONTROLLER INFO COLORS
+   * ============================================ */
+  
+  --controller-info-bg: #ffffff;
+  --controller-info-border: #e0e0e0;
+  --controller-info-title-color: #1e1e1e;
+  --controller-info-label-color: #333333;
+  --controller-info-value-color: #000000;
+  
+  /* ============================================
+   * STRUCTURED TEXT VIEWER COLORS
+   * ============================================ */
+  
+  /* Container */
+  --st-bg: #ffffff;
+  --st-text: #333333;
+  --st-line-number-color: #999999;
+  --st-line-number-border: #e0e0e0;
+  --st-empty-state-color: #666666;
+  
+  /* Syntax highlighting */
+  --st-keyword-color: #0000ff;
+  --st-type-color: #267f99;
+  --st-function-color: #795e26;
+  --st-string-color: #a31515;
+  --st-number-color: #098658;
+  --st-comment-color: #008000;
+  --st-operator-color: #333333;
+  --st-identifier-color: #001080;
+  
   /* ============================================
    * GENERAL UI COLORS
    * ============================================ */
@@ -200,6 +236,35 @@
   --navigator-item-selected-border: #4a9eff;
   --navigator-badge-bg: #3a3a3a;
   --navigator-badge-text: #aaaaaa;
+  
+  /* Header */
+  --navigator-header-bg: #1a3050;
+  --navigator-header-text: #e0e0e0;
+  --navigator-header-border: #2a4a70;
+  
+  /* Controller Info */
+  --controller-info-bg: #1e1e1e;
+  --controller-info-border: #3a3a3a;
+  --controller-info-title-color: #e0e0e0;
+  --controller-info-label-color: #aaaaaa;
+  --controller-info-value-color: #e0e0e0;
+  
+  /* Structured Text Viewer */
+  --st-bg: #1e1e1e;
+  --st-text: #e0e0e0;
+  --st-line-number-color: #6a6a6a;
+  --st-line-number-border: #3a3a3a;
+  --st-empty-state-color: #888888;
+  
+  /* Syntax highlighting (dark) */
+  --st-keyword-color: #569cd6;
+  --st-type-color: #4ec9b0;
+  --st-function-color: #dcdcaa;
+  --st-string-color: #ce9178;
+  --st-number-color: #b5cea8;
+  --st-comment-color: #6a9955;
+  --st-operator-color: #d4d4d4;
+  --st-identifier-color: #9cdcfe;
   
   /* General UI */
   --lv-bg-primary: #1e1e1e;

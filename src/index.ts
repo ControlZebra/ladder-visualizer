@@ -49,3 +49,6 @@ export * from './parsers';
 
 // Export React components
 export * from './components';
+
+// Export CSS defaults for programmatic theming
+export { cssDefaults, ladderDefaults, tableDefaults, badgeDefaults, navigatorDefaults, controllerInfoDefaults, structuredTextDefaults, uiDefaults } from './styles/cssDefaults';

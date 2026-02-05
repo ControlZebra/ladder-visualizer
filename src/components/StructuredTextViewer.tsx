@@ -1,5 +1,6 @@
 import { useMemo, CSSProperties } from 'react';
 import type { NormalizedRoutine } from '../types/normalized';
+import { structuredTextDefaults, uiDefaults } from '../styles/cssDefaults';
 
 // ============================================================================
 // TYPES
@@ -17,6 +18,26 @@ export interface StructuredTextViewerProps {
   /** Font size in pixels (default: 14) */
   fontSize?: number;
 }
+
+/**
+ * Structured Text (ST) code viewer with syntax highlighting.
+ * 
+ * Supports theming via CSS custom properties:
+ * - `--st-bg`: Background color
+ * - `--st-text`: Default text color
+ * - `--st-line-number-color`: Line number color
+ * - `--st-line-number-border`: Line number border color
+ * - `--st-empty-state-color`: Empty state message color
+ * - `--st-keyword-color`: Keyword color (IF, THEN, ELSE, etc.)
+ * - `--st-type-color`: Type color (BOOL, INT, REAL, etc.)
+ * - `--st-function-color`: Function color (TON, MOV, ADD, etc.)
+ * - `--st-string-color`: String literal color
+ * - `--st-number-color`: Number literal color
+ * - `--st-comment-color`: Comment color
+ * - `--st-operator-color`: Operator color
+ * - `--st-identifier-color`: Identifier/variable color
+ * - `--lv-font-mono`: Monospace font family
+ */
 
 // ============================================================================
 // ST SYNTAX HIGHLIGHTING PATTERNS
@@ -234,8 +255,8 @@ const styles: Record<string, CSSProperties> = {
     height: '100%',
     width: '100%',
     overflow: 'hidden',
-    backgroundColor: '#ffffff',
-    fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
+    backgroundColor: `var(--st-bg, ${structuredTextDefaults.bg})`,
+    fontFamily: `var(--lv-font-mono, ${uiDefaults.fontMono})`,
   },
   scrollContainer: {
     flex: 1,
@@ -257,8 +278,8 @@ const styles: Record<string, CSSProperties> = {
     paddingRight: '16px',
     paddingLeft: '8px',
     userSelect: 'none',
-    color: '#999999',
-    borderRight: '1px solid #e0e0e0',
+    color: `var(--st-line-number-color, ${structuredTextDefaults.lineNumberColor})`,
+    borderRight: `1px solid var(--st-line-number-border, ${structuredTextDefaults.lineNumberBorder})`,
     width: '1%',
     whiteSpace: 'nowrap',
   },
@@ -266,28 +287,28 @@ const styles: Record<string, CSSProperties> = {
     display: 'table-cell',
     paddingLeft: '16px',
     whiteSpace: 'pre',
-    color: '#333333',
+    color: `var(--st-text, ${structuredTextDefaults.text})`,
   },
   emptyState: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-    color: '#666666',
+    color: `var(--st-empty-state-color, ${structuredTextDefaults.emptyStateColor})`,
     fontSize: '14px',
   },
 };
 
-// Syntax highlighting CSS classes (inline for component portability)
+// Syntax highlighting CSS classes using CSS variables
 const syntaxStyles: Record<string, CSSProperties> = {
-  'st-keyword': { color: '#0000ff', fontWeight: 'bold' },
-  'st-type': { color: '#267f99' },
-  'st-function': { color: '#795e26' },
-  'st-string': { color: '#a31515' },
-  'st-number': { color: '#098658' },
-  'st-comment': { color: '#008000', fontStyle: 'italic' },
-  'st-operator': { color: '#333333' },
-  'st-identifier': { color: '#001080' },
+  'st-keyword': { color: `var(--st-keyword-color, ${structuredTextDefaults.keywordColor})`, fontWeight: 'bold' },
+  'st-type': { color: `var(--st-type-color, ${structuredTextDefaults.typeColor})` },
+  'st-function': { color: `var(--st-function-color, ${structuredTextDefaults.functionColor})` },
+  'st-string': { color: `var(--st-string-color, ${structuredTextDefaults.stringColor})` },
+  'st-number': { color: `var(--st-number-color, ${structuredTextDefaults.numberColor})` },
+  'st-comment': { color: `var(--st-comment-color, ${structuredTextDefaults.commentColor})`, fontStyle: 'italic' },
+  'st-operator': { color: `var(--st-operator-color, ${structuredTextDefaults.operatorColor})` },
+  'st-identifier': { color: `var(--st-identifier-color, ${structuredTextDefaults.identifierColor})` },
 };
 
 // ============================================================================
