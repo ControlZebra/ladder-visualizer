@@ -1,12 +1,14 @@
+import type { CoilThemeProps } from '../../types/theme';
+
 /** Coil symbol dimensions */
 const COIL_CENTER_Y = 10;
 
-/** Colors for different states */
-const WIRE_COLOR = '#333';
-const ENERGIZED_COLOR = '#00aa00';
-const ENERGIZED_FILL = '#90EE90';
+/** Default colors for different states */
+const DEFAULT_WIRE_COLOR = '#333333';
+const DEFAULT_ENERGIZED_COLOR = '#00aa00';
+const DEFAULT_ENERGIZED_FILL = '#90EE90';
 
-export interface CoilSymbolProps {
+export interface CoilSymbolProps extends CoilThemeProps {
   mnemonic: 'OTE' | 'OTL' | 'OTU' | string;
   energized?: boolean;
 }
@@ -14,15 +16,27 @@ export interface CoilSymbolProps {
 /**
  * React SVG component for ladder logic coils (OTE, OTL, OTU)
  * Studio 5000 style parentheses coils with energized state support
+ * 
+ * @param mnemonic - Coil type: 'OTE' (output energize), 'OTL' (latch), 'OTU' (unlatch)
+ * @param energized - Whether the coil is energized (active)
+ * @param color - Override stroke color for coil (default: #333)
+ * @param energizedColor - Override energized state stroke color (default: #00aa00)
+ * @param energizedFill - Override energized state fill color (default: #90EE90)
  */
-export function CoilSymbol({ mnemonic, energized = false }: CoilSymbolProps) {
+export function CoilSymbol({ 
+  mnemonic, 
+  energized = false,
+  color = DEFAULT_WIRE_COLOR,
+  energizedColor = DEFAULT_ENERGIZED_COLOR,
+  energizedFill = DEFAULT_ENERGIZED_FILL,
+}: CoilSymbolProps) {
   const centerX = 15;
   const centerY = COIL_CENTER_Y;
   const arcHeight = 8;
 
-  const strokeColor = energized ? ENERGIZED_COLOR : WIRE_COLOR;
+  const strokeColor = energized ? energizedColor : color;
   const strokeWidth = energized ? 2 : 1.5;
-  const fillColor = energized ? ENERGIZED_FILL : 'transparent';
+  const fillColor = energized ? energizedFill : 'transparent';
 
   // Left arc: curved line like (
   const leftArcX = centerX - 5;

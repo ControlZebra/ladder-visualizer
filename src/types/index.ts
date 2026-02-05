@@ -99,3 +99,20 @@ export {
   clearAOIs,
   isAOI,
 } from './instruction-registry';
+
+// ============================================================================
+// Theme Types
+// ============================================================================
+
+export type {
+  LadderDiagramTheme,
+  ContactThemeProps,
+  CoilThemeProps,
+  BoxThemeProps,
+} from './theme';
+
+export {
+  DEFAULT_THEME,
+  DARK_THEME,
+  mergeTheme,
+} from './theme';

@@ -1,0 +1,39 @@
+/**
+ * Ladder Visualizer Styles
+ * 
+ * Default styling for ladder-visualizer components.
+ * Import this file in your application to get the default theme:
+ * 
+ * @example
+ * import 'ladder-visualizer/dist/styles/index.css';
+ * 
+ * To customize, override CSS variables in your own CSS:
+ * @example
+ * :root {
+ *   --ladder-power-rail-color: #your-color;
+ * }
+ * 
+ * For dark mode, apply the .ladder-visualizer-dark class to a parent element,
+ * or define your own variables.
+ */
+
+@import './variables.css';
+
+/* Base styles for ladder-visualizer components */
+.ladder-visualizer {
+  font-family: var(--lv-font-family);
+  font-size: var(--lv-font-size-base);
+  color: var(--lv-text-primary);
+  background: var(--lv-bg-primary);
+}
+
+/* Container for ladder diagrams */
+.ladder-diagram-container {
+  font-family: var(--lv-font-family);
+  background-color: var(--lv-bg-primary);
+}
+
+/* Ensure SVG text inherits font */
+.ladder-diagram-container svg text {
+  font-family: var(--lv-font-family);
+}

@@ -1,12 +1,13 @@
-import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect, createContext, useContext } from 'react';
 import type { 
   Instruction, 
   RungElement, 
   BranchGroup, 
   NormalizedRung,
   NormalizedRoutine,
+  LadderDiagramTheme,
 } from '../../types';
-import { isBranchGroup } from '../../types';
+import { isBranchGroup, DEFAULT_THEME, mergeTheme } from '../../types';
 import { ContactSymbol } from './ContactSymbol';
 import { CoilSymbol } from './CoilSymbol';
 import { BoxSymbol, calculateBoxDimensions } from './BoxSymbol';
@@ -29,9 +30,25 @@ const RUNG_PADDING = 15;
 const MIN_CONDITION_OPERATION_GAP = 40;
 const SYMBOL_WIDTH = 30;
 const SYMBOL_HEIGHT = 20;
-const POWER_RAIL_COLOR = '#3366cc';
 const CHAR_WIDTH_ESTIMATE = 7;
 const LABEL_PADDING = 10;
+
+// ============================================================================
+// THEME CONTEXT
+// ============================================================================
+
+/**
+ * Context for passing theme down to nested components.
+ * Avoids prop drilling for deeply nested SVG elements.
+ */
+const LadderThemeContext = createContext<Required<LadderDiagramTheme>>(DEFAULT_THEME);
+
+/**
+ * Hook to access the current ladder diagram theme.
+ */
+export function useLadderTheme(): Required<LadderDiagramTheme> {
+  return useContext(LadderThemeContext);
+}
 
 // ============================================================================
 // LAYOUT TYPES (from RUNG_LAYOUT_ALGORITHM.md)
@@ -659,6 +676,7 @@ function calculateRungLayouts(rungs: NormalizedRung[], diagramWidth: number): Ru
  * Renders an instruction from its layout
  */
 function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
+  const theme = useLadderTheme();
   const { instruction, position, dimensions, symbolOffset, label, address } = layout;
   const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
   const symbolX = position.x + symbolOffset;
@@ -678,7 +696,7 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
             y={labelY}
             textAnchor="middle"
             fontSize="10"
-            fill="#333"
+            fill={theme.labelColor}
             fontWeight="500"
             className="instruction-label"
           >
@@ -690,7 +708,7 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
               y={addressY}
               textAnchor="middle"
               fontSize="8"
-              fill="#666"
+              fill={theme.addressColor}
               className="instruction-address"
             >
               {address}
@@ -699,8 +717,8 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
           {/* Connecting wires for centering */}
           {symbolOffset > 0 && (
             <>
-              <line x1={position.x} y1={wireY} x2={position.x + symbolOffset} y2={wireY} stroke="currentColor" strokeWidth="1" />
-              <line x1={position.x + symbolOffset + SYMBOL_WIDTH} y1={wireY} x2={position.x + dimensions.width} y2={wireY} stroke="currentColor" strokeWidth="1" />
+              <line x1={position.x} y1={wireY} x2={position.x + symbolOffset} y2={wireY} stroke={theme.wireColor} strokeWidth="1" />
+              <line x1={position.x + symbolOffset + SYMBOL_WIDTH} y1={wireY} x2={position.x + dimensions.width} y2={wireY} stroke={theme.wireColor} strokeWidth="1" />
             </>
           )}
         </>
@@ -709,13 +727,31 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
       {/* Symbol */}
       <g transform={`translate(${symbolX}, ${position.y})`}>
         {instruction.category === 'input' && (
-          <ContactSymbol mnemonic={instruction.mnemonic} />
+          <ContactSymbol 
+            mnemonic={instruction.mnemonic} 
+            color={theme.contactColor}
+            ncColor={theme.contactNCColor}
+            energizedColor={theme.energizedColor}
+            energizedFill={theme.energizedFill}
+          />
         )}
         {instruction.category === 'output' && (
-          <CoilSymbol mnemonic={instruction.mnemonic} />
+          <CoilSymbol 
+            mnemonic={instruction.mnemonic}
+            color={theme.coilColor}
+            energizedColor={theme.energizedColor}
+            energizedFill={theme.energizedFill}
+          />
         )}
         {!isContactOrCoil && (
-          <BoxSymbol mnemonic={instruction.mnemonic} operands={instruction.operands} />
+          <BoxSymbol 
+            mnemonic={instruction.mnemonic} 
+            operands={instruction.operands}
+            borderColor={theme.boxBorderColor}
+            bgColor={theme.boxBgColor}
+            textColor={theme.boxTextColor}
+            energizedColor={theme.energizedColor}
+          />
         )}
       </g>
     </g>
@@ -726,6 +762,7 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
  * Renders a branch group from its layout
  */
 function BranchLayoutRenderer({ layout }: { layout: BranchGroupLayout }) {
+  const theme = useLadderTheme();
   const { legs, connectorLeftX, connectorRightX } = layout;
 
   if (legs.length === 0) {
@@ -740,8 +777,8 @@ function BranchLayoutRenderer({ layout }: { layout: BranchGroupLayout }) {
       {/* Vertical connectors */}
       {legs.length > 1 && (
         <>
-          <line x1={connectorLeftX} y1={topY} x2={connectorLeftX} y2={bottomY} stroke="currentColor" strokeWidth="1" className="branch-connector" />
-          <line x1={connectorRightX} y1={topY} x2={connectorRightX} y2={bottomY} stroke="currentColor" strokeWidth="1" className="branch-connector" />
+          <line x1={connectorLeftX} y1={topY} x2={connectorLeftX} y2={bottomY} stroke={theme.branchConnectorColor} strokeWidth="1" className="branch-connector" />
+          <line x1={connectorRightX} y1={topY} x2={connectorRightX} y2={bottomY} stroke={theme.branchConnectorColor} strokeWidth="1" className="branch-connector" />
         </>
       )}
 
@@ -752,7 +789,7 @@ function BranchLayoutRenderer({ layout }: { layout: BranchGroupLayout }) {
         return (
           <g key={i} className="branch-leg">
             {/* Wire from left connector to content start */}
-            <line x1={connectorLeftX} y1={leg.wireY} x2={contentStartX} y2={leg.wireY} stroke="currentColor" strokeWidth="1" />
+            <line x1={connectorLeftX} y1={leg.wireY} x2={contentStartX} y2={leg.wireY} stroke={theme.wireColor} strokeWidth="1" />
 
             {/* Leg elements */}
             {leg.elements.map((elementLayout, j) => (
@@ -766,7 +803,7 @@ function BranchLayoutRenderer({ layout }: { layout: BranchGroupLayout }) {
                 y1={leg.wireY}
                 x2={connectorRightX - BRANCH_CONNECTOR_OFFSET}
                 y2={leg.wireY}
-                stroke="currentColor"
+                stroke={theme.wireColor}
                 strokeWidth="1"
               />
             )}
@@ -777,7 +814,7 @@ function BranchLayoutRenderer({ layout }: { layout: BranchGroupLayout }) {
               y1={leg.wireY}
               x2={connectorRightX}
               y2={leg.wireY}
-              stroke="currentColor"
+              stroke={theme.wireColor}
               strokeWidth="1"
             />
           </g>
@@ -820,6 +857,7 @@ interface RungRendererProps {
 }
 
 function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererProps) {
+  const theme = useLadderTheme();
   const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
   const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
 
@@ -833,7 +871,7 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
     const wireY = yOffset + MIN_RUNG_HEIGHT / 2;
     return (
       <g className="rung">
-        <line x1={leftRailX} y1={wireY} x2={rightRailX} y2={wireY} stroke="#333" strokeWidth="1" />
+        <line x1={leftRailX} y1={wireY} x2={rightRailX} y2={wireY} stroke={theme.wireColor} strokeWidth="1" />
       </g>
     );
   }
@@ -853,7 +891,7 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
         return (
           <g key={lineIndex} className="rung-line">
             {/* Wire from left rail to first condition */}
-            <line x1={leftRailX} y1={line.wireY} x2={line.conditionsStartX} y2={line.wireY} stroke="#333" strokeWidth="1" />
+            <line x1={leftRailX} y1={line.wireY} x2={line.conditionsStartX} y2={line.wireY} stroke={theme.wireColor} strokeWidth="1" />
 
             {/* Render condition elements */}
             {line.conditions.map((layout, idx) => (
@@ -865,7 +903,7 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
               <>
                 {/* Wire between conditions and operations */}
                 {line.operationsStartX > conditionsEndX && (
-                  <line x1={conditionsEndX} y1={line.wireY} x2={line.operationsStartX} y2={line.wireY} stroke="#333" strokeWidth="1" />
+                  <line x1={conditionsEndX} y1={line.wireY} x2={line.operationsStartX} y2={line.wireY} stroke={theme.wireColor} strokeWidth="1" />
                 )}
 
                 {/* Render operation elements */}
@@ -878,13 +916,13 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
                   const lastOp = line.operations[line.operations.length - 1];
                   const operationsEndX = lastOp.position.x + lastOp.dimensions.width;
                   return (
-                    <line x1={operationsEndX} y1={line.wireY} x2={rightRailX} y2={line.wireY} stroke="#333" strokeWidth="1" />
+                    <line x1={operationsEndX} y1={line.wireY} x2={rightRailX} y2={line.wireY} stroke={theme.wireColor} strokeWidth="1" />
                   );
                 })()}
               </>
             ) : (
               /* Wire to right rail when no operations */
-              <line x1={conditionsEndX} y1={line.wireY} x2={rightRailX} y2={line.wireY} stroke="#333" strokeWidth="1" />
+              <line x1={conditionsEndX} y1={line.wireY} x2={rightRailX} y2={line.wireY} stroke={theme.wireColor} strokeWidth="1" />
             )}
           </g>
         );
@@ -903,14 +941,27 @@ interface ScrollableRungRowProps {
   layout: RungLayout;
   containerWidth: number;
   rowBg: string;
-  cellBg: string;
+  powerRailColor: string;
+  rungNumberColor: string;
+  rungNumberBg: string;
+  borderColor: string;
 }
 
 /**
  * Renders a single rung row with optional horizontal scrolling
  * If content fits, renders normally. If content overflows, adds scroll with indicators.
  */
-function ScrollableRungRow({ rung, rungIndex, layout, containerWidth, rowBg, cellBg }: ScrollableRungRowProps) {
+function ScrollableRungRow({ 
+  rung, 
+  rungIndex, 
+  layout, 
+  containerWidth, 
+  rowBg, 
+  powerRailColor,
+  rungNumberColor,
+  rungNumberBg,
+  borderColor,
+}: ScrollableRungRowProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [maxScroll, setMaxScroll] = useState(0);
@@ -1012,15 +1063,15 @@ function ScrollableRungRow({ rung, rungIndex, layout, containerWidth, rowBg, cel
           top: 0,
           width: RUNG_NUMBER_WIDTH,
           height: layout.height,
-          backgroundColor: cellBg,
-          borderRight: '1px solid #c0c0c0',
-          borderBottom: '1px solid #c0c0c0',
+          backgroundColor: rungNumberBg,
+          borderRight: `1px solid ${borderColor}`,
+          borderBottom: `1px solid ${borderColor}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 11,
           fontWeight: 500,
-          color: '#333',
+          color: rungNumberColor,
           zIndex: 2,
         }}
       >
@@ -1068,7 +1119,7 @@ function ScrollableRungRow({ rung, rungIndex, layout, containerWidth, rowBg, cel
             y={0}
             width={RAIL_VISUAL_WIDTH}
             height={layout.height}
-            fill={POWER_RAIL_COLOR}
+            fill={powerRailColor}
           />
           
           {/* Right power rail */}
@@ -1077,7 +1128,7 @@ function ScrollableRungRow({ rung, rungIndex, layout, containerWidth, rowBg, cel
             y={0}
             width={RAIL_VISUAL_WIDTH}
             height={layout.height}
-            fill={POWER_RAIL_COLOR}
+            fill={powerRailColor}
           />
 
           {/* Rung content */}
@@ -1233,6 +1284,12 @@ export interface VirtualizedLadderDiagramProps {
   style?: React.CSSProperties;
   /** Number of rungs to render above/below visible area */
   overscan?: number;
+  /** 
+   * Theme colors for the ladder diagram.
+   * Override specific colors or pass a complete theme object.
+   * If not provided, uses CSS custom properties with DEFAULT_THEME as fallback.
+   */
+  theme?: LadderDiagramTheme;
 }
 
 export function VirtualizedLadderDiagram({
@@ -1243,7 +1300,11 @@ export function VirtualizedLadderDiagram({
   className = '',
   style,
   overscan = 3,
+  theme: themeProp,
 }: VirtualizedLadderDiagramProps) {
+  // Merge provided theme with defaults
+  const theme = useMemo(() => mergeTheme(themeProp), [themeProp]);
+  
   const rungs = useMemo<NormalizedRung[]>(() => {
     if (rungsProp) return rungsProp;
     if (routine) return routine.rungs;
@@ -1336,7 +1397,7 @@ export function VirtualizedLadderDiagram({
         className={`ladder-diagram-container ${className}`}
         style={{
           overflow: 'auto',
-          backgroundColor: '#fff',
+          backgroundColor: theme.bgPrimary,
           flex: 1,
           minHeight: 0,
           ...style,
@@ -1348,7 +1409,7 @@ export function VirtualizedLadderDiagram({
             alignItems: 'center',
             justifyContent: 'center',
             height: 100,
-            color: '#999',
+            color: theme.textMuted,
             fontSize: 13,
             fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
           }}
@@ -1360,58 +1421,62 @@ export function VirtualizedLadderDiagram({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={`ladder-diagram-container virtualized ${className}`}
-      style={{
-        overflowX: 'hidden',
-        overflowY: 'auto',
-        backgroundColor: '#fff',
-        flex: 1,
-        minHeight: 0,
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        ...style,
-      }}
-      onScroll={handleScroll}
-    >
-      {/* Virtualized content wrapper */}
+    <LadderThemeContext.Provider value={theme}>
       <div
+        ref={containerRef}
+        className={`ladder-diagram-container virtualized ${className}`}
         style={{
-          position: 'relative',
-          height: totalHeight,
-          width: displayWidth,
+          overflowX: 'hidden',
+          overflowY: 'auto',
+          backgroundColor: theme.bgPrimary,
+          flex: 1,
+          minHeight: 0,
+          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+          ...style,
         }}
+        onScroll={handleScroll}
       >
-        {/* Visible rungs */}
-        {rungs.slice(visibleRange.startIndex, visibleRange.endIndex + 1).map((rung, idx) => {
-          const actualIndex = visibleRange.startIndex + idx;
-          const layout = rungLayouts[actualIndex];
-          const rowBg = actualIndex % 2 === 0 ? '#ffffff' : '#fafafa';
-          const cellBg = actualIndex % 2 === 0 ? '#f0f0f0' : '#e8e8e8';
+        {/* Virtualized content wrapper */}
+        <div
+          style={{
+            position: 'relative',
+            height: totalHeight,
+            width: displayWidth,
+          }}
+        >
+          {/* Visible rungs */}
+          {rungs.slice(visibleRange.startIndex, visibleRange.endIndex + 1).map((rung, idx) => {
+            const actualIndex = visibleRange.startIndex + idx;
+            const layout = rungLayouts[actualIndex];
+            const rowBg = actualIndex % 2 === 0 ? theme.rowEvenBg : theme.rowOddBg;
 
-          return (
-            <div
-              key={actualIndex}
-              style={{
-                position: 'absolute',
-                top: layout.offset,
-                left: 0,
-                width: displayWidth,
-              }}
-            >
-              <ScrollableRungRow
-                rung={rung}
-                rungIndex={actualIndex}
-                layout={layout}
-                containerWidth={displayWidth}
-                rowBg={rowBg}
-                cellBg={cellBg}
-              />
-            </div>
-          );
-        })}
+            return (
+              <div
+                key={actualIndex}
+                style={{
+                  position: 'absolute',
+                  top: layout.offset,
+                  left: 0,
+                  width: displayWidth,
+                }}
+              >
+                <ScrollableRungRow
+                  rung={rung}
+                  rungIndex={actualIndex}
+                  layout={layout}
+                  containerWidth={displayWidth}
+                  rowBg={rowBg}
+                  powerRailColor={theme.powerRailColor}
+                  rungNumberColor={theme.rungNumberColor}
+                  rungNumberBg={theme.rungNumberBg}
+                  borderColor={theme.borderColor}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </LadderThemeContext.Provider>
   );
 }
 

@@ -1,0 +1,186 @@
+/**
+ * Ladder Visualizer CSS Custom Properties
+ * 
+ * Override these variables to customize the appearance of ladder visualizer components.
+ * Import this file and override variables in your own CSS:
+ * 
+ * @example
+ * :root {
+ *   --ladder-power-rail-color: #your-color;
+ *   --table-header-bg: #your-color;
+ * }
+ */
+
+:root {
+  /* ============================================
+   * LADDER DIAGRAM COLORS
+   * ============================================ */
+  
+  /* Power rails */
+  --ladder-power-rail-color: #3366cc;
+  --ladder-power-rail-width: 4px;
+  
+  /* Wires and connections */
+  --ladder-wire-color: #333333;
+  --ladder-wire-width: 1px;
+  --ladder-branch-connector-color: #333333;
+  
+  /* Rung numbers */
+  --ladder-rung-number-bg: #f0f0f0;
+  --ladder-rung-number-color: #666666;
+  --ladder-rung-number-font-size: 11px;
+  
+  /* Contact symbols */
+  --ladder-contact-color: #333333;
+  --ladder-contact-nc-color: #d32f2f;
+  
+  /* Coil symbols */
+  --ladder-coil-color: #333333;
+  --ladder-coil-fill: none;
+  
+  /* Box symbols (instructions) */
+  --ladder-box-border-color: #666666;
+  --ladder-box-bg-color: #ffffff;
+  --ladder-box-text-color: #000000;
+  --ladder-box-label-color: #333333;
+  
+  /* Element label text */
+  --ladder-label-color: #333333;
+  --ladder-address-color: #666666;
+  
+  /* Energized state colors */
+  --ladder-energized-color: #00aa00;
+  --ladder-energized-fill: #90EE90;
+  
+  /* ============================================
+   * TABLE COLORS
+   * ============================================ */
+  
+  /* Header */
+  --table-header-bg: linear-gradient(180deg, #f7f8fa 0%, #e3e7eb 100%);
+  --table-header-text: #1e1e1e;
+  --table-header-border: #a0a0a0;
+  
+  /* Cells */
+  --table-cell-bg: #ffffff;
+  --table-cell-text: #1e1e1e;
+  --table-cell-border: #e0e0e0;
+  --table-row-alt-bg: #f5f5f5;
+  --table-row-hover-bg: #cce8ff;
+  --table-row-selected-bg: #0078d4;
+  --table-row-selected-text: #ffffff;
+  
+  /* Filter input */
+  --table-filter-bg: #ffffff;
+  --table-filter-border: #7a7a7a;
+  --table-filter-text: #1e1e1e;
+  
+  /* ============================================
+   * NAVIGATOR COLORS
+   * ============================================ */
+  
+  /* Tree view */
+  --navigator-bg: #ffffff;
+  --navigator-text: #1e1e1e;
+  --navigator-text-secondary: #666666;
+  --navigator-border: #e0e0e0;
+  --navigator-item-hover-bg: #f5f5f5;
+  --navigator-item-selected-bg: #e8f4fc;
+  --navigator-item-selected-border: #0078d4;
+  
+  /* Badge */
+  --navigator-badge-bg: #f0f0f0;
+  --navigator-badge-text: #666666;
+  
+  /* ============================================
+   * GENERAL UI COLORS
+   * ============================================ */
+  
+  /* Backgrounds */
+  --lv-bg-primary: #ffffff;
+  --lv-bg-secondary: #f5f5f5;
+  --lv-bg-elevated: #ffffff;
+  --lv-bg-row-even: #ffffff;
+  --lv-bg-row-odd: #fafafa;
+  --lv-bg-cell-even: #f0f0f0;
+  --lv-bg-cell-odd: #e8e8e8;
+  
+  /* Text */
+  --lv-text-primary: #1e1e1e;
+  --lv-text-secondary: #666666;
+  --lv-text-muted: #999999;
+  
+  /* Borders */
+  --lv-border-default: #e0e0e0;
+  --lv-border-strong: #c0c0c0;
+  --lv-border-subtle: #444444;
+  
+  /* Typography */
+  --lv-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --lv-font-mono: 'Consolas', 'Monaco', monospace;
+  --lv-font-size-sm: 11px;
+  --lv-font-size-base: 12px;
+  --lv-font-size-md: 13px;
+}
+
+/* Dark theme preset (consumers can use or override) */
+.ladder-visualizer-dark {
+  /* Ladder diagram */
+  --ladder-power-rail-color: #5588ee;
+  --ladder-wire-color: #cccccc;
+  --ladder-branch-connector-color: #cccccc;
+  --ladder-contact-color: #cccccc;
+  --ladder-contact-nc-color: #ff6b6b;
+  --ladder-coil-color: #cccccc;
+  --ladder-box-border-color: #888888;
+  --ladder-box-bg-color: #2d2d2d;
+  --ladder-box-text-color: #e0e0e0;
+  --ladder-box-label-color: #cccccc;
+  --ladder-label-color: #cccccc;
+  --ladder-address-color: #aaaaaa;
+  --ladder-rung-number-bg: #2a2a2a;
+  --ladder-rung-number-color: #aaaaaa;
+  --ladder-energized-color: #44dd44;
+  --ladder-energized-fill: #2a5a2a;
+  
+  /* Tables */
+  --table-header-bg: linear-gradient(180deg, #3a3a3a 0%, #2d2d2d 100%);
+  --table-header-text: #e0e0e0;
+  --table-header-border: #555555;
+  --table-cell-bg: #1e1e1e;
+  --table-cell-text: #e0e0e0;
+  --table-cell-border: #3a3a3a;
+  --table-row-alt-bg: #252525;
+  --table-row-hover-bg: #3a3a3a;
+  --table-row-selected-bg: #264f78;
+  --table-row-selected-text: #ffffff;
+  --table-filter-bg: #2d2d2d;
+  --table-filter-border: #555555;
+  --table-filter-text: #e0e0e0;
+  
+  /* Navigator */
+  --navigator-bg: #1e1e1e;
+  --navigator-text: #e0e0e0;
+  --navigator-text-secondary: #aaaaaa;
+  --navigator-border: #3a3a3a;
+  --navigator-item-hover-bg: #2d2d2d;
+  --navigator-item-selected-bg: #264f78;
+  --navigator-item-selected-border: #4a9eff;
+  --navigator-badge-bg: #3a3a3a;
+  --navigator-badge-text: #aaaaaa;
+  
+  /* General UI */
+  --lv-bg-primary: #1e1e1e;
+  --lv-bg-secondary: #252525;
+  --lv-bg-elevated: #2d2d2d;
+  --lv-bg-row-even: #1e1e1e;
+  --lv-bg-row-odd: #252525;
+  --lv-bg-cell-even: #2a2a2a;
+  --lv-bg-cell-odd: #252525;
+  --lv-text-primary: #e0e0e0;
+  --lv-text-secondary: #aaaaaa;
+  --lv-text-muted: #777777;
+  --lv-border-default: #3a3a3a;
+  --lv-border-strong: #555555;
+  --lv-border-subtle: #666666;
+}

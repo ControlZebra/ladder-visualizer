@@ -5,17 +5,35 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "style": "dist/styles/index.css",
   "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
+      "require": "./dist/index.js"
+    },
+    "./styles": "./dist/styles/index.css",
+    "./styles/variables": "./dist/styles/variables.css"
   },
   "files": [
     "dist"
   ],
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": false
+    },
+    "react-dom": {
+      "optional": false
+    }
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
