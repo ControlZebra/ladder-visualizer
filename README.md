@@ -5,6 +5,153 @@ A TypeScript module for parsing and visualizing Allen-Bradley/Rockwell PLC expor
 
 ---
 
+## 🎨 Theming
+
+The ladder-visualizer library is fully themeable using CSS custom properties and/or JavaScript theme objects.
+
+### Installing Styles
+
+Import the default styles in your application:
+
+```typescript
+// Import full stylesheet (includes CSS variables + base styles)
+import 'ladder-visualizer/styles';
+
+// Or import just the CSS variables for custom styling
+import 'ladder-visualizer/styles/variables';
+```
+
+### Using CSS Variables
+
+Override CSS custom properties in your CSS to customize the look:
+
+```css
+:root {
+  /* Ladder diagram colors */
+  --ladder-power-rail-color: #3366cc;
+  --ladder-wire-color: #333333;
+  --ladder-contact-color: #333333;
+  --ladder-contact-nc-color: #d32f2f;
+  --ladder-coil-color: #333333;
+  --ladder-box-border-color: #666666;
+  --ladder-box-bg-color: #ffffff;
+  --ladder-box-text-color: #000000;
+  --ladder-rung-number-bg: #f0f0f0;
+  --ladder-rung-number-color: #666666;
+
+  /* Table colors */
+  --table-header-bg: linear-gradient(180deg, #f7f8fa 0%, #e3e7eb 100%);
+  --table-header-text: #1e1e1e;
+  --table-cell-bg: #ffffff;
+  --table-cell-text: #1e1e1e;
+  --table-row-hover-bg: #cce8ff;
+
+  /* Navigator colors */
+  --navigator-bg: #ffffff;
+  --navigator-text: #1e1e1e;
+  --navigator-item-hover-bg: #f5f5f5;
+  --navigator-item-selected-bg: #e8f4fc;
+
+  /* General UI */
+  --lv-bg-primary: #ffffff;
+  --lv-text-primary: #1e1e1e;
+  --lv-border-default: #e0e0e0;
+  --lv-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --lv-font-mono: 'Consolas', 'Monaco', monospace;
+}
+```
+
+### Dark Mode with CSS Class
+
+Apply the `.ladder-visualizer-dark` class for built-in dark mode:
+
+```tsx
+<div className={isDark ? 'ladder-visualizer-dark' : ''}>
+  <VirtualizedLadderDiagram routine={routine} />
+  <TagTable tags={tags} />
+  <ProgramNavigator programs={programs} />
+</div>
+```
+
+### Using Theme Props (JavaScript)
+
+Pass theme objects directly to components for programmatic theming:
+
+```tsx
+import { 
+  VirtualizedLadderDiagram, 
+  DEFAULT_THEME, 
+  DARK_THEME,
+  type LadderDiagramTheme 
+} from 'ladder-visualizer';
+
+// Use preset dark theme
+<VirtualizedLadderDiagram routine={routine} theme={DARK_THEME} />
+
+// Or create a custom theme
+const customTheme: LadderDiagramTheme = {
+  powerRailColor: '#0078d4',
+  wireColor: '#444444',
+  boxBgColor: '#f8f8f8',
+  boxBorderColor: '#888888',
+  energizedColor: '#00cc00',
+  energizedFill: '#aaffaa',
+};
+
+<VirtualizedLadderDiagram routine={routine} theme={customTheme} />
+```
+
+### Integration with Design Systems (e.g., ControlZebra)
+
+Map your design system variables to ladder-visualizer:
+
+```css
+/* Map ControlZebra design tokens to ladder-visualizer */
+:root {
+  --ladder-power-rail-color: var(--theme-accent);
+  --ladder-wire-color: var(--theme-secondary);
+  --ladder-box-bg-color: var(--theme-surface);
+  --ladder-box-text-color: var(--theme-primary);
+  --ladder-box-border-color: var(--theme-border);
+  --table-header-bg: var(--theme-surface-elevated);
+  --navigator-bg: var(--theme-sidebar-bg);
+}
+
+.dark {
+  /* Dark mode mappings */
+  --ladder-power-rail-color: var(--theme-accent-light);
+  --ladder-wire-color: var(--theme-text-secondary);
+}
+```
+
+Or use JavaScript theme mapping:
+
+```tsx
+const controlZebraTheme: LadderDiagramTheme = {
+  powerRailColor: 'var(--theme-accent)',
+  wireColor: 'var(--theme-secondary)',
+  boxBgColor: 'var(--theme-surface)',
+  boxTextColor: 'var(--theme-primary)',
+  boxBorderColor: 'var(--theme-border)',
+};
+
+<VirtualizedLadderDiagram routine={routine} theme={controlZebraTheme} />
+```
+
+### Available CSS Variables
+
+| Category | Variables |
+|----------|-----------|
+| **Ladder Diagram** | `--ladder-power-rail-color`, `--ladder-wire-color`, `--ladder-contact-color`, `--ladder-contact-nc-color`, `--ladder-coil-color`, `--ladder-box-*`, `--ladder-rung-number-*` |
+| **Tables** | `--table-header-*`, `--table-cell-*`, `--table-row-*`, `--table-filter-*`, `--badge-*-bg/text/border` |
+| **Navigator** | `--navigator-bg`, `--navigator-text`, `--navigator-item-*`, `--navigator-badge-*` |
+| **Structured Text** | `--st-bg`, `--st-text`, `--st-keyword-color`, `--st-type-color`, `--st-function-color`, `--st-string-color`, `--st-comment-color` |
+| **General UI** | `--lv-bg-primary`, `--lv-text-primary`, `--lv-border-default`, `--lv-font-family`, `--lv-font-mono` |
+
+See `src/styles/variables.css` for the complete list of available CSS custom properties.
+
+---
+
 ## 📊 Data Categories & Visualization Strategy
 
 Based on analysis of the controller export JSON, the following high-level categories exist:
