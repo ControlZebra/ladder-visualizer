@@ -20,7 +20,6 @@ export function ContactSymbol({
   mnemonic, 
   energized = false,
   color = DEFAULT_THEME.contactColor,
-  ncColor,
   energizedColor = DEFAULT_THEME.energizedColor,
   energizedFill = DEFAULT_THEME.energizedFill,
 }: ContactSymbolProps) {
@@ -28,7 +27,7 @@ export function ContactSymbol({
   const strokeWidth = energized ? 2 : 1.5;
   const fillColor = energized ? energizedFill : 'transparent';
   // NC diagonal uses ncColor if provided, otherwise same as stroke
-  const ncDiagonalColor = energized ? energizedColor : (ncColor || color);
+  const ncDiagonalColor = strokeColor;
 
   if (mnemonic === 'XIO') {
     // XIO (Normally Closed Contact) symbol: ─┤/├─
