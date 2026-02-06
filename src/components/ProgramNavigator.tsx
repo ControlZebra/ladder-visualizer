@@ -746,14 +746,6 @@ export function ProgramNavigator({
               />
               {expanded.has(`aoi-${aoi.name}`) && (
                 <>
-                  {/* AOI Description */}
-                  {aoi.description && (
-                    <TreeItem
-                      icon={Icons.description}
-                      label={aoi.description.length > 40 ? `${aoi.description.substring(0, 40)}...` : aoi.description}
-                      depth={2}
-                    />
-                  )}
                   {/* Parameters */}
                   <TreeItem
                     icon={Icons.tags}
