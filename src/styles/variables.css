@@ -169,8 +169,8 @@
   --lv-border-subtle: #444444;
   
   /* Typography */
-  --lv-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  --lv-font-mono: 'Consolas', 'Monaco', monospace;
+  --lv-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --lv-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --lv-font-size-sm: 11px;
   --lv-font-size-base: 12px;
   --lv-font-size-md: 13px;
