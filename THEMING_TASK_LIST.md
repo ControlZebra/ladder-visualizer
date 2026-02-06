@@ -19,7 +19,7 @@ Currently, ladder-visualizer uses hardcoded inline styles with fixed colors. To 
 
 ## Task Checklist
 
-### 1. Create CSS Custom Properties System
+### 1. Create CSS Custom Properties System ✅
 
 **File to create**: `src/styles/variables.css`
 
@@ -181,7 +181,7 @@ Currently, ladder-visualizer uses hardcoded inline styles with fixed colors. To 
 
 ---
 
-### 2. Update VirtualizedLadderDiagram.tsx
+### 2. Update VirtualizedLadderDiagram.tsx ✅
 
 **Location**: `src/components/svg/VirtualizedLadderDiagram.tsx`
 
@@ -547,13 +547,13 @@ The main entry point includes comprehensive JSDoc documentation explaining:
 
 After completing the tasks above:
 
-- [ ] Build library: `npm run build:lib`
-- [ ] Link to test project: `npm link` then `npm link ladder-visualizer`
-- [ ] Verify default theme renders correctly
-- [ ] Verify CSS variable overrides work
-- [ ] Verify theme prop overrides work
-- [ ] Test dark mode preset
-- [ ] Test with ControlZebra's Tailwind variables
+- [x] Build library: `npm run build:lib`
+- [x] Link to test project: `npm link` then `npm link ladder-visualizer`
+- [x] Verify default theme renders correctly
+- [x] Verify CSS variable overrides work
+- [x] Verify theme prop overrides work
+- [x] Test dark mode preset
+- [x] Test with ControlZebra's Tailwind variables
 
 ### Quick Test Commands
 
@@ -639,8 +639,14 @@ Or via CSS only:
 - [x] README updated with theming docs
 - [x] No hardcoded colors remain in component files (use CSS variables)
 - [x] TypeScript types exported for theme objects
-- [ ] Tested with ControlZebra integration
+- [x] Tested with ControlZebra integration
 
-### Remaining Task
+### Integration Complete! ✅
 
-Only the integration testing with ControlZebra remains. Run the testing checklist above to verify everything works end-to-end.
+The ladder-visualizer package is now fully integrated with ControlZebra:
+
+1. **L5XViewer component** created at `frontend/src/components/viewers/L5XViewer.tsx`
+2. **Viewer registration** in `frontend/src/lib/viewers-builtin.ts` with lazy loading
+3. **CSS variable overrides** in `frontend/src/index.css` mapping ControlZebra's theme
+4. **Vite config** updated to support symlinked packages
+5. **Production build** verified working with code splitting

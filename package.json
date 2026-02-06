@@ -2,8 +2,8 @@
   "name": "ladder-visualizer",
   "version": "1.0.0",
   "description": "A TypeScript module for parsing and visualizing Allen-Bradley/Rockwell PLC export data",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "style": "dist/styles/index.css",
   "type": "module",
@@ -13,8 +13,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./styles": "./dist/styles/index.css",
     "./styles/variables": "./dist/styles/variables.css"
