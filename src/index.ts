@@ -47,6 +47,9 @@ export * from './types';
 // Export parsers
 export * from './parsers';
 
+// Export diff engine
+export * from './diff';
+
 // Export React components
 export * from './components';
 
