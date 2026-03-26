@@ -42,6 +42,15 @@ export const ladderDefaults = {
   addressColor: '#666666',
   energizedColor: '#00aa00',
   energizedFill: '#90EE90',
+  diffAddedBorderColor: '#2e7d32',
+  diffAddedFillColor: '#e8f5e9',
+  diffRemovedBorderColor: '#c62828',
+  diffRemovedFillColor: '#ffebee',
+  diffTextModifiedBg: '#f5f5f5',
+  diffOldTextColor: '#c62828',
+  diffNewTextColor: '#2e7d32',
+  diffRungAddedWash: 'rgba(46, 125, 50, 0.12)',
+  diffRungRemovedWash: 'rgba(198, 40, 40, 0.12)',
 } as const;
 
 // ============================================================================

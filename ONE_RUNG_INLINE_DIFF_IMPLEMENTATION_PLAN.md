@@ -1,6 +1,6 @@
 # One Rung Inline Diff Implementation Plan
 
-Status: Proposed
+Status: In Progress
 Last Updated: March 26, 2026
 Owner: Engineering
 Primary Package: ladder-visualizer
@@ -433,6 +433,55 @@ Risk:
 Mitigation:
 
 - snapshot or geometry tests for representative rungs before extraction
+
+### Phase 0 Engineering Tasks
+
+The Phase 0 work should be tracked as the following engineering tasks.
+
+1. Extract pure rung layout types and calculation helpers from `VirtualizedLadderDiagram.tsx` into `src/layout/`.
+  - Scope:
+  - move dimension calculation, branch sizing, element partitioning, positioning, and full rung layout calculation into pure functions
+  - keep theme context, virtualization, scrolling affordances, and SVG composition in the React component
+  - add a small exported surface so later diff components can reuse the same layout engine
+  - Status: completed in kickoff implementation
+2. Add Phase 0 geometry coverage for representative rungs.
+  - Scope:
+  - create targeted tests for single-line condition/output layouts
+  - add branch geometry tests to confirm connector and leg positioning survive extraction
+  - add diagram-width and cumulative offset tests so virtualization inputs remain deterministic
+  - Status: completed in kickoff implementation
+3. Introduce a render-oriented inline diff type layer under `src/diff/inline/`.
+  - Scope:
+  - add `InlineDiffState`, `InlineTextChange`, node unions, and `InlineDiffRungModel`
+  - export these types through the package diff surface without wiring render logic yet
+  - Status: completed in kickoff implementation
+4. Extend the theme contract with centralized diff tokens.
+  - Scope:
+  - add added/removed border and fill colors
+  - add neutral text-diff background and old/new text colors
+  - add whole-rung wash tokens for added and removed rungs
+  - update TypeScript defaults and CSS variable defaults together
+  - Status: completed in kickoff implementation
+5. Remove duplicated box-instruction metadata from `BoxSymbol.tsx`.
+  - Scope:
+  - stop maintaining separate hardcoded instruction-name and parameter-label maps in the renderer
+  - rely on the shared instruction registry helpers so normal rendering and future diff rendering read the same metadata source
+  - add coverage proving registry-backed dimensions affect box sizing
+  - Status: completed in kickoff implementation
+6. Keep `VirtualizedLadderDiagram.tsx` behavior stable after extraction.
+  - Scope:
+  - swap the component to consume the shared layout module
+  - avoid public API changes or rendering rewrites beyond the extraction boundary
+  - Status: completed in kickoff implementation
+
+### Phase 0 Exit Criteria For This Kickoff
+
+- normal ladder rendering still uses the existing SVG renderer
+- layout logic is callable outside React from `src/layout/`
+- inline diff model types exist and are exported for later phases
+- diff colors are centrally defined in the theme and CSS defaults
+- boxed instruction metadata comes from the instruction registry, not duplicated maps
+- targeted tests cover the extracted layout seam and registry-backed box sizing
 
 ## Phase 1: Component-Level Inline Diff Model
 

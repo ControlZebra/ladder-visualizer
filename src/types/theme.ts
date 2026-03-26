@@ -39,6 +39,24 @@ export interface LadderDiagramTheme {
   energizedColor?: string;
   /** Energized state fill color (default: #90EE90) */
   energizedFill?: string;
+  /** Diff added border/stroke color (default: #2e7d32) */
+  diffAddedBorderColor?: string;
+  /** Diff added fill color (default: #e8f5e9) */
+  diffAddedFillColor?: string;
+  /** Diff removed border/stroke color (default: #c62828) */
+  diffRemovedBorderColor?: string;
+  /** Diff removed fill color (default: #ffebee) */
+  diffRemovedFillColor?: string;
+  /** Neutral background for text-only diffs (default: #f5f5f5) */
+  diffTextModifiedBg?: string;
+  /** Old text color for inline diffs (default: #c62828) */
+  diffOldTextColor?: string;
+  /** New text color for inline diffs (default: #2e7d32) */
+  diffNewTextColor?: string;
+  /** Whole-rung wash for added rungs (default: rgba(46, 125, 50, 0.12)) */
+  diffRungAddedWash?: string;
+  /** Whole-rung wash for removed rungs (default: rgba(198, 40, 40, 0.12)) */
+  diffRungRemovedWash?: string;
   /** Row background for even rows (default: #ffffff) */
   rowEvenBg?: string;
   /** Row background for odd rows (default: #fafafa) */
@@ -74,6 +92,15 @@ export const DEFAULT_THEME: Required<LadderDiagramTheme> = {
   branchConnectorColor: '#333333',
   energizedColor: '#00aa00',
   energizedFill: '#90EE90',
+  diffAddedBorderColor: '#2e7d32',
+  diffAddedFillColor: '#e8f5e9',
+  diffRemovedBorderColor: '#c62828',
+  diffRemovedFillColor: '#ffebee',
+  diffTextModifiedBg: '#f5f5f5',
+  diffOldTextColor: '#c62828',
+  diffNewTextColor: '#2e7d32',
+  diffRungAddedWash: 'rgba(46, 125, 50, 0.12)',
+  diffRungRemovedWash: 'rgba(198, 40, 40, 0.12)',
   rowEvenBg: '#ffffff',
   rowOddBg: '#fafafa',
   cellEvenBg: '#f0f0f0',
@@ -102,6 +129,15 @@ export const DARK_THEME: Required<LadderDiagramTheme> = {
   branchConnectorColor: '#cccccc',
   energizedColor: '#44dd44',
   energizedFill: '#2a5a2a',
+  diffAddedBorderColor: '#7ad67f',
+  diffAddedFillColor: 'rgba(46, 125, 50, 0.24)',
+  diffRemovedBorderColor: '#ff8a80',
+  diffRemovedFillColor: 'rgba(198, 40, 40, 0.22)',
+  diffTextModifiedBg: '#2f3237',
+  diffOldTextColor: '#ff8a80',
+  diffNewTextColor: '#7ad67f',
+  diffRungAddedWash: 'rgba(46, 125, 50, 0.18)',
+  diffRungRemovedWash: 'rgba(198, 40, 40, 0.18)',
   rowEvenBg: '#1e1e1e',
   rowOddBg: '#252525',
   cellEvenBg: '#2a2a2a',

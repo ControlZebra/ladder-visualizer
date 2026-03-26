@@ -50,6 +50,9 @@ export * from './parsers';
 // Export diff engine
 export * from './diff';
 
+// Export shared ladder layout helpers
+export * from './layout';
+
 // Export React components
 export * from './components';
 

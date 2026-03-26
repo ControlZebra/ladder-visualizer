@@ -34,5 +34,14 @@ export type {
   L5XDiffSummary,
 } from './types';
 
+export type {
+  InlineDiffBranchNode,
+  InlineDiffInstructionNode,
+  InlineDiffNode,
+  InlineDiffRungModel,
+  InlineDiffState,
+  InlineTextChange,
+} from './inline';
+
 // Matching utilities (useful for custom diffing or testing)
 export { matchByKey, matchByNumericKey, diffProperties, valuesEqual } from './matching';

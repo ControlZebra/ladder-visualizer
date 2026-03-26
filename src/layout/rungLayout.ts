@@ -1,0 +1,430 @@
+import type { BranchGroup, Instruction, NormalizedRung, RungElement } from '../types';
+import { isBranchGroup } from '../types';
+import { calculateBoxDimensions } from '../components/svg/BoxSymbol';
+import type {
+  BranchGroupLayout,
+  Dimensions,
+  ElementLine,
+  ElementPartition,
+  InstructionLayout,
+  LineLayout,
+  RungElementLayout,
+  RungLayout,
+  RungLayoutResult,
+} from './rungLayoutTypes';
+
+export const RUNG_NUMBER_WIDTH = 30;
+export const RAIL_VISUAL_WIDTH = 4;
+export const MIN_RUNG_HEIGHT = 80;
+export const RUNG_START_OFFSET = 15;
+export const BRANCH_CONNECTOR_OFFSET = 10;
+export const INSTRUCTION_GAP = 0;
+export const BRANCH_VERTICAL_GAP = 5;
+export const LINE_SPACING = 20;
+export const LABEL_OFFSET = 18;
+export const ADDRESS_LABEL_OFFSET = 12;
+export const RUNG_PADDING = 15;
+export const MIN_CONDITION_OPERATION_GAP = 40;
+export const SYMBOL_WIDTH = 30;
+export const SYMBOL_HEIGHT = 20;
+export const CHAR_WIDTH_ESTIMATE = 7;
+export const LABEL_PADDING = 10;
+
+export function getRungElements(rung: NormalizedRung): RungElement[] {
+  return rung.elements && rung.elements.length > 0 ? rung.elements : rung.instructions;
+}
+
+function calculateSymbolWidth(label: string): number {
+  const textWidth = label.length * CHAR_WIDTH_ESTIMATE;
+  return Math.max(SYMBOL_WIDTH, textWidth + LABEL_PADDING * 2);
+}
+
+function isOperation(instruction: Instruction): boolean {
+  return (
+    instruction.category === 'output' ||
+    instruction.category === 'math' ||
+    instruction.category === 'timer' ||
+    instruction.category === 'counter' ||
+    instruction.category === 'aoi' ||
+    instruction.category === 'other'
+  );
+}
+
+function branchContainsOnlyOperations(branch: BranchGroup): boolean {
+  return branch.branches.every((leg) => leg.length > 0 && leg.every((element) => elementIsOperation(element)));
+}
+
+function elementIsOperation(element: RungElement): boolean {
+  if (isBranchGroup(element)) {
+    return branchContainsOnlyOperations(element);
+  }
+  return isOperation(element);
+}
+
+function hasLabel(element: RungElement): boolean {
+  if (isBranchGroup(element)) {
+    return false;
+  }
+  return element.category === 'input' || element.category === 'output';
+}
+
+export function calculateInstructionDimensions(instruction: Instruction): Dimensions {
+  switch (instruction.category) {
+    case 'input':
+    case 'output': {
+      const label = instruction.operands[0] || '';
+      const width = calculateSymbolWidth(label);
+      return { width, height: SYMBOL_HEIGHT, centerY: SYMBOL_HEIGHT / 2 };
+    }
+    default:
+      return calculateBoxDimensions(instruction.mnemonic, instruction.operands);
+  }
+}
+
+export function calculateBranchDimensions(branch: BranchGroup): Dimensions {
+  if (branch.branches.length === 0) {
+    return { width: 0, height: MIN_RUNG_HEIGHT, centerY: MIN_RUNG_HEIGHT / 2 };
+  }
+
+  const legDimensions: Dimensions[] = [];
+
+  for (const leg of branch.branches) {
+    let legWidth = 0;
+    let maxHeightAboveWire = MIN_RUNG_HEIGHT / 2;
+    let maxHeightBelowWire = MIN_RUNG_HEIGHT / 2;
+
+    for (let index = 0; index < leg.length; index += 1) {
+      const element = leg[index];
+      const dimensions = isBranchGroup(element)
+        ? calculateBranchDimensions(element)
+        : calculateInstructionDimensions(element);
+
+      let labelSpace = 0;
+      if (!isBranchGroup(element) && hasLabel(element)) {
+        labelSpace = LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
+      }
+
+      const heightAboveWire = dimensions.centerY + labelSpace;
+      const heightBelowWire = dimensions.height - dimensions.centerY;
+
+      maxHeightAboveWire = Math.max(maxHeightAboveWire, heightAboveWire);
+      maxHeightBelowWire = Math.max(maxHeightBelowWire, heightBelowWire);
+
+      legWidth += dimensions.width;
+      if (index < leg.length - 1) {
+        legWidth += INSTRUCTION_GAP;
+      }
+    }
+
+    legDimensions.push({
+      width: legWidth,
+      height: maxHeightAboveWire + maxHeightBelowWire,
+      centerY: maxHeightAboveWire,
+    });
+  }
+
+  const maxLegWidth = Math.max(...legDimensions.map((dimensions) => dimensions.width));
+  const branchWidth = maxLegWidth + 2 * BRANCH_CONNECTOR_OFFSET;
+
+  let branchHeight = 0;
+  for (let index = 0; index < legDimensions.length; index += 1) {
+    branchHeight += legDimensions[index].height;
+    if (index < legDimensions.length - 1) {
+      branchHeight += BRANCH_VERTICAL_GAP;
+    }
+  }
+
+  return {
+    width: branchWidth,
+    height: branchHeight,
+    centerY: legDimensions[0].centerY,
+  };
+}
+
+export function calculateElementDimensions(element: RungElement): Dimensions {
+  if (isBranchGroup(element)) {
+    return calculateBranchDimensions(element);
+  }
+  return calculateInstructionDimensions(element);
+}
+
+function separateElements(elements: RungElement[]): ElementPartition {
+  const conditions: RungElement[] = [];
+  const operations: RungElement[] = [];
+
+  for (const element of elements) {
+    if (elementIsOperation(element)) {
+      operations.push(element);
+    } else {
+      conditions.push(element);
+    }
+  }
+
+  return { conditions, operations };
+}
+
+function calculateTotalWidth(elements: RungElement[]): number {
+  if (elements.length === 0) {
+    return 0;
+  }
+
+  let width = 0;
+  for (const element of elements) {
+    width += calculateElementDimensions(element).width;
+  }
+
+  return width + (elements.length - 1) * INSTRUCTION_GAP;
+}
+
+function splitIntoLines(conditions: RungElement[], operations: RungElement[]): ElementLine[] {
+  return [
+    {
+      conditions,
+      operations,
+      conditionsWidth: calculateTotalWidth(conditions),
+      operationsWidth: calculateTotalWidth(operations),
+      height: 0,
+      wireY: 0,
+      yOffset: 0,
+      isLastLine: true,
+    },
+  ];
+}
+
+function calculateLineMetrics(lines: ElementLine[], rungYOffset: number): number {
+  let currentY = rungYOffset;
+
+  for (const line of lines) {
+    let maxHeightAboveWire = MIN_RUNG_HEIGHT / 2;
+    let maxHeightBelowWire = MIN_RUNG_HEIGHT / 2;
+
+    for (const element of [...line.conditions, ...line.operations]) {
+      const dimensions = calculateElementDimensions(element);
+      const labelSpace = hasLabel(element) ? LABEL_OFFSET : 0;
+      const heightAboveWire = dimensions.centerY + labelSpace + RUNG_PADDING;
+      const heightBelowWire = dimensions.height - dimensions.centerY + RUNG_PADDING;
+
+      maxHeightAboveWire = Math.max(maxHeightAboveWire, heightAboveWire);
+      maxHeightBelowWire = Math.max(maxHeightBelowWire, heightBelowWire);
+    }
+
+    line.height = maxHeightAboveWire + maxHeightBelowWire;
+    line.wireY = currentY + maxHeightAboveWire;
+    line.yOffset = currentY - rungYOffset;
+
+    currentY += line.height + LINE_SPACING;
+  }
+
+  return Math.max(currentY - LINE_SPACING - rungYOffset, MIN_RUNG_HEIGHT);
+}
+
+function positionInstruction(instruction: Instruction, x: number, wireY: number): InstructionLayout {
+  const dimensions = calculateInstructionDimensions(instruction);
+  const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
+  const symbolOffset = isContactOrCoil ? (dimensions.width - SYMBOL_WIDTH) / 2 : 0;
+  const label = instruction.operands[0] || '';
+
+  return {
+    type: 'instruction',
+    instruction,
+    position: { x, y: wireY - dimensions.centerY },
+    dimensions,
+    symbolOffset,
+    label: isContactOrCoil ? label : undefined,
+    address: isContactOrCoil && (label.includes(':') || label.includes('.')) ? `<${label}>` : undefined,
+  };
+}
+
+export function positionBranch(branch: BranchGroup, branchStartX: number, mainWireY: number): BranchGroupLayout {
+  const dimensions = calculateBranchDimensions(branch);
+  const connectorLeftX = branchStartX;
+  const connectorRightX = branchStartX + dimensions.width;
+
+  const legDimensions: Dimensions[] = branch.branches.map((leg) => {
+    let legWidth = 0;
+    let maxHeightAboveWire = MIN_RUNG_HEIGHT / 2;
+    let maxHeightBelowWire = MIN_RUNG_HEIGHT / 2;
+
+    for (let index = 0; index < leg.length; index += 1) {
+      const element = leg[index];
+      const elementDimensions = calculateElementDimensions(element);
+
+      let labelSpace = 0;
+      if (!isBranchGroup(element) && hasLabel(element)) {
+        labelSpace = LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
+      }
+
+      maxHeightAboveWire = Math.max(maxHeightAboveWire, elementDimensions.centerY + labelSpace);
+      maxHeightBelowWire = Math.max(maxHeightBelowWire, elementDimensions.height - elementDimensions.centerY);
+
+      legWidth += elementDimensions.width;
+      if (index < leg.length - 1) {
+        legWidth += INSTRUCTION_GAP;
+      }
+    }
+
+    return {
+      width: legWidth,
+      height: maxHeightAboveWire + maxHeightBelowWire,
+      centerY: maxHeightAboveWire,
+    };
+  });
+
+  const legYPositions: number[] = [];
+  let currentY = mainWireY;
+
+  for (let index = 0; index < branch.branches.length; index += 1) {
+    if (index === 0) {
+      legYPositions.push(mainWireY);
+      continue;
+    }
+
+    const previousLeg = legDimensions[index - 1];
+    const currentLeg = legDimensions[index];
+    currentY += previousLeg.height - previousLeg.centerY + BRANCH_VERTICAL_GAP + currentLeg.centerY;
+    legYPositions.push(currentY);
+  }
+
+  const legs = branch.branches.map((leg, index) => {
+    const legWireY = legYPositions[index];
+    const contentStartX = connectorLeftX + BRANCH_CONNECTOR_OFFSET;
+    let legX = contentStartX;
+    const elements: RungElementLayout[] = [];
+
+    for (const element of leg) {
+      const elementDimensions = calculateElementDimensions(element);
+      elements.push(isBranchGroup(element) ? positionBranch(element, legX, legWireY) : positionInstruction(element, legX, legWireY));
+      legX += elementDimensions.width + INSTRUCTION_GAP;
+    }
+
+    return {
+      wireY: legWireY,
+      elements,
+      contentWidth: legDimensions[index].width,
+      contentEndX: legX - INSTRUCTION_GAP,
+    };
+  });
+
+  return {
+    type: 'branch',
+    branchGroup: branch,
+    position: { x: branchStartX, y: mainWireY - dimensions.centerY },
+    dimensions,
+    legs,
+    connectorLeftX,
+    connectorRightX,
+  };
+}
+
+function positionOperations(
+  operations: RungElement[],
+  rightRailX: number,
+  wireY: number
+): { layouts: RungElementLayout[]; startX: number } {
+  const layouts: RungElementLayout[] = [];
+  let currentX = rightRailX - RUNG_START_OFFSET;
+
+  for (let index = operations.length - 1; index >= 0; index -= 1) {
+    const element = operations[index];
+    const dimensions = calculateElementDimensions(element);
+    const elementX = currentX - dimensions.width;
+    layouts.unshift(isBranchGroup(element) ? positionBranch(element, elementX, wireY) : positionInstruction(element, elementX, wireY));
+    currentX = elementX - INSTRUCTION_GAP;
+  }
+
+  return { layouts, startX: currentX + INSTRUCTION_GAP };
+}
+
+function positionConditions(
+  conditions: RungElement[],
+  leftRailX: number,
+  wireY: number
+): { layouts: RungElementLayout[]; endX: number } {
+  const layouts: RungElementLayout[] = [];
+  let currentX = leftRailX + RUNG_START_OFFSET;
+
+  for (const element of conditions) {
+    const dimensions = calculateElementDimensions(element);
+    layouts.push(isBranchGroup(element) ? positionBranch(element, currentX, wireY) : positionInstruction(element, currentX, wireY));
+    currentX += dimensions.width + INSTRUCTION_GAP;
+  }
+
+  return { layouts, endX: currentX };
+}
+
+export function containsBranches(elements: RungElement[]): boolean {
+  return elements.some((element) => isBranchGroup(element));
+}
+
+export function calculateRungContentWidth(elements: RungElement[]): number {
+  const { conditions, operations } = separateElements(elements);
+  return calculateTotalWidth(conditions) + MIN_CONDITION_OPERATION_GAP + calculateTotalWidth(operations) + 2 * RUNG_START_OFFSET;
+}
+
+export function calculateRungLayoutComplete(
+  rung: NormalizedRung,
+  rungIndex: number,
+  yOffset: number,
+  leftRailX: number,
+  rightRailX: number
+): RungLayoutResult {
+  const elements = getRungElements(rung);
+  const { conditions, operations } = separateElements(elements);
+  const lines = splitIntoLines(conditions, operations);
+  const rungHeight = calculateLineMetrics(lines, yOffset);
+
+  const lineLayouts: LineLayout[] = lines.map((line, lineIndex) => {
+    const { layouts: operationsLayouts, startX: operationsStartX } = line.isLastLine && line.operations.length > 0
+      ? positionOperations(line.operations, rightRailX, line.wireY)
+      : { layouts: [], startX: rightRailX };
+
+    const { layouts: conditionLayouts } = positionConditions(line.conditions, leftRailX, line.wireY);
+
+    return {
+      lineIndex,
+      yOffset: line.yOffset,
+      height: line.height,
+      wireY: line.wireY,
+      conditions: conditionLayouts,
+      operations: operationsLayouts,
+      conditionsStartX: leftRailX + RUNG_START_OFFSET,
+      operationsStartX,
+      isLastLine: line.isLastLine,
+    };
+  });
+
+  return {
+    rungIndex,
+    yOffset,
+    height: rungHeight,
+    lines: lineLayouts,
+    hasBranches: containsBranches(elements),
+  };
+}
+
+export function calculateMinDiagramWidth(rungs: NormalizedRung[]): number {
+  let maxContentWidth = 0;
+
+  for (const rung of rungs) {
+    maxContentWidth = Math.max(maxContentWidth, calculateRungContentWidth(getRungElements(rung)));
+  }
+
+  return RUNG_NUMBER_WIDTH + 2 * RAIL_VISUAL_WIDTH + maxContentWidth;
+}
+
+export function calculateRungLayouts(rungs: NormalizedRung[], diagramWidth: number): RungLayout[] {
+  const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
+  const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
+  const layouts: RungLayout[] = [];
+  let currentOffset = 0;
+
+  for (let index = 0; index < rungs.length; index += 1) {
+    const rung = rungs[index];
+    const contentWidth = calculateRungContentWidth(getRungElements(rung)) + RUNG_NUMBER_WIDTH + 2 * RAIL_VISUAL_WIDTH;
+    const rungLayout = calculateRungLayoutComplete(rung, index, currentOffset, leftRailX, rightRailX);
+    layouts.push({ height: rungLayout.height, offset: currentOffset, contentWidth });
+    currentOffset += rungLayout.height;
+  }
+
+  return layouts;
+}

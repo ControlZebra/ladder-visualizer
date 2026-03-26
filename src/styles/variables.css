@@ -51,6 +51,17 @@
   /* Energized state colors */
   --ladder-energized-color: #00aa00;
   --ladder-energized-fill: #90EE90;
+
+  /* Inline diff colors */
+  --ladder-diff-added-border-color: #2e7d32;
+  --ladder-diff-added-fill-color: #e8f5e9;
+  --ladder-diff-removed-border-color: #c62828;
+  --ladder-diff-removed-fill-color: #ffebee;
+  --ladder-diff-text-modified-bg: #f5f5f5;
+  --ladder-diff-old-text-color: #c62828;
+  --ladder-diff-new-text-color: #2e7d32;
+  --ladder-diff-rung-added-wash: rgba(46, 125, 50, 0.12);
+  --ladder-diff-rung-removed-wash: rgba(198, 40, 40, 0.12);
   
   /* ============================================
    * TABLE COLORS
@@ -195,6 +206,15 @@
   --ladder-rung-number-color: #aaaaaa;
   --ladder-energized-color: #44dd44;
   --ladder-energized-fill: #2a5a2a;
+  --ladder-diff-added-border-color: #7ad67f;
+  --ladder-diff-added-fill-color: rgba(46, 125, 50, 0.24);
+  --ladder-diff-removed-border-color: #ff8a80;
+  --ladder-diff-removed-fill-color: rgba(198, 40, 40, 0.22);
+  --ladder-diff-text-modified-bg: #2f3237;
+  --ladder-diff-old-text-color: #ff8a80;
+  --ladder-diff-new-text-color: #7ad67f;
+  --ladder-diff-rung-added-wash: rgba(46, 125, 50, 0.18);
+  --ladder-diff-rung-removed-wash: rgba(198, 40, 40, 0.18);
   
   /* Tables */
   --table-header-bg: linear-gradient(180deg, #3a3a3a 0%, #2d2d2d 100%);
