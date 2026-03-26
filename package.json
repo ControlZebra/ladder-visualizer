@@ -38,6 +38,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:lib": "tsup",
+    "prepare": "npm run build:lib",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",

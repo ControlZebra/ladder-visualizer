@@ -341,6 +341,25 @@ interface TreeItemProps {
   onToggle?: () => void;
 }
 
+export interface ProgramNavigatorFilter {
+  showController?: boolean;
+  showControllerTags?: boolean;
+  showPrograms?: (program: NormalizedProgram, programIndex: number) => boolean;
+  showProgramTags?: (program: NormalizedProgram, programIndex: number) => boolean;
+  showRoutine?: (program: NormalizedProgram, programIndex: number, routine: NormalizedRoutine, routineIndex: number) => boolean;
+  showUnscheduled?: boolean;
+  showMotionGroups?: boolean;
+  showAOIs?: boolean;
+  showDataTypes?: boolean;
+  showIO?: boolean;
+}
+
+export interface ProgramNavigatorBadges {
+  controllerTags?: string;
+  programTags?: (program: NormalizedProgram, programIndex: number) => string | undefined;
+  routine?: (program: NormalizedProgram, programIndex: number, routine: NormalizedRoutine, routineIndex: number) => string | undefined;
+}
+
 function TreeItem({
   icon,
   label,
@@ -464,6 +483,14 @@ export interface ProgramNavigatorProps {
   onAOIRoutineSelect?: (aoi: NormalizedAOI, routineIndex: number, routine: NormalizedRoutine) => void;
   /** Optional CSS class name */
   className?: string;
+  /** Optional visibility overrides for diff or filtered views */
+  filter?: ProgramNavigatorFilter;
+  /** Optional badges for selected nodes */
+  badges?: ProgramNavigatorBadges;
+  /** Controlled selection for non-routine items */
+  selectedItemId?: string | null;
+  /** Initial set of expanded tree node keys (overrides default expansion) */
+  initialExpanded?: Set<string>;
 }
 
 /**
@@ -500,6 +527,10 @@ export function ProgramNavigator({
   onAOILocalTagsSelect,
   onAOIRoutineSelect,
   className = '',
+  filter,
+  badges,
+  selectedItemId,
+  initialExpanded,
 }: ProgramNavigatorProps) {
   // Convert to display format if provided
   const displayController = useMemo<DisplayController | null>(() => {
@@ -515,13 +546,15 @@ export function ProgramNavigator({
     return programsToDisplay(programs);
   }, [displayController, programs]);
 
-  // Expansion state for tree nodes - open all top-level folders by default
+  // Expansion state for tree nodes - use initialExpanded if provided, otherwise open all top-level folders
   const [expanded, setExpanded] = useState<Set<string>>(
-    new Set(['controller', 'tasks', 'mainTask', 'aois', 'dataTypes', 'io'])
+    () => initialExpanded ?? new Set(['controller', 'tasks', 'mainTask', 'aois', 'dataTypes', 'io'])
   );
 
   // Internal selection state for non-routine items
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
+  const activeSelectedItem = selectedItemId ?? selectedItem;
 
   const toggleExpanded = (key: string) => {
     setExpanded((prev) => {
@@ -541,6 +574,17 @@ export function ProgramNavigator({
     if (!program) return undefined;
     return program.routines[routineIndex];
   };
+
+  const shouldShowController = filter?.showController ?? true;
+  const shouldShowControllerTags = filter?.showControllerTags ?? true;
+  const shouldShowProgram = (program: NormalizedProgram, programIndex: number) => filter?.showPrograms?.(program, programIndex) ?? true;
+  const shouldShowProgramTags = (program: NormalizedProgram, programIndex: number) => filter?.showProgramTags?.(program, programIndex) ?? true;
+  const shouldShowRoutine = (
+    program: NormalizedProgram,
+    programIndex: number,
+    routine: NormalizedRoutine,
+    routineIndex: number,
+  ) => filter?.showRoutine?.(program, programIndex, routine, routineIndex) ?? true;
 
   // Helper to get original data type for callback
   const getOriginalDataType = (name: string): NormalizedDataType | undefined => {
@@ -593,28 +637,31 @@ export function ProgramNavigator({
       <div style={treeContainerStyle}>
         <div style={{ padding: '4px 0' }}>
         {/* Controller - now at top level */}
-        <TreeItem
-          icon={expanded.has('controller') ? Icons.folderOpen : Icons.folder}
-          label={`Controller ${controllerName}`}
-          depth={0}
-          isExpandable={true}
-          isExpanded={expanded.has('controller')}
-          isSelected={selectedItem === 'controller-info'}
-          onToggle={() => toggleExpanded('controller')}
-          onClick={() => {
-            setSelectedItem('controller-info');
-            onControllerInfoSelect?.();
-          }}
-        />
+        {shouldShowController && (
+          <TreeItem
+            icon={expanded.has('controller') ? Icons.folderOpen : Icons.folder}
+            label={`Controller ${controllerName}`}
+            depth={0}
+            isExpandable={true}
+            isExpanded={expanded.has('controller')}
+            isSelected={activeSelectedItem === 'controller-info'}
+            onToggle={() => toggleExpanded('controller')}
+            onClick={() => {
+              setSelectedItem('controller-info');
+              onControllerInfoSelect?.();
+            }}
+          />
+        )}
 
-        {expanded.has('controller') && (
+        {shouldShowController && expanded.has('controller') && shouldShowControllerTags && (
           <>
             {/* Controller Tags */}
             <TreeItem
               icon={Icons.tags}
               label="Controller Tags"
               depth={1}
-              isSelected={selectedItem === 'controller-tags'}
+              badge={badges?.controllerTags}
+              isSelected={activeSelectedItem === 'controller-tags'}
               onClick={() => {
                 setSelectedItem('controller-tags');
                 onControllerTagsSelect?.();
@@ -646,8 +693,22 @@ export function ProgramNavigator({
             />
 
             {expanded.has('mainTask') && displayPrograms.map((program, pIdx) => {
+              const originalProgram = programs[pIdx];
+              if (!originalProgram || !shouldShowProgram(originalProgram, pIdx)) {
+                return null;
+              }
+
               const programKey = `program-${pIdx}`;
               const programName = program.name;
+              const visibleRoutines = [...program.routines]
+                .map((routine, originalIdx) => ({ routine, originalIdx }))
+                .filter(({ originalIdx }) => {
+                  const originalRoutine = originalProgram.routines[originalIdx];
+                  return originalRoutine ? shouldShowRoutine(originalProgram, pIdx, originalRoutine, originalIdx) : false;
+                })
+                .sort((a, b) => a.routine.name.localeCompare(b.routine.name));
+              const showProgramTags = shouldShowProgramTags(originalProgram, pIdx);
+              const isProgramExpandable = showProgramTags || visibleRoutines.length > 0;
 
               return (
                 <React.Fragment key={programKey}>
@@ -655,7 +716,7 @@ export function ProgramNavigator({
                     icon={expanded.has(programKey) ? Icons.programOpen : Icons.program}
                     label={programName}
                     depth={2}
-                    isExpandable={true}
+                    isExpandable={isProgramExpandable}
                     isExpanded={expanded.has(programKey)}
                     onToggle={() => toggleExpanded(programKey)}
                   />
@@ -663,22 +724,22 @@ export function ProgramNavigator({
                   {expanded.has(programKey) && (
                     <>
                       {/* Program Tags */}
-                      <TreeItem
-                        icon={Icons.tags}
-                        label="Program Tags"
-                        depth={3}
-                        isSelected={selectedItem === `program-tags-${pIdx}`}
-                        onClick={() => {
-                          setSelectedItem(`program-tags-${pIdx}`);
-                          onProgramTagsSelect?.(pIdx);
-                        }}
-                      />
+                      {showProgramTags ? (
+                        <TreeItem
+                          icon={Icons.tags}
+                          label="Program Tags"
+                          depth={3}
+                          badge={badges?.programTags?.(originalProgram, pIdx)}
+                          isSelected={activeSelectedItem === `program-tags-${pIdx}`}
+                          onClick={() => {
+                            setSelectedItem(`program-tags-${pIdx}`);
+                            onProgramTagsSelect?.(pIdx);
+                          }}
+                        />
+                      ) : null}
 
                       {/* Routines (sorted alphabetically) */}
-                      {[...program.routines]
-                        .map((routine, originalIdx) => ({ routine, originalIdx }))
-                        .sort((a, b) => a.routine.name.localeCompare(b.routine.name))
-                        .map(({ routine, originalIdx }) => {
+                      {visibleRoutines.map(({ routine, originalIdx }) => {
                         const isRoutineSelected =
                           selectedRoutine?.programIndex === pIdx &&
                           selectedRoutine?.routineIndex === originalIdx;
@@ -689,7 +750,8 @@ export function ProgramNavigator({
                             icon={getRoutineIcon(routine.type)}
                             label={routine.name}
                             depth={3}
-                            isSelected={isRoutineSelected || selectedItem === `routine-${pIdx}-${originalIdx}`}
+                            badge={badges?.routine?.(originalProgram, pIdx, originalProgram.routines[originalIdx], originalIdx)}
+                            isSelected={isRoutineSelected || activeSelectedItem === `routine-${pIdx}-${originalIdx}`}
                             onClick={() => {
                               setSelectedItem(`routine-${pIdx}-${originalIdx}`);
                               const originalRoutine = getOriginalRoutine(pIdx, originalIdx);
@@ -707,33 +769,39 @@ export function ProgramNavigator({
             })}
 
             {/* Unscheduled Programs */}
-            <TreeItem
-              icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
-              label="Unscheduled"
-              depth={1}
-              isExpandable={false}
-            />
+            {filter?.showUnscheduled !== false ? (
+              <TreeItem
+                icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
+                label="Unscheduled"
+                depth={1}
+                isExpandable={false}
+              />
+            ) : null}
           </>
         )}
 
         {/* Motion Groups (unsupported) - now at top level */}
-        <TreeItem
-          icon={Icons.motionGroup}
-          label="Motion Groups"
-          depth={0}
-        />
+        {filter?.showMotionGroups !== false ? (
+          <TreeItem
+            icon={Icons.motionGroup}
+            label="Motion Groups"
+            depth={0}
+          />
+        ) : null}
 
         {/* Add-On Instructions - now at top level */}
-        <TreeItem
-          icon={expanded.has('aois') ? Icons.folderOpen : Icons.folder}
-          label="Add-On Instructions"
-          depth={0}
-          isExpandable={true}
-          isExpanded={expanded.has('aois')}
-          onToggle={() => toggleExpanded('aois')}
-        />
+        {filter?.showAOIs !== false ? (
+          <TreeItem
+            icon={expanded.has('aois') ? Icons.folderOpen : Icons.folder}
+            label="Add-On Instructions"
+            depth={0}
+            isExpandable={true}
+            isExpanded={expanded.has('aois')}
+            onToggle={() => toggleExpanded('aois')}
+          />
+        ) : null}
 
-        {expanded.has('aois') && controller && (
+        {filter?.showAOIs !== false && expanded.has('aois') && controller && (
           controller.aois.map((aoi) => (
             <React.Fragment key={aoi.name}>
               <TreeItem
@@ -751,7 +819,7 @@ export function ProgramNavigator({
                     icon={Icons.tags}
                     label="Parameters"
                     depth={2}
-                    isSelected={selectedItem === `aoi-params-${aoi.name}`}
+                    isSelected={activeSelectedItem === `aoi-params-${aoi.name}`}
                     onClick={() => {
                       setSelectedItem(`aoi-params-${aoi.name}`);
                       onAOIParametersSelect?.(aoi);
@@ -762,7 +830,7 @@ export function ProgramNavigator({
                     icon={Icons.tags}
                     label="Local Tags"
                     depth={2}
-                    isSelected={selectedItem === `aoi-local-${aoi.name}`}
+                    isSelected={activeSelectedItem === `aoi-local-${aoi.name}`}
                     onClick={() => {
                       setSelectedItem(`aoi-local-${aoi.name}`);
                       onAOILocalTagsSelect?.(aoi);
@@ -790,7 +858,7 @@ export function ProgramNavigator({
                         icon={getRoutineIcon(routine.type)}
                         label={routine.name}
                         depth={3}
-                        isSelected={isAOIRoutineSelected || selectedItem === `aoi-routine-${aoi.name}-${originalIdx}`}
+                        isSelected={isAOIRoutineSelected || activeSelectedItem === `aoi-routine-${aoi.name}-${originalIdx}`}
                         onClick={routine.type === 'RLL' ? () => {
                           setSelectedItem(`aoi-routine-${aoi.name}-${originalIdx}`);
                           onAOIRoutineSelect?.(aoi, originalIdx, routine);
@@ -805,16 +873,18 @@ export function ProgramNavigator({
         )}
 
         {/* Data Types - now at top level */}
-        <TreeItem
-          icon={expanded.has('dataTypes') ? Icons.folderOpen : Icons.folder}
-          label="Data Types"
-          depth={0}
-          isExpandable={true}
-          isExpanded={expanded.has('dataTypes')}
-          onToggle={() => toggleExpanded('dataTypes')}
-        />
+        {filter?.showDataTypes !== false ? (
+          <TreeItem
+            icon={expanded.has('dataTypes') ? Icons.folderOpen : Icons.folder}
+            label="Data Types"
+            depth={0}
+            isExpandable={true}
+            isExpanded={expanded.has('dataTypes')}
+            onToggle={() => toggleExpanded('dataTypes')}
+          />
+        ) : null}
 
-        {expanded.has('dataTypes') && dataTypeCategories && (
+        {filter?.showDataTypes !== false && expanded.has('dataTypes') && dataTypeCategories && (
           <>
             {/* User Defined */}
             <TreeItem
@@ -831,7 +901,7 @@ export function ProgramNavigator({
                 icon={Icons.dataType}
                 label={dt.name}
                 depth={2}
-                isSelected={selectedItem === `dt-${dt.name}`}
+                isSelected={activeSelectedItem === `dt-${dt.name}`}
                 onClick={() => {
                   setSelectedItem(`dt-${dt.name}`);
                   const original = getOriginalDataType(dt.name);
@@ -855,7 +925,7 @@ export function ProgramNavigator({
                 icon={Icons.dataType}
                 label={dt.name}
                 depth={2}
-                isSelected={selectedItem === `dt-${dt.name}`}
+                isSelected={activeSelectedItem === `dt-${dt.name}`}
                 onClick={() => {
                   setSelectedItem(`dt-${dt.name}`);
                   const original = getOriginalDataType(dt.name);
@@ -879,7 +949,7 @@ export function ProgramNavigator({
                 icon={Icons.dataType}
                 label={dt.name}
                 depth={2}
-                isSelected={selectedItem === `dt-${dt.name}`}
+                isSelected={activeSelectedItem === `dt-${dt.name}`}
                 onClick={() => {
                   setSelectedItem(`dt-${dt.name}`);
                   const original = getOriginalDataType(dt.name);
@@ -903,7 +973,7 @@ export function ProgramNavigator({
                 icon={Icons.dataType}
                 label={dt.name}
                 depth={2}
-                isSelected={selectedItem === `dt-${dt.name}`}
+                isSelected={activeSelectedItem === `dt-${dt.name}`}
                 onClick={() => {
                   setSelectedItem(`dt-${dt.name}`);
                   const original = getOriginalDataType(dt.name);
@@ -927,7 +997,7 @@ export function ProgramNavigator({
                 icon={Icons.dataType}
                 label={dt.name}
                 depth={2}
-                isSelected={selectedItem === `dt-${dt.name}`}
+                isSelected={activeSelectedItem === `dt-${dt.name}`}
                 onClick={() => {
                   setSelectedItem(`dt-${dt.name}`);
                   const original = getOriginalDataType(dt.name);
@@ -939,16 +1009,18 @@ export function ProgramNavigator({
         )}
 
         {/* I/O Configuration - now at top level */}
-        <TreeItem
-          icon={Icons.io}
-          label="I/O Configuration"
-          depth={0}
-          isExpandable={true}
-          isExpanded={expanded.has('io')}
-          onToggle={() => toggleExpanded('io')}
-        />
+        {filter?.showIO !== false ? (
+          <TreeItem
+            icon={Icons.io}
+            label="I/O Configuration"
+            depth={0}
+            isExpandable={true}
+            isExpanded={expanded.has('io')}
+            onToggle={() => toggleExpanded('io')}
+          />
+        ) : null}
 
-        {expanded.has('io') && controller && (
+        {filter?.showIO !== false && expanded.has('io') && controller && (
           controller.modules.map((mod) => (
             <TreeItem
               key={mod.id}
@@ -956,7 +1028,7 @@ export function ProgramNavigator({
               label={mod.catalogNumber ? `${mod.name} (${mod.catalogNumber})` : mod.name}
               depth={1}
               badge={mod.slot !== undefined ? `Slot ${mod.slot}` : undefined}
-              isSelected={selectedItem === `io-module-${mod.id}`}
+              isSelected={activeSelectedItem === `io-module-${mod.id}`}
               onClick={() => {
                 setSelectedItem(`io-module-${mod.id}`);
                 onModuleSelect?.(mod);

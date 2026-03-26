@@ -18,7 +18,7 @@ export { TagTable, type TagTableProps } from './TagTable';
 export { ControllerInfo, type ControllerInfoProps } from './ControllerInfo';
 
 // Program Navigator
-export { ProgramNavigator, type ProgramNavigatorProps } from './ProgramNavigator';
+export { ProgramNavigator, type ProgramNavigatorProps, type ProgramNavigatorFilter, type ProgramNavigatorBadges } from './ProgramNavigator';
 
 // AOI Tables
 export { AOIParameterTable, type AOIParameterTableProps } from './AOIParameterTable';

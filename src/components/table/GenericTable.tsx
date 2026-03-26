@@ -50,6 +50,8 @@ export interface GenericTableProps<T> {
   filterPlaceholder?: string;
   /** Label for the count display (e.g., "tags", "parameters") */
   itemLabel?: string;
+  /** Optional row style override */
+  getRowStyle?: (row: T, index: number) => React.CSSProperties | undefined;
 }
 
 /**
@@ -66,6 +68,7 @@ export function GenericTable<T>({
   onRowSelect,
   filterPlaceholder = 'Filter...',
   itemLabel = 'items',
+  getRowStyle: getCustomRowStyle,
 }: GenericTableProps<T>) {
   const {
     filteredAndSorted,
@@ -162,7 +165,7 @@ export function GenericTable<T>({
             {filteredAndSorted.map((row, index) => (
               <tr
                 key={getRowKey(row)}
-                style={getRowStyle(index, !!onRowSelect)}
+                style={combineStyles(getRowStyle(index, !!onRowSelect), getCustomRowStyle?.(row, index))}
                 onClick={() => handleRowClick(row)}
                 onMouseEnter={handleRowMouseEnter}
                 onMouseLeave={handleRowMouseLeave}
