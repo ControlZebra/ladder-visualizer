@@ -6,6 +6,7 @@ import React, { useCallback, useState } from 'react';
 
 export type TabType = 
   | 'routine' 
+  | 'inline-diff-demo'
   | 'controller-tags' 
   | 'program-tags' 
   | 'controller-info' 
@@ -25,6 +26,7 @@ export interface Tab {
 
 export type TabData = 
   | { type: 'routine'; programIndex: number; routineIndex: number }
+  | { type: 'inline-diff-demo'; programIndex: number; routineIndex: number }
   | { type: 'controller-tags' }
   | { type: 'program-tags'; programIndex: number; programName: string }
   | { type: 'controller-info' }
@@ -42,6 +44,8 @@ export function generateTabId(data: TabData): string {
   switch (data.type) {
     case 'routine':
       return `routine-${data.programIndex}-${data.routineIndex}`;
+    case 'inline-diff-demo':
+      return `inline-diff-demo-${data.programIndex}-${data.routineIndex}`;
     case 'controller-tags':
       return 'controller-tags';
     case 'program-tags':

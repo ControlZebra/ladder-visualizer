@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   parseFile,
   VirtualizedLadderDiagram,
+  InlineDiffRung,
   TagTable,
   ControllerInfo,
   ProgramNavigator,
@@ -10,15 +11,20 @@ import {
   AOILocalTagTable,
   StructuredTextViewer,
   ModuleInfoTable,
+  buildInlineDiffModel,
   registerAOIsFromController,
   clearAOIs,
 } from '../src';
 import type { 
   NormalizedController,
   NormalizedRoutine,
+  NormalizedRung,
   NormalizedDataType,
   NormalizedAOI,
   NormalizedModule,
+  Instruction,
+  RungElement,
+  BranchGroup,
 } from '../src';
 import { DataTypeTable } from './DataTypeTable';
 import { TabBar, TabData } from './TabBar';
@@ -30,6 +36,353 @@ import controllerData from '../examples/controller_output.json';
 // ============================================================================
 // MAIN APP COMPONENT
 // ============================================================================
+
+interface InlineDiffDemoScenario {
+  oldRung: NormalizedRung;
+  newRung: NormalizedRung;
+  model: ReturnType<typeof buildInlineDiffModel>;
+  highlights: string[];
+}
+
+function isBranchGroupElement(element: RungElement): element is BranchGroup {
+  return 'type' in element && element.type === 'branch';
+}
+
+function cloneInstruction(instruction: Instruction): Instruction {
+  return {
+    ...instruction,
+    operands: [...instruction.operands],
+  };
+}
+
+function cloneRungElement(element: RungElement): RungElement {
+  if (isBranchGroupElement(element)) {
+    return {
+      type: 'branch',
+      branches: element.branches.map((leg) => leg.map(cloneRungElement)),
+    };
+  }
+
+  return cloneInstruction(element);
+}
+
+function flattenInstructions(elements: RungElement[]): Instruction[] {
+  const instructions: Instruction[] = [];
+
+  for (const element of elements) {
+    if (isBranchGroupElement(element)) {
+      for (const leg of element.branches) {
+        instructions.push(...flattenInstructions(leg));
+      }
+      continue;
+    }
+
+    instructions.push(element);
+  }
+
+  return instructions;
+}
+
+function cloneRung(rung: NormalizedRung): NormalizedRung {
+  const elements = rung.elements.map(cloneRungElement);
+
+  return {
+    ...rung,
+    elements,
+    instructions: flattenInstructions(elements),
+  };
+}
+
+function hasBranchGroup(elements: RungElement[]): boolean {
+  return elements.some((element) => {
+    if (!isBranchGroupElement(element)) {
+      return false;
+    }
+
+    return true;
+  }) || elements.some((element) => {
+    if (!isBranchGroupElement(element)) {
+      return false;
+    }
+
+    return element.branches.some((leg) => hasBranchGroup(leg));
+  });
+}
+
+function findDefaultInlineDiffRungIndex(routine: NormalizedRoutine): number {
+  const branchIndex = routine.rungs.findIndex((rung) => hasBranchGroup(rung.elements));
+  if (branchIndex >= 0) {
+    return branchIndex;
+  }
+
+  return 0;
+}
+
+function getDemoOperandVariant(operand: string): string {
+  if (/^[0-9.+-]+$/.test(operand)) {
+    return `${operand}_REV`;
+  }
+
+  return `${operand}_REV`;
+}
+
+function getDemoMnemonicReplacement(instruction: Instruction): string | undefined {
+  switch (instruction.category) {
+    case 'input':
+      return instruction.mnemonic === 'XIO' ? 'XIC' : 'XIO';
+    case 'output':
+      if (instruction.mnemonic === 'OTL') {
+        return 'OTU';
+      }
+      return 'OTL';
+    case 'compare':
+      if (instruction.mnemonic === 'EQU') {
+        return 'NEQ';
+      }
+      if (instruction.mnemonic === 'GEQ') {
+        return 'GRT';
+      }
+      if (instruction.mnemonic === 'LES') {
+        return 'LEQ';
+      }
+      return undefined;
+    default:
+      return undefined;
+  }
+}
+
+function updateFirstInstruction(
+  elements: RungElement[],
+  updater: (instruction: Instruction) => void,
+): boolean {
+  for (const element of elements) {
+    if (isBranchGroupElement(element)) {
+      for (const leg of element.branches) {
+        if (updateFirstInstruction(leg, updater)) {
+          return true;
+        }
+      }
+      continue;
+    }
+
+    updater(element);
+    return true;
+  }
+
+  return false;
+}
+
+function createDemoContact(tagName: string): Instruction {
+  return {
+    mnemonic: 'XIC',
+    category: 'input',
+    operands: [tagName],
+  };
+}
+
+function appendDemoBranchLeg(elements: RungElement[]): boolean {
+  for (const element of elements) {
+    if (isBranchGroupElement(element)) {
+      element.branches.push([createDemoContact('DemoInlineDiffBranch')]);
+      return true;
+    }
+  }
+
+  for (const element of elements) {
+    if (!isBranchGroupElement(element)) {
+      continue;
+    }
+
+    for (const leg of element.branches) {
+      if (appendDemoBranchLeg(leg)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function appendDemoSeriesContact(elements: RungElement[]): void {
+  const demoContact = createDemoContact('DemoInlineDiffSeries');
+  const lastElement = elements[elements.length - 1];
+
+  if (lastElement && !isBranchGroupElement(lastElement) && lastElement.category === 'output') {
+    elements.splice(Math.max(elements.length - 1, 0), 0, demoContact);
+    return;
+  }
+
+  elements.push(demoContact);
+}
+
+function describeRung(rung: NormalizedRung): string {
+  const mnemonics = rung.instructions.slice(0, 3).map((instruction) => instruction.mnemonic).join(' -> ');
+  return mnemonics ? `${mnemonics}${rung.instructions.length > 3 ? '...' : ''}` : 'Empty rung';
+}
+
+function createInlineDiffDemoScenario(rung: NormalizedRung): InlineDiffDemoScenario {
+  const newRung = cloneRung(rung);
+  const highlights: string[] = [];
+
+  const updatedFirstInstruction = updateFirstInstruction(newRung.elements, (instruction) => {
+    const previousMnemonic = instruction.mnemonic;
+    const replacementMnemonic = getDemoMnemonicReplacement(instruction);
+    const [firstOperand, ...restOperands] = instruction.operands;
+
+    if (replacementMnemonic && replacementMnemonic !== instruction.mnemonic) {
+      instruction.mnemonic = replacementMnemonic;
+      highlights.push(`Swapped ${previousMnemonic} for ${replacementMnemonic}`);
+    }
+
+    if (firstOperand) {
+      instruction.operands = [getDemoOperandVariant(firstOperand), ...restOperands];
+      highlights.push('Edited the first operand');
+    }
+  });
+
+  if (!updatedFirstInstruction) {
+    appendDemoSeriesContact(newRung.elements);
+    highlights.push('Inserted a demo contact to create a visible change');
+  }
+
+  if (appendDemoBranchLeg(newRung.elements)) {
+    highlights.push('Added a parallel branch leg');
+  } else {
+    appendDemoSeriesContact(newRung.elements);
+    highlights.push('Inserted an extra series contact');
+  }
+
+  newRung.comment = rung.comment
+    ? `${rung.comment} (inline diff demo)`
+    : 'Demo note: previewing a one-rung inline diff';
+  highlights.push('Updated the rung comment');
+  newRung.raw = `${rung.raw} // inline diff demo`;
+  newRung.instructions = flattenInstructions(newRung.elements);
+
+  return {
+    oldRung: rung,
+    newRung,
+    model: buildInlineDiffModel({
+      oldRung: rung,
+      newRung,
+      maxLength: 32,
+    }),
+    highlights,
+  };
+}
+
+function InlineDiffDemoPanel({ routine, programLabel }: { routine: NormalizedRoutine; programLabel: string }) {
+  const [selectedRungIndex, setSelectedRungIndex] = useState(() => findDefaultInlineDiffRungIndex(routine));
+
+  useEffect(() => {
+    setSelectedRungIndex(findDefaultInlineDiffRungIndex(routine));
+  }, [routine]);
+
+  const selectedRung = routine.rungs[selectedRungIndex] ?? null;
+  const selectId = `inline-diff-rung-select-${programLabel.replace(/\s+/g, '-').toLowerCase()}-${routine.name.replace(/\s+/g, '-').toLowerCase()}`;
+  const scenario = useMemo(() => {
+    if (!selectedRung) {
+      return null;
+    }
+
+    return createInlineDiffDemoScenario(selectedRung);
+  }, [selectedRung]);
+
+  const selectedRungHasBranch = useMemo(
+    () => (selectedRung ? hasBranchGroup(selectedRung.elements) : false),
+    [selectedRung],
+  );
+
+  if (routine.rungs.length === 0) {
+    return (
+      <div style={styles.emptyState}>
+        <p style={styles.emptyStateTitle}>No Rungs Available</p>
+        <p style={styles.emptyStateText}>This routine does not contain ladder rungs to compare.</p>
+      </div>
+    );
+  }
+
+  if (!scenario) {
+    return (
+      <div style={styles.emptyState}>
+        <p style={styles.emptyStateTitle}>Unable To Build Demo Diff</p>
+        <p style={styles.emptyStateText}>The selected rung could not be converted into an inline diff preview.</p>
+      </div>
+    );
+  }
+
+  const diffWidth = Math.max(1200, scenario.newRung.instructions.length * 150);
+
+  return (
+    <div style={styles.inlineDiffDemoPanel}>
+      <div style={styles.inlineDiffDemoHeader}>
+        <div>
+          <h2 style={styles.inlineDiffDemoTitle}>One-Rung Inline Diff</h2>
+          <p style={styles.inlineDiffDemoDescription}>
+            Synthetic review preview for {programLabel} / {routine.name}. The demo reuses the exported inline diff model builder and SVG renderer.
+          </p>
+        </div>
+        <div style={styles.inlineDiffDemoControls}>
+          <label style={styles.inlineDiffDemoLabel} htmlFor={selectId}>
+            Demo rung
+          </label>
+          <select
+            id={selectId}
+            value={selectedRungIndex}
+            onChange={(event) => setSelectedRungIndex(Number(event.target.value))}
+            style={styles.inlineDiffDemoSelect}
+          >
+            {routine.rungs.map((rung, index) => (
+              <option key={`${routine.name}-${rung.number}-${index}`} value={index}>
+                {`Rung ${rung.number} - ${describeRung(rung)}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style={styles.inlineDiffDemoMetaRow}>
+        <div style={styles.inlineDiffDemoMetaCard}>
+          <span style={styles.inlineDiffDemoMetaLabel}>Preview state</span>
+          <strong style={styles.inlineDiffDemoMetaValue}>{scenario.model.rungState}</strong>
+        </div>
+        <div style={styles.inlineDiffDemoMetaCard}>
+          <span style={styles.inlineDiffDemoMetaLabel}>Structural changes</span>
+          <strong style={styles.inlineDiffDemoMetaValue}>{scenario.model.hasStructuralChanges ? 'Yes' : 'No'}</strong>
+        </div>
+        <div style={styles.inlineDiffDemoMetaCard}>
+          <span style={styles.inlineDiffDemoMetaLabel}>Branch coverage</span>
+          <strong style={styles.inlineDiffDemoMetaValue}>{selectedRungHasBranch ? 'Selected rung includes branches' : 'Series-only fallback'}</strong>
+        </div>
+      </div>
+
+      <div style={styles.inlineDiffDemoHighlights}>
+        {scenario.highlights.map((highlight) => (
+          <span key={highlight} style={styles.inlineDiffDemoHighlightPill}>
+            {highlight}
+          </span>
+        ))}
+      </div>
+
+      <div style={styles.inlineDiffDemoCanvas}>
+        <div style={styles.inlineDiffDemoCanvasInner}>
+          <InlineDiffRung model={scenario.model} width={diffWidth} />
+        </div>
+      </div>
+
+      <div style={styles.inlineDiffDemoRawGrid}>
+        <section style={styles.inlineDiffDemoRawCard}>
+          <div style={styles.inlineDiffDemoRawHeader}>Original rung</div>
+          <pre style={styles.inlineDiffDemoRawText}>{scenario.oldRung.raw}</pre>
+        </section>
+        <section style={styles.inlineDiffDemoRawCard}>
+          <div style={styles.inlineDiffDemoRawHeader}>Demo-updated rung</div>
+          <pre style={styles.inlineDiffDemoRawText}>{scenario.newRung.raw}</pre>
+        </section>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [controller, setController] = useState<NormalizedController | null>(null);
@@ -309,7 +662,28 @@ export default function App() {
           
           return (
             <div key={`routine-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
-              <div style={styles.ladderContent}>
+              <div style={styles.routineTabContent}>
+                {isRLLRoutine && (
+                  <div style={styles.routineToolbar}>
+                    <div style={styles.routineToolbarText}>
+                      Open a synthetic one-rung diff preview for this routine.
+                    </div>
+                    <button
+                      style={styles.routineToolbarButton}
+                      onClick={() => openTab(
+                        {
+                          type: 'inline-diff-demo',
+                          programIndex: tabData.programIndex,
+                          routineIndex: tabData.routineIndex,
+                        },
+                        `${routine.name} Diff Demo`,
+                      )}
+                    >
+                      Open One-Rung Inline Diff
+                    </button>
+                  </div>
+                )}
+                <div style={styles.ladderContent}>
                 {isSTRoutine ? (
                   <StructuredTextViewer
                     routine={routine}
@@ -321,6 +695,7 @@ export default function App() {
                     style={{ width: '100%', height: '100%' }}
                   />
                 )}
+                </div>
               </div>
             </div>
           );
@@ -328,6 +703,25 @@ export default function App() {
         return (
           <div key={`routine-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
             <p style={styles.noSelection}>Routine not found</p>
+          </div>
+        );
+      }
+      case 'inline-diff-demo': {
+        const routine = controller.programs[tabData.programIndex]?.routines[tabData.routineIndex];
+        const program = controller.programs[tabData.programIndex];
+        const programLabel = program?.name || `Program ${tabData.programIndex + 1}`;
+
+        if (routine) {
+          return (
+            <div key={`inline-diff-demo-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
+              <InlineDiffDemoPanel routine={routine} programLabel={programLabel} />
+            </div>
+          );
+        }
+
+        return (
+          <div key={`inline-diff-demo-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
+            <p style={styles.noSelection}>Routine not found for inline diff preview</p>
           </div>
         );
       }
@@ -351,7 +745,7 @@ export default function App() {
       default:
         return null;
     }
-  }, [controller, allDataTypes]);
+  }, [controller, allDataTypes, openTab]);
 
   // Render main content based on active tab
   const renderMainContent = () => {
@@ -650,6 +1044,162 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     overflow: 'hidden',
     display: 'flex',
+  },
+  routineTabContent: {
+    flex: 1,
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+  },
+  routineToolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    padding: '10px 12px',
+    borderBottom: `1px solid ${colors.border}`,
+    backgroundColor: '#f4f6f8',
+    flexShrink: 0,
+  },
+  routineToolbarText: {
+    fontSize: '12px',
+    color: colors.textLight,
+  },
+  routineToolbarButton: {
+    padding: '6px 10px',
+    borderRadius: '4px',
+    border: `1px solid ${colors.primary}`,
+    backgroundColor: colors.surface,
+    color: colors.primaryDark,
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  inlineDiffDemoPanel: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    padding: '16px',
+    overflow: 'auto',
+    backgroundColor: '#f4f6f8',
+    minHeight: 0,
+  },
+  inlineDiffDemoHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: '16px',
+    flexWrap: 'wrap',
+  },
+  inlineDiffDemoTitle: {
+    margin: 0,
+    fontSize: '18px',
+    color: colors.text,
+  },
+  inlineDiffDemoDescription: {
+    margin: '6px 0 0 0',
+    fontSize: '13px',
+    lineHeight: 1.5,
+    color: colors.textLight,
+    maxWidth: '720px',
+  },
+  inlineDiffDemoControls: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    minWidth: '280px',
+  },
+  inlineDiffDemoLabel: {
+    fontSize: '12px',
+    color: colors.textLight,
+    fontWeight: 600,
+  },
+  inlineDiffDemoSelect: {
+    padding: '8px 10px',
+    borderRadius: '4px',
+    border: `1px solid ${colors.border}`,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    fontSize: '13px',
+  },
+  inlineDiffDemoMetaRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '12px',
+  },
+  inlineDiffDemoMetaCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    padding: '12px',
+    borderRadius: '6px',
+    border: `1px solid ${colors.border}`,
+    backgroundColor: colors.surface,
+  },
+  inlineDiffDemoMetaLabel: {
+    fontSize: '11px',
+    color: colors.textLight,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.04em',
+  },
+  inlineDiffDemoMetaValue: {
+    fontSize: '15px',
+    color: colors.text,
+  },
+  inlineDiffDemoHighlights: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+  },
+  inlineDiffDemoHighlightPill: {
+    padding: '6px 10px',
+    borderRadius: '999px',
+    backgroundColor: '#e8eef7',
+    color: colors.primaryDark,
+    fontSize: '12px',
+    fontWeight: 600,
+  },
+  inlineDiffDemoCanvas: {
+    borderRadius: '6px',
+    border: `1px solid ${colors.border}`,
+    backgroundColor: colors.surface,
+    overflow: 'auto',
+  },
+  inlineDiffDemoCanvasInner: {
+    minWidth: '100%',
+    padding: '12px',
+  },
+  inlineDiffDemoRawGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gap: '12px',
+  },
+  inlineDiffDemoRawCard: {
+    borderRadius: '6px',
+    border: `1px solid ${colors.border}`,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  inlineDiffDemoRawHeader: {
+    padding: '10px 12px',
+    borderBottom: `1px solid ${colors.border}`,
+    backgroundColor: '#f8f9fb',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: colors.text,
+  },
+  inlineDiffDemoRawText: {
+    margin: 0,
+    padding: '12px',
+    whiteSpace: 'pre-wrap' as const,
+    wordBreak: 'break-word' as const,
+    fontSize: '12px',
+    lineHeight: 1.5,
+    color: colors.text,
+    backgroundColor: colors.surface,
+    overflow: 'auto',
   },
   noSelection: {
     color: colors.textLight,
