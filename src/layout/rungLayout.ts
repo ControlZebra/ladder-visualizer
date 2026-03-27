@@ -69,7 +69,7 @@ function hasLabel(element: RungElement): boolean {
   return element.category === 'input' || element.category === 'output';
 }
 
-function getInstructionLabelAndAddress(instruction: Instruction): { label?: string; address?: string } {
+export function getInstructionLabelAndAddress(instruction: Instruction): { label?: string; address?: string } {
   if (instruction.category !== 'input' && instruction.category !== 'output') {
     return {};
   }

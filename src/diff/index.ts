@@ -35,12 +35,30 @@ export type {
 } from './types';
 
 export type {
+  InlineDiffBranchLeg,
   InlineDiffBranchNode,
   InlineDiffInstructionNode,
   InlineDiffNode,
   InlineDiffRungModel,
   InlineDiffState,
+  InlineInstructionRenderMetadata,
   InlineTextChange,
+} from './inline';
+
+export type {
+  BuildInlineDiffModelInput,
+  InlineDiffElementMatch,
+  InlineDiffElementMatchKind,
+  InstructionChangeClassification,
+  TruncateTextChangeOptions,
+} from './inline';
+
+export {
+  buildInlineDiffModel,
+  classifyInstructionChange,
+  getInstructionRenderMetadata,
+  matchRungElements,
+  truncateTextChange,
 } from './inline';
 
 // Matching utilities (useful for custom diffing or testing)

@@ -6,13 +6,22 @@ export {
   ContactSymbol,
   CoilSymbol,
   BoxSymbol,
+  InlineDiffInstruction,
+  InlineDiffBranch,
+  InlineDiffRung,
   type ContactSymbolProps,
   type CoilSymbolProps,
   type BoxSymbolProps,
+  type InlineDiffInstructionProps,
+  type InlineDiffBranchProps,
+  type InlineDiffRungProps,
 } from './svg';
 
 // Tag Table
 export { TagTable, type TagTableProps } from './TagTable';
+
+// Generic Table (type only)
+export type { ColumnDefinition } from './table';
 
 // Controller Info
 export { ControllerInfo, type ControllerInfoProps } from './ControllerInfo';

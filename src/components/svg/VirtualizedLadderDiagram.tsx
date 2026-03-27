@@ -23,6 +23,7 @@ import {
 import { ContactSymbol } from './ContactSymbol';
 import { CoilSymbol } from './CoilSymbol';
 import { BoxSymbol } from './BoxSymbol';
+import { getInstructionVisualColors } from './instructionVisuals';
 
 // ============================================================================
 // THEME CONTEXT
@@ -52,6 +53,7 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
   const theme = useLadderTheme();
   const { instruction, position, dimensions, symbolOffset, label, address } = layout;
   const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
+  const colors = getInstructionVisualColors('unchanged', theme);
   const symbolX = position.x + symbolOffset;
   const wireY = position.y + dimensions.centerY;
 
@@ -90,8 +92,8 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
           {/* Connecting wires for centering */}
           {symbolOffset > 0 && (
             <>
-              <line x1={position.x} y1={wireY} x2={position.x + symbolOffset} y2={wireY} stroke={theme.wireColor} strokeWidth="1" />
-              <line x1={position.x + symbolOffset + SYMBOL_WIDTH} y1={wireY} x2={position.x + dimensions.width} y2={wireY} stroke={theme.wireColor} strokeWidth="1" />
+              <line x1={position.x} y1={wireY} x2={position.x + symbolOffset} y2={wireY} stroke={colors.wireColor} strokeWidth="1" />
+              <line x1={position.x + symbolOffset + SYMBOL_WIDTH} y1={wireY} x2={position.x + dimensions.width} y2={wireY} stroke={colors.wireColor} strokeWidth="1" />
             </>
           )}
         </>
@@ -102,8 +104,8 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
         {instruction.category === 'input' && (
           <ContactSymbol 
             mnemonic={instruction.mnemonic} 
-            color={theme.contactColor}
-            ncColor={theme.contactNCColor}
+            color={colors.contactColor}
+            ncColor={colors.contactNCColor}
             energizedColor={theme.energizedColor}
             energizedFill={theme.energizedFill}
           />
@@ -111,7 +113,7 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
         {instruction.category === 'output' && (
           <CoilSymbol 
             mnemonic={instruction.mnemonic}
-            color={theme.coilColor}
+            color={colors.coilColor}
             energizedColor={theme.energizedColor}
             energizedFill={theme.energizedFill}
           />
@@ -120,9 +122,9 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
           <BoxSymbol 
             mnemonic={instruction.mnemonic} 
             operands={instruction.operands}
-            borderColor={theme.boxBorderColor}
-            bgColor={theme.boxBgColor}
-            textColor={theme.boxTextColor}
+            borderColor={colors.boxBorderColor}
+            bgColor={colors.boxBgColor}
+            textColor={colors.boxTextColor}
             energizedColor={theme.energizedColor}
           />
         )}

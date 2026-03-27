@@ -1,6 +1,6 @@
   # One Rung Inline Diff Implementation Plan
 
-  Status: In Progress (Phase 0 complete; Phase 1 next)
+  Status: In Progress (Phase 0 complete; Phase 1 builder/model complete; Phase 2 structural renderer complete; Phase 3 next)
   Last Updated: March 27, 2026
   Owner: Engineering
   Primary Package: ladder-visualizer
@@ -39,16 +39,28 @@
   - the inline diff type layer exists under `src/diff/inline/` and is exported for later phases
   - centralized diff theme tokens are present in the shared theme and CSS defaults
   - the Phase 0 label-clearance follow-up is complete, with shared vertical-clearance logic and parity-focused layout coverage
+  - Phase 1 builder utilities now exist under `src/diff/inline/`, including `buildInlineDiffModel`, `matchRungElements`, `classifyInstructionChange`, and `truncateTextChange`
+  - the inline diff model now carries shared contact and coil label/address visibility metadata by reusing the Phase 0 layout decision path instead of re-deriving it inside diff code
+  - branch legs are now first-class inline diff objects with stable IDs and explicit empty-leg state so later layout adapters do not need to infer missing geometry
+  - focused Phase 1 model coverage is in place for structural matching, text-only instruction changes, branch leg add/remove handling, empty-leg preservation, addressed label parity, and comment truncation
+  - the current Phase 1 implementation has been validated with focused `vitest` coverage plus package `tsc --noEmit`
+  - Phase 2 now includes a diff layout adapter in `src/layout/diffLayoutAdapters.ts` that measures and positions inline diff nodes before JSX render
+  - a package-exported inline diff SVG surface now exists under `src/components/svg/diff/`, including `InlineDiffRung`, `InlineDiffBranch`, and `InlineDiffInstruction`
+  - structural inline diff rendering now covers added, removed, replaced, and branch-leg change cases on a single rung surface using the shared symbol primitives
+  - whole-rung wash rendering for added and removed rungs plus full-leg tinting for added and removed branch legs is now implemented
+  - current `text-modified` nodes intentionally fall back to paired old/new structural rendering until the compact Phase 3 text-only renderer lands
+  - focused Phase 2 coverage is now in place for rung wash, replacement ordering, nested branch connector validity, and empty-leg geometry preservation
+  - the current Phase 2 implementation has been validated with focused `vitest` coverage plus package `tsc --noEmit`
 
   Remaining:
 
-  - Phase 1 builder utilities are not implemented yet in this workspace
-  - there is no inline diff renderer under `src/components/svg/diff/` yet
-  - text truncation, detail disclosure, and compact text-only diff rendering remain future work
+  - compact text-only rendering still remains future work even though text-only model classification now exists
+  - there is still no detail disclosure UI for truncated diffs; truncation metadata exists but there is no popover or overlay surface yet
+  - there are not yet demo fixtures or consumer-facing docs for the new inline diff renderer surface
 
   Next Recommended Step:
 
-  - implement the Phase 1 matcher, classifier, builder, and truncation utilities with focused model tests before starting renderer work
+  - start Phase 3 by replacing the current text-modified fallback with compact text and label diff rendering plus detail disclosure while preserving the shared layout seam
 
   ## Existing Foundation
 
@@ -71,11 +83,10 @@
 
   ### Current Gaps
 
-  - no inline diff model builder exists yet between rung diffs and SVG output beyond the exported type layer
-  - rung diffs are still property-level only; they do not yet classify component-level edits
-  - no inline diff rendering surface exists under `src/components/svg/diff/`
+  - the inline diff model builder and positioned diff layout adapter now exist, but compact text-only and label-diff presentation still does not
+  - rung diffs remain property-level at the domain layer; component-level classification currently lives in the inline diff builder layer rather than in `RungDiff`
   - symbol components do not yet expose a shared diff decoration contract
-  - there is no common truncation and detail-disclosure pattern for long operand diffs
+  - truncation metadata now exists, but there is still no common detail-disclosure pattern for long operand diffs
 
   ## Design Principles
 
@@ -551,7 +562,7 @@ The Phase 0 work should be tracked as the following engineering tasks.
 
 ## Phase 1: Component-Level Inline Diff Model
 
-Status: Not Started
+Status: Complete
 
 Goal:
 
@@ -587,9 +598,33 @@ Testing:
 - unit tests proving the same addressed and non-addressed contact or coil payload produces the same model-facing visibility metadata at top level and inside a branch leg
 - golden tests for model output from representative rung pairs
 
+### Phase 1 Progress Notes
+
+Completed in this pass:
+
+- added `src/diff/inline/buildInlineDiffModel.ts`
+- added `src/diff/inline/matchRungElements.ts`
+- added `src/diff/inline/classifyInstructionChange.ts`
+- added `src/diff/inline/truncateTextChange.ts`
+- extended `src/diff/inline/types.ts` so instruction nodes can carry shared label/address visibility metadata and branch nodes can preserve first-class leg objects with stable IDs and empty-leg state
+- exported the shared layout helper used for contact and coil label/address visibility so the diff builder reuses the same decision path as the layout engine
+- exported the new Phase 1 utilities through the diff package surface
+- added focused tests in `tests/diff/inlineDiffModel.test.ts`
+
+Validated in this pass:
+
+- focused `vitest` coverage passes for `tests/diff/inlineDiffModel.test.ts`
+- representative Phase 1 golden model fixtures now live in `tests/diff/inlineDiffModel.golden.test.ts` with shared cases in `tests/diff/inlineDiffModel.fixtures.ts`
+- shared layout regression coverage still passes for `tests/layout/rungLayout.test.ts`
+- package typechecking passes with `npm exec -- tsc --noEmit`
+
+Remaining follow-up within or adjacent to Phase 1:
+
+- keep the current conservative classifier unless a later rendering need proves that broader text-only detection is safe
+
 ## Phase 2: Basic Inline Rung Renderer
 
-Status: Not Started
+Status: Complete
 
 Goal:
 
@@ -631,6 +666,32 @@ Testing:
 - component and geometry tests proving `InlineDiffRung` and `InlineDiffBranch` consume positioned layout output only
 - regression tests covering added, removed, and replaced components inside both top-level and branch-contained addressed and non-addressed contact or coil cases
 - regression tests confirming empty branch legs still render with valid connector and wire geometry after diff tinting is applied
+
+### Phase 2 Progress Notes
+
+Completed in this pass:
+
+- added the diff-aware layout adapter under `src/layout/diffLayoutAdapters.ts`
+- exported adapter helpers and layout types through `src/layout/index.ts`
+- added `src/components/svg/diff/InlineDiffInstruction.tsx`
+- added `src/components/svg/diff/InlineDiffBranch.tsx`
+- added `src/components/svg/diff/InlineDiffRung.tsx`
+- exported the new SVG diff components through `src/components/svg/index.ts` and `src/components/index.ts`
+- implemented rung-level wash rendering for added and removed rungs
+- implemented structural paired old-then-new rendering for replaced nodes on one rung surface
+- implemented branch-leg tinting for added and removed legs while preserving shared connector and wire geometry
+- kept `text-modified` nodes on the structural old/new fallback path for correctness until the compact Phase 3 renderer is ready
+
+Validated in this pass:
+
+- focused `vitest` coverage passes for `tests/components/inlineDiffRung.test.tsx`
+- the existing Phase 1 model coverage still passes for `tests/diff/inlineDiffModel.test.ts`
+- package typechecking passes with `npm exec -- tsc --noEmit`
+
+Remaining follow-up within or adjacent to Phase 2:
+
+- add demo fixtures so the new renderer can be reviewed visually outside the unit tests
+- keep the adapter seam stable and avoid reintroducing geometry math inside JSX as later phases add compact text diff rendering
 
 ## Phase 3: Text-Only And Label Diffs
 

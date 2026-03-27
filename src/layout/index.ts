@@ -1,6 +1,7 @@
 export {
   ADDRESS_LABEL_OFFSET,
   BRANCH_CONNECTOR_OFFSET,
+  BRANCH_VERTICAL_GAP,
   CHAR_WIDTH_ESTIMATE,
   INSTRUCTION_GAP,
   LABEL_OFFSET,
@@ -23,9 +24,16 @@ export {
   calculateRungLayoutComplete,
   calculateRungLayouts,
   containsBranches,
+  getInstructionLabelAndAddress,
   getRungElements,
   positionBranch,
 } from './rungLayout';
+
+export {
+  buildInlineDiffRungLayout,
+  calculateInlineDiffRungContentWidth,
+  calculateInlineDiffRungMinWidth,
+} from './diffLayoutAdapters';
 
 export type {
   BranchGroupLayout,
@@ -40,3 +48,14 @@ export type {
   RungLayoutResult,
   VerticalClearance,
 } from './rungLayoutTypes';
+
+export type {
+  BuildInlineDiffRungLayoutOptions,
+  InlineDiffBranchLayout,
+  InlineDiffBranchLegLayout,
+  InlineDiffInstructionLayout,
+  InlineDiffInstructionSegmentLayout,
+  InlineDiffLineLayout,
+  InlineDiffNodeLayout,
+  InlineDiffRungLayout,
+} from './diffLayoutAdapters';
