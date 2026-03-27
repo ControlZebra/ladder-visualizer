@@ -6,6 +6,11 @@ export interface Dimensions {
   centerY: number;
 }
 
+export interface VerticalClearance {
+  aboveWire: number;
+  belowWire: number;
+}
+
 export interface InstructionLayout {
   type: 'instruction';
   instruction: Instruction;

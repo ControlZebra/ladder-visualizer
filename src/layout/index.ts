@@ -16,6 +16,7 @@ export {
   SYMBOL_WIDTH,
   calculateBranchDimensions,
   calculateElementDimensions,
+  calculateElementVerticalClearance,
   calculateInstructionDimensions,
   calculateMinDiagramWidth,
   calculateRungContentWidth,
@@ -37,4 +38,5 @@ export type {
   RungElementLayout,
   RungLayout,
   RungLayoutResult,
+  VerticalClearance,
 } from './rungLayoutTypes';

@@ -1,139 +1,173 @@
-# One Rung Inline Diff Implementation Plan
+  # One Rung Inline Diff Implementation Plan
 
-Status: In Progress
-Last Updated: March 26, 2026
-Owner: Engineering
-Primary Package: ladder-visualizer
-Consumer: ControlZebra
-Related Input: ONE_RUNG_INLINE_DIFF_PRODUCT_REQUIREMENTS.md
+  Status: In Progress (Phase 0 complete; Phase 1 next)
+  Last Updated: March 27, 2026
+  Owner: Engineering
+  Primary Package: ladder-visualizer
+  Consumer: ControlZebra
+  Related Input: ONE_RUNG_INLINE_DIFF_PRODUCT_REQUIREMENTS.md
+  Related Phase 0 Finding: PHASE0_FINDING1_LABEL_CLEARANCE_IMPLEMENTATION_PLAN.md
 
-## Purpose
+  ## Purpose
 
-This document converts the one-rung inline diff product requirements into a phased implementation plan and a concrete technical design.
+  This document converts the one-rung inline diff product requirements into a phased implementation plan and a concrete technical design.
 
-The package goal is to support a single-rung inline diff renderer for Rockwell RLL ladder logic without duplicating the existing ladder rendering system or introducing a second layout engine that diverges over time.
+  The package goal is to support a single-rung inline diff renderer for Rockwell RLL ladder logic without duplicating the existing ladder rendering system or introducing a second layout engine that diverges over time.
 
-The design below is intentionally driven by two constraints:
+  The design below is intentionally driven by two constraints:
 
-- performance: diff rendering must stay safe for large routines and dense industrial tag names
-- DRY: normal rung rendering and diff rung rendering must share the same parsing, layout, symbol, and theming foundations wherever possible
+  - performance: diff rendering must stay safe for large routines and dense industrial tag names
+  - DRY: normal rung rendering and diff rung rendering must share the same parsing, layout, symbol, and theming foundations wherever possible
 
-## Outcome
+  The completed Phase 0 layout finding adds one more non-negotiable constraint for the remaining phases: vertical text measurement and branch geometry semantics must stay centralized in the shared layout layer, because even small duplicated clearance rules can drift between top-level and branch-contained elements.
 
-At the end of this plan, ladder-visualizer should provide a reusable diff-aware rung rendering contract that can:
+  ## Outcome
 
-- render added, removed, and modified rungs on a single rung surface
-- preserve branch structure and reading order
-- render text-only changes compactly without duplicating full instruction boxes
-- expose overflow-safe detail disclosure for truncated diffs
-- remain stable enough for ControlZebra to consume as package API, not as app-specific patchwork
+  At the end of this plan, ladder-visualizer should provide a reusable diff-aware rung rendering contract that can:
 
-## Existing Foundation
+  - render added, removed, and modified rungs on a single rung surface
+  - preserve branch structure and reading order
+  - render text-only changes compactly without duplicating full instruction boxes
+  - expose overflow-safe detail disclosure for truncated diffs
+  - remain stable enough for ControlZebra to consume as package API, not as app-specific patchwork
 
-The current codebase already provides several pieces that should be reused rather than replaced.
+  ## Progress Update
 
-### Reuse As-Is Or With Small Extensions
+  Completed:
 
-- `src/parsers/rung-parser.ts`
-  - parses instructions and nested branch groups
-- `src/types/normalized/rung.ts`
-  - provides the normalized rung contract used across the package
-- `src/diff/diffControllers.ts`
-  - already computes controller, routine, and rung-level diffs
-- `src/components/svg/VirtualizedLadderDiagram.tsx`
-  - already owns ladder layout behavior, element spacing, and SVG composition
-- `src/components/svg/ContactSymbol.tsx`
-- `src/components/svg/CoilSymbol.tsx`
-- `src/components/svg/BoxSymbol.tsx`
-  - already encapsulate symbol-specific rendering logic
+  - Phase 0 foundation work is complete, including shared rung layout extraction under `src/layout/`
+  - the inline diff type layer exists under `src/diff/inline/` and is exported for later phases
+  - centralized diff theme tokens are present in the shared theme and CSS defaults
+  - the Phase 0 label-clearance follow-up is complete, with shared vertical-clearance logic and parity-focused layout coverage
 
-### Current Gaps
+  Remaining:
 
-- no inline diff render model exists between rung diffs and SVG output
-- rung diffs are property-level only; they do not classify component-level edits
-- the current ladder renderer mixes layout logic and rendering logic inside one component, which makes diff-specific reuse harder than it should be
-- symbol components do not yet expose a shared diff decoration contract
-- there is no common truncation and detail-disclosure pattern for long operand diffs
+  - Phase 1 builder utilities are not implemented yet in this workspace
+  - there is no inline diff renderer under `src/components/svg/diff/` yet
+  - text truncation, detail disclosure, and compact text-only diff rendering remain future work
 
-## Design Principles
+  Next Recommended Step:
 
-### 1. One Layout Engine
+  - implement the Phase 1 matcher, classifier, builder, and truncation utilities with focused model tests before starting renderer work
 
-Do not build a separate layout system for diff mode.
+  ## Existing Foundation
 
-Instead:
+  The current codebase already provides several pieces that should be reused rather than replaced.
 
-- extract pure layout calculation from `VirtualizedLadderDiagram.tsx`
-- keep one geometry model for instructions, branches, wires, rails, and labels
-- feed either normal rung elements or diff-aware rung elements into the same layout pipeline
+  ### Reuse As-Is Or With Small Extensions
 
-Reason:
+  - `src/parsers/rung-parser.ts`
+    - parses instructions and nested branch groups
+  - `src/types/normalized/rung.ts`
+    - provides the normalized rung contract used across the package
+  - `src/diff/diffControllers.ts`
+    - already computes controller, routine, and rung-level diffs
+  - `src/components/svg/VirtualizedLadderDiagram.tsx`
+    - already owns ladder layout behavior, element spacing, and SVG composition
+  - `src/components/svg/ContactSymbol.tsx`
+  - `src/components/svg/CoilSymbol.tsx`
+  - `src/components/svg/BoxSymbol.tsx`
+    - already encapsulate symbol-specific rendering logic
 
-- layout duplication is the fastest path to drift, rendering bugs, and maintenance debt
-- branch rendering correctness is already the hard part; reusing it is cheaper and safer than reimplementing it
+  ### Current Gaps
 
-### 2. Diff-As-Metadata, Not Diff-As-Forked-Renderer
+  - no inline diff model builder exists yet between rung diffs and SVG output beyond the exported type layer
+  - rung diffs are still property-level only; they do not yet classify component-level edits
+  - no inline diff rendering surface exists under `src/components/svg/diff/`
+  - symbol components do not yet expose a shared diff decoration contract
+  - there is no common truncation and detail-disclosure pattern for long operand diffs
 
-Normal symbols should remain the base renderer. Diff state should be metadata applied around them.
+  ## Design Principles
 
-That means:
+  ### 1. One Layout Engine
 
-- contact, coil, and box renderers should still render the core symbol
-- diff wrappers should add state tint, inline old/new ordering, and text delta treatment
-- unchanged elements should use the same code path as normal ladder rendering
+  Do not build a separate layout system for diff mode.
 
-Reason:
+  Instead:
 
-- symbol logic stays centralized
-- bug fixes to normal rendering automatically benefit diff rendering
-- added and removed treatments become styling concerns layered on top of stable primitives
+  - extract pure layout calculation from `VirtualizedLadderDiagram.tsx`
+  - keep one geometry model for instructions, branches, wires, rails, and labels
+  - feed either normal rung elements or diff-aware rung elements into the same layout pipeline
 
-### 3. Precompute Diff Semantics Before React Render
+  Reason:
 
-Do not ask the React tree to infer whether a change is a text-only operand diff, a replacement diff, or a branch structural diff during SVG rendering.
+  - layout duplication is the fastest path to drift, rendering bugs, and maintenance debt
+  - branch rendering correctness is already the hard part; reusing it is cheaper and safer than reimplementing it
+  - Phase 0 showed that even small duplicated clearance rules can diverge between top-level and branch-contained elements, so vertical text measurement must stay centralized in the shared layout layer
 
-Instead:
+  ### 2. Diff-As-Metadata, Not Diff-As-Forked-Renderer
 
-- build a normalized inline diff model before render
-- make rendering a mostly deterministic mapping from model to SVG
-- cache or memoize model building per rung pair
+  Normal symbols should remain the base renderer. Diff state should be metadata applied around them.
 
-Reason:
+  That means:
 
-- keeps rendering cheap
-- makes tests much easier because classification can be validated independently of the UI
-- reduces repeated tree walks during scrolling and virtualization
+  - contact, coil, and box renderers should still render the core symbol
+  - diff wrappers should add state tint, inline old/new ordering, and text delta treatment
+  - unchanged elements should use the same code path as normal ladder rendering
 
-### 4. Stable Identity For Large Routine Performance
+  Reason:
 
-The diff model must preserve stable keys for:
+  - symbol logic stays centralized
+  - bug fixes to normal rendering automatically benefit diff rendering
+  - added and removed treatments become styling concerns layered on top of stable primitives
 
-- rung number
-- branch leg path
-- instruction position path
-- old/new replacement pair identity
+  ### 3. Precompute Diff Semantics Before React Render
 
-Reason:
+  Do not ask the React tree to infer whether a change is a text-only operand diff, a replacement diff, or a branch structural diff during SVG rendering.
 
-- stable keys reduce React churn inside virtualized lists
-- they also make diagnostics and snapshots easier to reason about
+  Instead:
 
-### 5. Prefer Shared Utilities Over Instruction-Specific Branching
+  - build a normalized inline diff model before render
+  - make rendering a mostly deterministic mapping from model to SVG
+  - cache or memoize model building per rung pair
 
-The design should avoid per-instruction custom diff code except where the symbol family truly differs.
+  Reason:
 
-Centralize:
+  - keeps rendering cheap
+  - makes tests much easier because classification can be validated independently of the UI
+  - reduces repeated tree walks during scrolling and virtualization
 
-- diff state types
-- text-diff truncation rules
-- tint token resolution
-- shared old/new replacement wrappers
-- label diff formatting helpers
+  ### 3a. Precompute Geometry Before JSX
 
-Keep instruction-specific code limited to:
+  Do not let diff React components re-derive width, branch leg height, connector positions, or wire offsets from raw diff nodes.
 
-- contact and coil label placement
-- boxed instruction operand slot rendering
+  Instead:
+
+  - run a shared measured and positioned layout pass before JSX render
+  - let diff adapters preserve diff metadata while reusing the shared rung geometry engine
+  - have `InlineDiffRung` and `InlineDiffBranch` consume positioned layout objects only
+
+  Reason:
+
+  - Phase 0 extraction and follow-on work showed that geometry drift reappears quickly when JSX recomputes layout concerns locally
+  - nested branches and empty branch legs are safer when leg state is fully measured once and then rendered deterministically
+
+  ### 4. Stable Identity For Large Routine Performance
+
+  The diff model must preserve stable keys for:
+
+  - rung number
+  - branch leg path
+  - instruction position path
+  - old/new replacement pair identity
+
+  Reason:
+
+  - stable keys reduce React churn inside virtualized lists
+  - they also make diagnostics and snapshots easier to reason about
+
+  ### 5. Prefer Shared Utilities Over Instruction-Specific Branching
+
+  The design should avoid per-instruction custom diff code except where the symbol family truly differs.
+
+  Centralize:
+
+  - diff state types
+  - text-diff truncation rules
+  - tint token resolution
+  - shared old/new replacement wrappers
+  - label diff formatting helpers
+  - label and address visibility rules that affect both rendering and layout measurement
 
 ## Target Architecture
 
@@ -223,6 +257,8 @@ Builder responsibilities:
    - text-modified
 5. build a branch-aware tree that preserves reading order
 6. compute truncation metadata without losing access to full values
+7. preserve enough structural metadata for the shared diff layout adapter to build stable measured and positioned branch leg output, including empty-leg cases
+8. carry forward or reference the shared contact and coil label/address visibility decision path used by the layout layer, so diff adapters and renderers do not re-derive whether an address line exists from raw instruction data
 
 ### Matching Strategy
 
@@ -290,6 +326,30 @@ Reason:
 - the current mixed file is workable for normal rendering but too coupled for diff mode
 - extracting pure layout functions gives one place to validate branch geometry for both render modes
 
+### Phase 0 Learnings To Preserve
+
+- treat label and address clearance as shared layout semantics, not local rendering details
+- keep one explicit decision path for whether a contact or coil renders an address line so layout and rendering cannot drift
+- do not open-code `centerY` plus label-spacing math inside branch or line loops; use one shared vertical-clearance helper
+- keep diff-specific adaptation in an adapter layer that maps diff metadata onto shared measured layout output
+- ensure empty branch legs still produce full measured leg state so later positioned layout passes do not yield missing child arrays or invalid wire offsets
+- keep parity-focused geometry tests for top-level versus branch-contained addressed and non-addressed elements so future diff work does not regress the seam silently
+
+## Cross-Phase Guardrails From The Phase 0 Finding
+
+The Phase 0 label-clearance finding is not just a foundation note. It is a constraint on every remaining phase.
+
+Every later phase must preserve all of the following:
+
+- shared vertical clearance remains owned by the layout layer; no later phase may add diff-local top-level or branch-specific clearance math
+- contact and coil address-line visibility must continue to flow through one shared decision path reused by builders, layout adapters, and renderers
+- diff features may adapt shared measured and positioned layout output, but they may not bypass the layout seam by recomputing connector bounds, wire offsets, or label clearance inside JSX
+- empty branch legs, added legs, removed legs, and stable legs must all keep full measured leg state so later render passes never need heuristic fallback geometry
+- every phase that touches rendering or classification must add parity coverage for top-level versus branch-contained addressed and non-addressed contact or coil cases whenever the affected behavior could influence geometry or visible labels
+- any new convenience helper for diff mode must be rejected if it duplicates label/address visibility rules, vertical clearance rules, or branch positioning semantics that already exist in the shared layout path
+
+Phase-specific planning below should be read with these guardrails as mandatory exit criteria, not optional implementation advice.
+
 ## 4. Diff Rendering Surface
 
 Add a dedicated rung component for inline diff rendering.
@@ -309,6 +369,7 @@ Responsibilities:
 - render replacement pairs as red old then green new in reading order
 - render text-only diffs in neutral containers with red strike-through old text plus green bold new text
 - support label-specific rendering for contacts and coils
+- avoid local fallback geometry math for branch connectors, leg offsets, or instruction positioning
 
 ### Important Constraint
 
@@ -319,6 +380,7 @@ It should only:
 - read `InlineDiffRungModel`
 - map model state to visuals
 - delegate symbol drawing to existing symbol components or thin wrappers
+- consume precomputed positioned layout data rather than recalculating dimensions inside JSX
 
 ## 5. Shared Diff Decoration Contract
 
@@ -405,6 +467,8 @@ Rules:
 
 ## Phase 0: Refactor Foundations
 
+Status: Complete
+
 Goal:
 
 Create shared seams so diff mode can be implemented without duplicating the renderer.
@@ -433,6 +497,7 @@ Risk:
 Mitigation:
 
 - snapshot or geometry tests for representative rungs before extraction
+- parity-focused geometry tests for addressed labels and branch-contained elements after extraction changes
 
 ### Phase 0 Engineering Tasks
 
@@ -448,8 +513,9 @@ The Phase 0 work should be tracked as the following engineering tasks.
   - Scope:
   - create targeted tests for single-line condition/output layouts
   - add branch geometry tests to confirm connector and leg positioning survive extraction
+  - add parity-focused tests for addressed and non-addressed contact and coil clearance at top level and inside branches
   - add diagram-width and cumulative offset tests so virtualization inputs remain deterministic
-  - Status: completed in kickoff implementation
+  - Status: completed in kickoff implementation and Phase 0 finding follow-up
 3. Introduce a render-oriented inline diff type layer under `src/diff/inline/`.
   - Scope:
   - add `InlineDiffState`, `InlineTextChange`, node unions, and `InlineDiffRungModel`
@@ -485,6 +551,8 @@ The Phase 0 work should be tracked as the following engineering tasks.
 
 ## Phase 1: Component-Level Inline Diff Model
 
+Status: Not Started
+
 Goal:
 
 Produce a reliable, testable inline diff data structure for a single rung pair.
@@ -495,6 +563,8 @@ Deliverables:
 - instruction change classifier
 - branch-aware recursive diff model builder
 - text truncation utility
+- explicit adapter or utility usage for shared contact and coil label/address visibility semantics
+- explicit preservation of shared structural metadata needed by the layout adapter, including empty-leg, addressed-label, and branch-contained parity cases
 
 Success criteria:
 
@@ -504,15 +574,22 @@ Success criteria:
   - added elements
   - removed elements
   - added or removed branch legs
+- diff builders and layout adapters consume the same contact and coil label/address visibility rule as the shared layout engine instead of re-deriving it in JSX or diff-specific helpers
+- model output carries enough stable metadata that later phases do not need to infer address-line visibility, vertical clearance, or empty-leg geometry from raw diff nodes
 
 Testing:
 
 - unit tests for instruction matching
 - unit tests for branch leg add and remove cases
+- unit tests for empty stable-versus-added-or-removed branch leg handling so layout adapters preserve measured leg state
 - unit tests for text-only change classification
+- unit tests proving addressed and non-addressed contact or coil label diffs resolve visibility through the shared decision path rather than diff-local heuristics
+- unit tests proving the same addressed and non-addressed contact or coil payload produces the same model-facing visibility metadata at top level and inside a branch leg
 - golden tests for model output from representative rung pairs
 
 ## Phase 2: Basic Inline Rung Renderer
+
+Status: Not Started
 
 Goal:
 
@@ -524,6 +601,7 @@ Deliverables:
 - shared diff decoration wrappers
 - rung-level tinting for added and removed rungs
 - replacement rendering with old then new ordering on the same rung line
+- diff renderer wiring that consumes shared positioned layout output and shared address-visibility semantics without JSX-local geometry fallback
 
 In scope for this phase:
 
@@ -532,6 +610,8 @@ In scope for this phase:
 - added component
 - removed component
 - replaced component using paired red and green render blocks
+- consumption of shared positioned layout output rather than JSX-local geometry recomputation
+- preservation of top-level versus branch-contained geometry parity for addressed and non-addressed contacts and coils under diff tinting
 
 Out of scope for this phase:
 
@@ -543,8 +623,18 @@ Success criteria:
 - modified rungs no longer require two separate rung cards for basic structural review
 - reading order matches product rules
 - branch wires and connectors remain correct under tinting
+- addressed contacts and coils remain geometrically consistent whether they appear at top level or inside a branch leg
+- no Phase 2 component reintroduces local `centerY`, wire-offset, connector, or address-clearance math for diff rendering
+
+Testing:
+
+- component and geometry tests proving `InlineDiffRung` and `InlineDiffBranch` consume positioned layout output only
+- regression tests covering added, removed, and replaced components inside both top-level and branch-contained addressed and non-addressed contact or coil cases
+- regression tests confirming empty branch legs still render with valid connector and wire geometry after diff tinting is applied
 
 ## Phase 3: Text-Only And Label Diffs
+
+Status: Not Started
 
 Goal:
 
@@ -556,6 +646,8 @@ Deliverables:
 - label-diff renderer for contacts and coils
 - truncation plus detail-disclosure behavior
 - comment diff rendering if desired at the rung header level
+- parity-safe addressed and non-addressed contact and coil diff rendering across top-level and branch-contained positions
+- text and label diff presentation built on the same shared visibility and vertical-clearance decisions already used by normal rendering and Phase 2 structural diff rendering
 
 Success criteria:
 
@@ -563,6 +655,8 @@ Success criteria:
 - old text is shown red with strike-through
 - new text is shown green and bold
 - long tags and operands remain readable through truncation plus disclosure
+- addressed and non-addressed contact and coil label diffs preserve the same geometry and address-line visibility semantics whether rendered at top level or inside branch legs
+- the compact text-only path does not introduce a second label or address measurement rule distinct from the shared layout layer
 
 Risk:
 
@@ -572,7 +666,15 @@ Mitigation:
 
 - keep v1 conservative and fall back to replacement rendering when classification is uncertain
 
+Testing:
+
+- focused geometry and rendering tests for text-only and label-only diffs at top level and inside branches using the same contact and coil payloads
+- regression tests ensuring truncation and disclosure change visible text content without changing the measured vertical-clearance contract
+- regression tests confirming addressed label diffs do not shift branch connector or wire placement relative to the equivalent non-diff layout path
+
 ## Phase 4: Branch-Aware Inline Diff Hardening
+
+Status: Not Started
 
 Goal:
 
@@ -584,14 +686,24 @@ Deliverables:
 - mixed stable and changed branch leg support
 - regression coverage for nested branches
 - horizontal overflow handling for wide modified legs
+- hardening of diff layout adapters so nested, empty, and tinted legs continue to preserve full measured leg state from the shared layout layer
 
 Success criteria:
 
 - nested branches render with correct connectors and wire continuity
 - a stable leg stays visually stable while only changed legs receive diff treatment
 - horizontal overflow does not collapse text or symbol readability
+- nested addressed and non-addressed contact or coil cases remain parity-safe without any branch-depth-specific clearance exceptions
+
+Testing:
+
+- nested-branch geometry regression tests for stable, added, removed, and empty legs containing addressed and non-addressed contacts or coils
+- overflow tests proving wide modified legs can scroll or truncate without introducing connector drift or missing child arrays
+- adapter-level tests confirming no nested branch pass falls back to local leg-height or wire-offset inference
 
 ## Phase 5: Package API And Consumer Integration
+
+Status: Not Started
 
 Goal:
 
@@ -603,11 +715,19 @@ Deliverables:
 - exported inline diff rung component or routine viewer entry point
 - documentation for consumer mapping responsibilities
 - demo cases showing normal and diff rendering side by side for engineering validation
+- API and documentation language that explicitly states the shared layout and visibility seams consumers must not bypass or reimplement downstream
 
 Success criteria:
 
 - ControlZebra can feed existing `RungDiff` and normalized routines into the package without app-specific forks
 - package consumers understand which layer is responsible for data diffing versus rendering
+- exported package seams make it harder for consumers to accidentally fork address-visibility, vertical-clearance, or branch-geometry semantics outside the package
+
+Testing And Validation:
+
+- package-level integration fixtures covering top-level and branch-contained addressed and non-addressed contact or coil diffs through the public API
+- documentation examples and demo fixtures that show parity-safe behavior for the same rung content across normal, structural diff, and text-only diff paths
+- consumer validation in ControlZebra confirming the package entry points are sufficient without app-side geometry patches
 
 ## Performance Design
 
@@ -669,6 +789,8 @@ Key strategy should derive from structural path, for example:
 
 This lowers unnecessary remounting when toggling detail views or switching themes.
 
+The same structural identity should also be used by diff layout adapters so measured nodes, branch legs, and positioned children can be traced without JSX-level fallback heuristics.
+
 ### 6. Horizontal Scroll Is Acceptable; Unsafe Shrink Is Not
 
 Do not solve dense diffs by shrinking font size or symbol size below safe review thresholds.
@@ -728,6 +850,20 @@ Recursive branch walking will be needed for:
 
 Add shared traversal helpers instead of writing slightly different recursion in each file.
 
+The same rule applies to branch leg measurement and positioning: traversal may be shared, but geometry semantics must remain owned by the layout layer rather than duplicated in render components.
+
+### 6. One Label And Address Visibility Rule
+
+Contact and coil label/address visibility must keep one source of truth across normal rendering, diff builders, diff layout adapters, and diff renderers.
+
+Do not maintain:
+
+- one visibility heuristic in the normal renderer
+- one heuristic in diff model building
+- one heuristic in text-only or label-diff components
+
+If a future phase needs richer metadata, extend the shared rule or its returned shape instead of cloning the logic.
+
 ## Proposed File Plan
 
 This is the preferred target structure, not a requirement to create every file immediately.
@@ -773,6 +909,7 @@ Add focused tests for:
 - instruction replacement classification
 - text-only change classification
 - contact and coil label diff formatting
+- addressed and non-addressed contact and coil label diff parity through the shared visibility and layout path
 - branch leg added and removed classification
 - truncation rules and disclosure payloads
 
@@ -781,9 +918,13 @@ Add focused tests for:
 Add geometry-oriented tests for:
 
 - unchanged branch layout after Phase 0 extraction
+- addressed and non-addressed contact and coil parity between top-level and branch-contained layout paths
+- addressed and non-addressed contact and coil diff parity between top-level and branch-contained layout paths
 - added branch leg tint preserving connector positions
+- empty branch leg positioned output retaining valid wire offsets and child arrays
 - replacement pair width handling
 - wide text-only diff overflow behavior
+- parity of address-line visibility decisions across model building, layout adaptation, and rendering for the same contact or coil payload
 
 ## Story Or Demo Fixtures
 
@@ -794,6 +935,8 @@ Add representative demo cases for:
 - single instruction replaced
 - operand text modified
 - contact label modified
+- addressed contact label modified at top level and inside a branch
+- addressed coil label modified at top level and inside a branch
 - nested branch leg added
 - nested branch leg removed
 
@@ -811,6 +954,8 @@ If engineering wants the fastest path to visible progress without accumulating d
 6. Phase 5
 
 Do not start with label diff polish before the shared layout extraction and inline diff model exist. That would optimize the least important layer first.
+
+Also do not treat the Phase 0 finding as closed simply because the initial extraction passed. Each later phase must re-assert the same parity guarantees when it introduces new diff metadata, new rendering states, or new consumer-facing seams.
 
 ## ControlZebra Integration Contract
 

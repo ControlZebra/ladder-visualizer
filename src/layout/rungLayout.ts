@@ -11,6 +11,7 @@ import type {
   RungElementLayout,
   RungLayout,
   RungLayoutResult,
+  VerticalClearance,
 } from './rungLayoutTypes';
 
 export const RUNG_NUMBER_WIDTH = 30;
@@ -68,6 +69,41 @@ function hasLabel(element: RungElement): boolean {
   return element.category === 'input' || element.category === 'output';
 }
 
+function getInstructionLabelAndAddress(instruction: Instruction): { label?: string; address?: string } {
+  if (instruction.category !== 'input' && instruction.category !== 'output') {
+    return {};
+  }
+
+  const label = instruction.operands[0] || '';
+  const address = label.includes(':') || label.includes('.') ? `<${label}>` : undefined;
+
+  return {
+    label,
+    address,
+  };
+}
+
+export function calculateElementVerticalClearance(
+  element: RungElement,
+  dimensions: Dimensions = calculateElementDimensions(element)
+): VerticalClearance {
+  const baseClearance = {
+    aboveWire: dimensions.centerY,
+    belowWire: dimensions.height - dimensions.centerY,
+  };
+
+  if (isBranchGroup(element) || !hasLabel(element)) {
+    return baseClearance;
+  }
+
+  const { label, address } = getInstructionLabelAndAddress(element);
+
+  return {
+    aboveWire: baseClearance.aboveWire + (label ? LABEL_OFFSET : 0),
+    belowWire: baseClearance.belowWire + (address ? ADDRESS_LABEL_OFFSET : 0),
+  };
+}
+
 export function calculateInstructionDimensions(instruction: Instruction): Dimensions {
   switch (instruction.category) {
     case 'input':
@@ -99,13 +135,9 @@ export function calculateBranchDimensions(branch: BranchGroup): Dimensions {
         ? calculateBranchDimensions(element)
         : calculateInstructionDimensions(element);
 
-      let labelSpace = 0;
-      if (!isBranchGroup(element) && hasLabel(element)) {
-        labelSpace = LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
-      }
-
-      const heightAboveWire = dimensions.centerY + labelSpace;
-      const heightBelowWire = dimensions.height - dimensions.centerY;
+      const clearance = calculateElementVerticalClearance(element, dimensions);
+      const heightAboveWire = clearance.aboveWire;
+      const heightBelowWire = clearance.belowWire;
 
       maxHeightAboveWire = Math.max(maxHeightAboveWire, heightAboveWire);
       maxHeightBelowWire = Math.max(maxHeightBelowWire, heightBelowWire);
@@ -200,9 +232,9 @@ function calculateLineMetrics(lines: ElementLine[], rungYOffset: number): number
 
     for (const element of [...line.conditions, ...line.operations]) {
       const dimensions = calculateElementDimensions(element);
-      const labelSpace = hasLabel(element) ? LABEL_OFFSET : 0;
-      const heightAboveWire = dimensions.centerY + labelSpace + RUNG_PADDING;
-      const heightBelowWire = dimensions.height - dimensions.centerY + RUNG_PADDING;
+      const clearance = calculateElementVerticalClearance(element, dimensions);
+      const heightAboveWire = clearance.aboveWire + RUNG_PADDING;
+      const heightBelowWire = clearance.belowWire + RUNG_PADDING;
 
       maxHeightAboveWire = Math.max(maxHeightAboveWire, heightAboveWire);
       maxHeightBelowWire = Math.max(maxHeightBelowWire, heightBelowWire);
@@ -222,7 +254,7 @@ function positionInstruction(instruction: Instruction, x: number, wireY: number)
   const dimensions = calculateInstructionDimensions(instruction);
   const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
   const symbolOffset = isContactOrCoil ? (dimensions.width - SYMBOL_WIDTH) / 2 : 0;
-  const label = instruction.operands[0] || '';
+  const { label, address } = getInstructionLabelAndAddress(instruction);
 
   return {
     type: 'instruction',
@@ -231,7 +263,7 @@ function positionInstruction(instruction: Instruction, x: number, wireY: number)
     dimensions,
     symbolOffset,
     label: isContactOrCoil ? label : undefined,
-    address: isContactOrCoil && (label.includes(':') || label.includes('.')) ? `<${label}>` : undefined,
+    address: isContactOrCoil ? address : undefined,
   };
 }
 
@@ -249,13 +281,10 @@ export function positionBranch(branch: BranchGroup, branchStartX: number, mainWi
       const element = leg[index];
       const elementDimensions = calculateElementDimensions(element);
 
-      let labelSpace = 0;
-      if (!isBranchGroup(element) && hasLabel(element)) {
-        labelSpace = LABEL_OFFSET + ADDRESS_LABEL_OFFSET;
-      }
+      const clearance = calculateElementVerticalClearance(element, elementDimensions);
 
-      maxHeightAboveWire = Math.max(maxHeightAboveWire, elementDimensions.centerY + labelSpace);
-      maxHeightBelowWire = Math.max(maxHeightBelowWire, elementDimensions.height - elementDimensions.centerY);
+      maxHeightAboveWire = Math.max(maxHeightAboveWire, clearance.aboveWire);
+      maxHeightBelowWire = Math.max(maxHeightBelowWire, clearance.belowWire);
 
       legWidth += elementDimensions.width;
       if (index < leg.length - 1) {
