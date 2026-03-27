@@ -201,6 +201,8 @@ function buildNodes(
           oldInstruction: result.oldInstruction,
           newInstruction: result.newInstruction,
           textChange: result.textChange,
+          changedOperandIndex: result.changedOperandIndex,
+          operandTextChanges: result.operandTextChanges,
           labelChange: result.labelChange,
           renderMetadata: result.renderMetadata,
           oldRenderMetadata: result.oldRenderMetadata,

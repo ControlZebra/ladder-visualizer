@@ -3,6 +3,7 @@ export type {
   InlineDiffBranchNode,
   InlineDiffInstructionNode,
   InlineDiffNode,
+  InlineOperandTextChange,
   InlineDiffRungModel,
   InlineDiffState,
   InlineInstructionRenderMetadata,

@@ -1,11 +1,12 @@
   # One Rung Inline Diff Implementation Plan
 
-  Status: In Progress (Phase 0 complete; Phase 1 builder/model complete; Phase 2 structural renderer complete; Phase 3 next)
+  Status: In Progress (Phases 0-3 complete in ladder-visualizer; package API and demo surface partially complete; Phase 4 hardening plus consumer docs/validation remain)
   Last Updated: March 27, 2026
   Owner: Engineering
   Primary Package: ladder-visualizer
   Consumer: ControlZebra
   Related Input: ONE_RUNG_INLINE_DIFF_PRODUCT_REQUIREMENTS.md
+  Related Phase 3 Remediation: PHASE3_INLINE_TEXT_INSTRUCTION_REMEDIATION_PLAN.md
   Related Phase 0 Finding: PHASE0_FINDING1_LABEL_CLEARANCE_IMPLEMENTATION_PLAN.md
 
   ## Purpose
@@ -27,8 +28,8 @@
 
   - render added, removed, and modified rungs on a single rung surface
   - preserve branch structure and reading order
-  - render text-only changes compactly without duplicating full instruction boxes
-  - expose overflow-safe detail disclosure for truncated diffs
+  - render text-only changes in native instruction text regions without duplicating full instruction boxes
+  - keep comment-band disclosure available without requiring instruction-local truncation
   - remain stable enough for ControlZebra to consume as package API, not as app-specific patchwork
 
   ## Progress Update
@@ -48,19 +49,25 @@
   - a package-exported inline diff SVG surface now exists under `src/components/svg/diff/`, including `InlineDiffRung`, `InlineDiffBranch`, and `InlineDiffInstruction`
   - structural inline diff rendering now covers added, removed, replaced, and branch-leg change cases on a single rung surface using the shared symbol primitives
   - whole-rung wash rendering for added and removed rungs plus full-leg tinting for added and removed branch legs is now implemented
-  - current `text-modified` nodes intentionally fall back to paired old/new structural rendering until the compact Phase 3 text-only renderer lands
   - focused Phase 2 coverage is now in place for rung wash, replacement ordering, nested branch connector validity, and empty-leg geometry preservation
   - the current Phase 2 implementation has been validated with focused `vitest` coverage plus package `tsc --noEmit`
+  - Phase 3 now renders contact and coil label diffs in the native label slot as two-line old/new stacks instead of structural old/new fallback pairs
+  - Phase 3 now renders box operand diffs inside native operand rows, including stable multi-operand text-only cases that keep one box surface when the mapping is unambiguous
+  - rung comment diffs now render in a dedicated comment band with disclosure via the shared SVG title fallback when truncation occurs
+  - focused Phase 3 rendering and geometry coverage is now in place in `tests/components/inlineDiffRung.test.tsx` and `tests/layout/inlineDiffLayout.test.ts`
+  - targeted inline diff demo scenarios now exist in `demo/App.tsx` for contact, coil, box, comment, and structural fallback review
+  - focused ControlZebra consumer tests for the L5X diff integration layer pass against the linked package
 
   Remaining:
 
-  - compact text-only rendering still remains future work even though text-only model classification now exists
-  - there is still no detail disclosure UI for truncated diffs; truncation metadata exists but there is no popover or overlay surface yet
-  - there are not yet demo fixtures or consumer-facing docs for the new inline diff renderer surface
+  - Phase 4 hardening still remains future work for denser nested branches, wider modified legs, and broader overflow regression coverage
+  - Phase 5 consumer-facing documentation is still incomplete even though the package exports and demo scenarios now exist
+  - downstream validation is still only partial: focused ControlZebra L5X diff integration tests pass, but there is not yet dedicated desktop inline-rung visual regression or documented manual sanity coverage
+  - comment diff disclosure currently uses SVG title fallback rather than a richer interactive popover or overlay
 
   Next Recommended Step:
 
-  - start Phase 3 by replacing the current text-modified fallback with compact text and label diff rendering plus detail disclosure while preserving the shared layout seam
+  - move to Phase 4 and Phase 5 follow-up by hardening nested-branch and overflow cases, then adding consumer-facing API/docs plus explicit ControlZebra inline-rung validation coverage
 
   ## Existing Foundation
 
@@ -83,10 +90,10 @@
 
   ### Current Gaps
 
-  - the inline diff model builder and positioned diff layout adapter now exist, but compact text-only and label-diff presentation still does not
+  - the inline diff model builder, positioned diff layout adapter, and Phase 3 native-slot text rendering now exist, but downstream integration guidance is still thin
   - rung diffs remain property-level at the domain layer; component-level classification currently lives in the inline diff builder layer rather than in `RungDiff`
   - symbol components do not yet expose a shared diff decoration contract
-  - truncation metadata now exists, but there is still no common detail-disclosure pattern for long operand diffs
+  - disclosure metadata now exists and comment diffs use a shared title-based fallback, but there is still no richer detail-disclosure pattern for future overflow cases
 
   ## Design Principles
 
@@ -174,11 +181,67 @@
   Centralize:
 
   - diff state types
-  - text-diff truncation rules
+  - text-diff overflow and disclosure rules
   - tint token resolution
   - shared old/new replacement wrappers
   - label diff formatting helpers
   - label and address visibility rules that affect both rendering and layout measurement
+
+### 6. Native Instruction Text First
+
+Phase 3 text-only rendering must treat instruction text changes as part of the instruction, not as detached accessories.
+
+That means:
+
+- contact and coil label changes render in the normal label slot above the symbol as a two-line stack with old text on the first row and new text on the second row
+- box operand changes render inside the box on the operand row where the value normally appears as a two-line stack with old text on the first row and new text on the second row
+- comment changes remain the one allowed external text band because the comment already lives outside any one instruction
+- detached label widgets above contacts and coils and detached operand widgets below boxes are not an acceptable Phase 3 end state
+- instruction-local label and operand diffs should not truncate under the normal Phase 3 contract; the native region should grow instead
+
+Reason:
+
+- detached widgets change the review model from "one instruction with changed text" into "instruction plus separate diff badge"
+- detached widgets force the layout adapter to reserve synthetic bands that do not exist in normal ladder rendering
+- keeping text changes in native instruction regions is the safest way to preserve branch geometry and normal instruction readability
+
+### 7. Conservative Text-Only Classification
+
+Phase 3 should keep the current conservative classifier shape rather than widening text-only handling aggressively.
+
+Text-only rendering is allowed only when:
+
+- mnemonic is unchanged
+- operand count is unchanged
+- exactly one native visible text slot changes in place
+- the renderer can map the change to one stable native instruction region without ambiguity
+
+All other cases fall back to structural replacement, including:
+
+- mnemonic changes
+- operand-count changes
+- multiple operand changes
+- operand reorder
+- any ambiguous old/new mapping
+
+Reason:
+
+- conservative classification is easier to explain, test, and trust during review
+- ambiguous inline merges are more dangerous than explicit old/new replacement pairs
+
+### 8. Layer Ownership Contract
+
+The implementation should keep a strict boundary between semantic classification, geometry, and markup.
+
+- inline diff model: owns change classification and carries old/new payloads
+- diff layout adapter: owns width, height, clearance, row sizing, and branch geometry
+- SVG renderer: owns drawing, styling, and placement of already-classified content
+
+This means:
+
+- JSX should not reclassify changes or infer whether a case should be text-only versus replacement
+- the model should not encode detached-widget presentation assumptions
+- layout should not depend on renderer-local hacks such as synthetic footer gaps or extra detached label bands
 
 ## Target Architecture
 
@@ -267,7 +330,7 @@ Builder responsibilities:
    - replaced
    - text-modified
 5. build a branch-aware tree that preserves reading order
-6. compute truncation metadata without losing access to full values
+6. compute disclosure metadata without losing access to full values when comments or future overflow fallbacks need it
 7. preserve enough structural metadata for the shared diff layout adapter to build stable measured and positioned branch leg output, including empty-leg cases
 8. carry forward or reference the shared contact and coil label/address visibility decision path used by the layout layer, so diff adapters and renderers do not re-derive whether an address line exists from raw instruction data
 
@@ -431,7 +494,7 @@ Note:
 For contacts and coils:
 
 - keep symbol geometry unchanged
-- add a shared label renderer that supports normal label, old label, and new label composition
+- add a shared label renderer that composes old and new text inside the native label slot above the symbol
 - keep the ladder symbol visually primary even when old label text is shown
 
 ## 6. Theme And Token Strategy
@@ -461,7 +524,7 @@ Rules:
 
 ## 7. Detail Disclosure Pattern
 
-Add one shared detail-disclosure mechanism for truncated text diffs.
+Add one shared detail-disclosure mechanism for comment diffs and any future overflow fallback.
 
 Suggested files:
 
@@ -470,9 +533,40 @@ Suggested files:
 
 Rules:
 
-- truncation happens in one utility, not ad hoc per component
+- overflow and disclosure metadata happen in one utility, not ad hoc per component
 - full old and new values remain accessible on hover or click
-- the disclosure API should be generic enough to reuse for operand diffs, label diffs, and comment diffs
+- the disclosure API should be generic enough to reuse for comment diffs and any future overflow fallback
+
+Updated Phase 3 decision:
+
+- comment diffs may continue to use truncation plus disclosure when needed
+- instruction-local label and operand diffs should not truncate in the normal Phase 3 path because they now render as two native rows and the layout may grow to fit them
+- keep the shared disclosure component available as a fallback seam rather than as the primary instruction-local contract
+
+## Phase 3 Rendering Contract
+
+Phase 3 is not a generic "compact text diff" pass. It has a specific rendering contract that product, design, and engineering should treat as fixed.
+
+Instruction-family rules:
+
+- contacts and coils: label-only changes render as a two-line stack in the normal label region above the symbol, with old struck-through text on the first row and new text on the second row
+- box instructions: operand-only text changes render as a two-line stack inside the box on the affected operand row, with old struck-through text on the first row and new text on the second row
+- comments: rung comment changes may render in a dedicated external comment band above the ladder content
+- structural replacements: mnemonic changes, operand-shape changes, or uncertain classifications stay on the existing paired old-then-new replacement path
+
+Measurement and validation rules:
+
+- instruction-local label and operand diffs do not truncate in the normal Phase 3 path; the native text region grows instead
+- symbol centerlines and wire alignment stay unchanged for text-only diffs
+- no synthetic top band or footer band may be reserved for instruction-local text changes
+- downstream validation includes a linked ControlZebra sanity pass, not just library tests
+
+Implementation consequences:
+
+- `InlineDiffInstruction.tsx` must stop treating label and operand diffs as detached helper widgets
+- `diffLayoutAdapters.ts` must measure the native text region that the user will actually see rather than reserving synthetic top or footer bands
+- `InlineTextChange.tsx` should be narrowed to comment-band duties or split so instruction-local text rendering no longer depends on it
+- tests must assert in-place label and operand rendering rather than the presence of detached diff markers
 
 ## Phased Implementation Plan
 
@@ -690,48 +784,84 @@ Validated in this pass:
 
 Remaining follow-up within or adjacent to Phase 2:
 
-- add demo fixtures so the new renderer can be reviewed visually outside the unit tests
-- keep the adapter seam stable and avoid reintroducing geometry math inside JSX as later phases add compact text diff rendering
+- keep the adapter seam stable and avoid reintroducing geometry math inside JSX as later phases extend hardening and consumer integration work
 
 ## Phase 3: Text-Only And Label Diffs
 
-Status: Not Started
+Status: Complete in ladder-visualizer; downstream consumer coverage still in progress
 
 Goal:
 
 Reduce visual noise when the instruction shape is stable and only user-facing text changed.
 
+Phase 3 is also a remediation phase for the current renderer contract. The end state is not merely "compact" text rendering. The end state is native instruction text rendering with comments as the only external text band.
+
 Deliverables:
 
-- inline text-diff renderer for box instructions
-- label-diff renderer for contacts and coils
-- truncation plus detail-disclosure behavior
-- comment diff rendering if desired at the rung header level
+- in-place box operand text-diff renderer that renders inside the native operand row rather than under the box
+- in-place contact and coil label-diff renderer that renders in the normal label slot rather than as a detached note or widget
+- two-line old/new native text composition for label and operand diffs
+- comment-band disclosure behavior where needed
+- comment diff rendering in a dedicated comment band above the rung content
 - parity-safe addressed and non-addressed contact and coil diff rendering across top-level and branch-contained positions
 - text and label diff presentation built on the same shared visibility and vertical-clearance decisions already used by normal rendering and Phase 2 structural diff rendering
+- renderer and layout remediation so `InlineDiffInstruction.tsx`, `InlineTextChange.tsx`, and `diffLayoutAdapters.ts` all reflect the same native-slot contract
 
 Success criteria:
 
-- same-shape instruction text changes no longer produce duplicate red and green boxes
+- same-shape instruction text changes no longer produce duplicate red and green boxes or detached accessory widgets
+- contact and coil label-only changes render old struck-through text on the first row and new text on the second row in the normal label area above the symbol
+- box operand-only changes render old struck-through text on the first row and new text on the second row inside the corresponding operand row of the box
+- comment diffs remain external only at the rung comment band level
 - old text is shown red with strike-through
 - new text is shown green and bold
-- long tags and operands remain readable through truncation plus disclosure
+- long tags and operands remain readable through native-region growth rather than instruction-local truncation
 - addressed and non-addressed contact and coil label diffs preserve the same geometry and address-line visibility semantics whether rendered at top level or inside branch legs
 - the compact text-only path does not introduce a second label or address measurement rule distinct from the shared layout layer
+- the layout adapter no longer reserves detached label bands above contacts and coils or detached footer bands below boxes for instruction-local text diffs
 
 Risk:
 
 - over-aggressive classification can hide meaningful structural changes
+- renderer-only fixes without matching measurement updates can introduce clipping, wire overlap, or branch connector drift
 
 Mitigation:
 
 - keep v1 conservative and fall back to replacement rendering when classification is uncertain
+- update rendering and measurement in lockstep and keep JSX free of local geometry fallbacks
 
 Testing:
 
+- focused rendering tests proving changed contact and coil labels render in the instruction label area rather than as detached label widgets
+- focused rendering tests proving changed box operands render inside the box row rather than as detached footer widgets
+- regression tests ensuring old struck-through text occupies the first native row and new text occupies the second native row for label and operand diffs
+- focused comment-band tests proving comments remain the only external text diff presentation
 - focused geometry and rendering tests for text-only and label-only diffs at top level and inside branches using the same contact and coil payloads
-- regression tests ensuring truncation and disclosure change visible text content without changing the measured vertical-clearance contract
+- regression tests ensuring long instruction-local text grows the native text region without changing symbol centerlines or introducing detached-band height
 - regression tests confirming addressed label diffs do not shift branch connector or wire placement relative to the equivalent non-diff layout path
+- regression tests covering long box operand diffs, mixed changed and unchanged rows, and branch-contained long-text cases
+
+### Phase 3 Progress Notes
+
+Completed in this pass:
+
+- rendered contact and coil label-only diffs in the native label region with old/new stacking and no detached label widget
+- rendered instruction-local box operand diffs inside native operand rows, including stable multi-operand text-only cases
+- narrowed `InlineTextChange` to the comment-band path so instruction-local label and operand diffs no longer depend on detached text widgets
+- updated diff layout measurement so native label and operand regions grow without shifting symbol centerlines or wire alignment
+- added focused layout and renderer coverage for top-level, branch-contained, long-text, and comment-band cases
+- added targeted demo scenarios so the Phase 3 renderer can be reviewed outside the test suite
+
+Validated in this pass:
+
+- focused `vitest` coverage passes for `tests/components/inlineDiffRung.test.tsx`, `tests/diff/inlineDiffModel.test.ts`, and `tests/layout/inlineDiffLayout.test.ts`
+- package typechecking passes with `npm exec -- tsc --noEmit`
+- focused ControlZebra frontend tests pass for the L5X diff adapter and routine render model that consume the linked package
+
+Remaining follow-up within or adjacent to Phase 3:
+
+- add explicit desktop inline-rung consumer validation beyond the current adapter and routine-model coverage
+- decide whether comment diff disclosure should stay title-based or grow into a richer interactive detail surface
 
 ## Phase 4: Branch-Aware Inline Diff Hardening
 
@@ -759,12 +889,12 @@ Success criteria:
 Testing:
 
 - nested-branch geometry regression tests for stable, added, removed, and empty legs containing addressed and non-addressed contacts or coils
-- overflow tests proving wide modified legs can scroll or truncate without introducing connector drift or missing child arrays
+- overflow tests proving wide modified legs can grow or scroll without introducing connector drift or missing child arrays
 - adapter-level tests confirming no nested branch pass falls back to local leg-height or wire-offset inference
 
 ## Phase 5: Package API And Consumer Integration
 
-Status: Not Started
+Status: In Progress
 
 Goal:
 
@@ -826,12 +956,12 @@ Cache keys should include:
 - mnemonic
 - operand count
 - operand text lengths or values
-- diff state when it changes visible width
+- diff state when it changes visible width or native text-region height
 
 Likely hot targets:
 
 - box dimensions
-- text truncation results
+- disclosure metadata results where overflow fallback still exists
 - branch subtree dimensions
 
 ### 4. Keep Classification Outside The Scroll Path
@@ -859,7 +989,7 @@ Do not solve dense diffs by shrinking font size or symbol size below safe review
 Preferred order:
 
 1. compact text-only diff mode
-2. controlled truncation with detail disclosure
+2. native-region growth for the two-line instruction-local text diff
 3. horizontal scrolling
 
 Avoid:
@@ -886,13 +1016,12 @@ Do not maintain:
 
 That drift is predictable and avoidable.
 
-### 3. One Truncation Utility
+### 3. One Overflow Disclosure Utility
 
-Truncation thresholds and disclosure behavior must live in one utility used by:
+Overflow and disclosure behavior must live in one utility used by:
 
-- box operand diffs
-- contact and coil label diffs
 - rung comment diffs if rendered
+- any future overflow fallback path that cannot safely stay in the normal two-line native-slot contract
 
 ### 4. One Theme Token Resolver
 
@@ -972,7 +1101,7 @@ Add focused tests for:
 - contact and coil label diff formatting
 - addressed and non-addressed contact and coil label diff parity through the shared visibility and layout path
 - branch leg added and removed classification
-- truncation rules and disclosure payloads
+- disclosure rules and payloads for comments or future overflow fallback
 
 ## Layout Regression Tests
 
@@ -1025,7 +1154,7 @@ The package should own:
 - rung-level inline diff rendering behavior
 - element-level diff classification for ladder rendering
 - branch-aware diff presentation rules
-- text truncation and detail-disclosure rendering contract
+- native-slot text rendering behavior plus any comment-band or future overflow detail-disclosure contract
 
 ControlZebra should own:
 
@@ -1042,6 +1171,13 @@ These should be settled before or during Phase 1.
 2. Whether detail disclosure in the package should be SVG-native, HTML overlay based, or left to the consumer through callbacks.
 3. Whether comment diffs belong inside the rung surface or in a compact header row above it.
 4. Whether replacement pairs should always render adjacent on the same baseline, or whether narrow viewports may stack them vertically as an explicit fallback.
+
+Resolved for Phase 3 remediation:
+
+- instruction-local label and operand diffs use a two-line old/new stack and do not truncate in the normal path
+- text-only classification remains conservative and falls back to replacement on ambiguity
+- the model/layout/renderer ownership split is fixed and should guide implementation reviews
+- downstream validation includes linked ControlZebra verification of top-level, branch-contained, and box-row cases
 
 ## Recommendation
 

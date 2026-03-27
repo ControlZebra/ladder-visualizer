@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { getInstructionDisplayName, getInstructionParameterLabels } from '../../types';
 import type { BoxThemeProps } from '../../types/theme';
 import { DEFAULT_THEME } from '../../types/theme';
@@ -6,6 +7,9 @@ const LINE_HEIGHT = 16;
 const CHAR_WIDTH = 7;
 const PADDING = 10;
 const CONNECTOR_LENGTH = 10;
+
+export const BOX_LINE_HEIGHT = LINE_HEIGHT;
+export const BOX_CONNECTOR_LENGTH = CONNECTOR_LENGTH;
 
 function getTextWidth(text: string): number {
   return text.length * CHAR_WIDTH;
@@ -25,7 +29,11 @@ export interface BoxDimensions {
   centerY: number;
 }
 
-export function calculateBoxDimensions(mnemonic: string, operands: string[]): BoxDimensions {
+export function calculateBoxDimensions(
+  mnemonic: string,
+  operands: string[],
+  operandRowHeights?: number[],
+): BoxDimensions {
   const instructionName = getInstructionName(mnemonic);
   const paramLabels = getParamLabels(mnemonic);
 
@@ -40,7 +48,10 @@ export function calculateBoxDimensions(mnemonic: string, operands: string[]): Bo
 
   const boxWidth = Math.max(120, maxContentWidth + PADDING * 2);
   const headerHeight = LINE_HEIGHT * 2 + 8;
-  const contentHeight = Math.max(1, operands.length) * LINE_HEIGHT + PADDING;
+  const contentHeight = Math.max(
+    operandRowHeights?.reduce((total, rowHeight) => total + rowHeight, 0) ?? 0,
+    Math.max(1, operands.length) * LINE_HEIGHT,
+  ) + PADDING;
   const boxHeight = headerHeight + contentHeight;
 
   return {
@@ -54,6 +65,18 @@ export interface BoxSymbolProps extends BoxThemeProps {
   mnemonic: string;
   operands: string[];
   energized?: boolean;
+  operandRowHeights?: number[];
+  renderOperandRow?: (args: {
+    index: number;
+    label: string;
+    operand: string;
+    rowTop: number;
+    rowHeight: number;
+    baselineY: number;
+    labelX: number;
+    valueX: number;
+    fillColor: string;
+  }) => ReactNode;
 }
 
 /**
@@ -75,16 +98,19 @@ export function BoxSymbol({
   bgColor,
   textColor,
   energizedColor = DEFAULT_THEME.energizedColor,
+  operandRowHeights,
+  renderOperandRow,
 }: BoxSymbolProps) {
   const instructionName = getInstructionName(mnemonic);
   const paramLabels = getParamLabels(mnemonic);
-  const dims = calculateBoxDimensions(mnemonic, operands);
+  const rowHeights = operands.map((_, index) => operandRowHeights?.[index] ?? LINE_HEIGHT);
+  const dims = calculateBoxDimensions(mnemonic, operands, rowHeights);
 
   const boxWidth = dims.width - CONNECTOR_LENGTH * 2;
   const boxHeight = dims.height;
   const centerY = dims.centerY;
   const separatorY = LINE_HEIGHT * 2 + 4;
-  const paramStartY = LINE_HEIGHT * 2 + 16;
+  const contentTop = separatorY + 4;
 
   const strokeColor = energized ? energizedColor : borderColor;
   const fillColor = textColor || strokeColor;
@@ -148,12 +174,33 @@ export function BoxSymbol({
       {/* Parameter lines */}
       {operands.map((op, index) => {
         const label = paramLabels[index] || `Param ${index + 1}`;
-        const y = paramStartY + index * LINE_HEIGHT;
+        const rowHeight = rowHeights[index] ?? LINE_HEIGHT;
+        const rowTop = contentTop + rowHeights.slice(0, index).reduce((total, current) => total + current, 0);
+        const baselineY = rowTop + Math.min(rowHeight - 4, 12);
+
+        if (renderOperandRow) {
+          return (
+            <g key={index}>
+              {renderOperandRow({
+                index,
+                label,
+                operand: op,
+                rowTop,
+                rowHeight,
+                baselineY,
+                labelX: CONNECTOR_LENGTH + 8,
+                valueX: CONNECTOR_LENGTH + boxWidth - 8,
+                fillColor,
+              })}
+            </g>
+          );
+        }
+
         return (
           <g key={index}>
             <text
               x={CONNECTOR_LENGTH + 8}
-              y={y}
+              y={baselineY}
               fontSize="11"
               fill={fillColor}
             >
@@ -161,7 +208,7 @@ export function BoxSymbol({
             </text>
             <text
               x={CONNECTOR_LENGTH + boxWidth - 8}
-              y={y}
+              y={baselineY}
               textAnchor="end"
               fontSize="11"
               fill={fillColor}

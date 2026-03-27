@@ -17,6 +17,11 @@ export interface InlineTextChange {
   isTruncated: boolean;
 }
 
+export interface InlineOperandTextChange {
+  operandIndex: number;
+  change: InlineTextChange;
+}
+
 export interface InlineDiffInstructionNode {
   kind: 'instruction';
   id: string;
@@ -25,6 +30,8 @@ export interface InlineDiffInstructionNode {
   oldInstruction?: Instruction;
   newInstruction?: Instruction;
   textChange?: InlineTextChange;
+  changedOperandIndex?: number;
+  operandTextChanges?: InlineOperandTextChange[];
   labelChange?: InlineTextChange;
   renderMetadata?: InlineInstructionRenderMetadata;
   oldRenderMetadata?: InlineInstructionRenderMetadata;

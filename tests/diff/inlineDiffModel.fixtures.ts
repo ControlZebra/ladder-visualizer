@@ -211,6 +211,7 @@ export const INLINE_DIFF_MODEL_GOLDEN_FIXTURES: InlineDiffModelGoldenFixture[] =
           instruction: instruction('MOV', 'math', ['Source_B', 'DestTag']),
           oldInstruction: instruction('MOV', 'math', ['Source_A', 'DestTag']),
           newInstruction: instruction('MOV', 'math', ['Source_B', 'DestTag']),
+          changedOperandIndex: 0,
           textChange: {
             oldText: 'Source_A',
             newText: 'Source_B',

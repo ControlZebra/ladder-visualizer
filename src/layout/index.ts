@@ -35,6 +35,14 @@ export {
   calculateInlineDiffRungMinWidth,
 } from './diffLayoutAdapters';
 
+export {
+  measureRoutineDiffRowHeight,
+} from './routineDiffMeasurement';
+
+export type {
+  RoutineDiffRowMeasurementInput,
+} from './routineDiffMeasurement';
+
 export type {
   BranchGroupLayout,
   BranchLegLayout,
@@ -53,6 +61,7 @@ export type {
   BuildInlineDiffRungLayoutOptions,
   InlineDiffBranchLayout,
   InlineDiffBranchLegLayout,
+  InlineDiffCommentLayout,
   InlineDiffInstructionLayout,
   InlineDiffInstructionSegmentLayout,
   InlineDiffLineLayout,

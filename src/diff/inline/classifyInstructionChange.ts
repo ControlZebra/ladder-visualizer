@@ -1,9 +1,10 @@
 import type { Instruction } from '../../types';
-import { getInstructionLabelAndAddress } from '../../layout';
+import { getInstructionLabelAndAddress } from '../../layout/rungLayout';
 import { truncateTextChange, type TruncateTextChangeOptions } from './truncateTextChange';
 import type {
   InlineDiffState,
   InlineInstructionRenderMetadata,
+  InlineOperandTextChange,
   InlineTextChange,
 } from './types';
 
@@ -13,6 +14,8 @@ export interface InstructionChangeClassification {
   oldInstruction?: Instruction;
   newInstruction?: Instruction;
   textChange?: InlineTextChange;
+  changedOperandIndex?: number;
+  operandTextChanges?: InlineOperandTextChange[];
   labelChange?: InlineTextChange;
   renderMetadata?: InlineInstructionRenderMetadata;
   oldRenderMetadata?: InlineInstructionRenderMetadata;
@@ -42,6 +45,42 @@ function instructionsEqual(oldInstruction: Instruction, newInstruction: Instruct
   }
 
   return oldInstruction.operands.every((operand, index) => operand === newInstruction.operands[index]);
+}
+
+function isContactOrCoil(instruction: Instruction): boolean {
+  return instruction.category === 'input' || instruction.category === 'output';
+}
+
+function hasReorderedOrAmbiguousOperandMapping(
+  oldInstruction: Instruction,
+  newInstruction: Instruction,
+  changedOperandIndexes: number[],
+): boolean {
+  if (changedOperandIndexes.length <= 1) {
+    return false;
+  }
+
+  const oldChangedOperands = new Set(
+    changedOperandIndexes.map((index) => oldInstruction.operands[index] ?? ''),
+  );
+
+  return changedOperandIndexes.some((index) => oldChangedOperands.has(newInstruction.operands[index] ?? ''));
+}
+
+function buildOperandTextChanges(
+  oldInstruction: Instruction,
+  newInstruction: Instruction,
+  changedOperandIndexes: number[],
+  options: TruncateTextChangeOptions,
+): InlineOperandTextChange[] {
+  return changedOperandIndexes.map((operandIndex) => ({
+    operandIndex,
+    change: truncateTextChange(
+      oldInstruction.operands[operandIndex] ?? '',
+      newInstruction.operands[operandIndex] ?? '',
+      options,
+    ),
+  }));
 }
 
 export function classifyInstructionChange(
@@ -85,6 +124,48 @@ export function classifyInstructionChange(
     return indexes;
   }, []);
 
+  if (changedOperandIndexes.length === 0) {
+    return {
+      state: 'unchanged',
+      instruction: newInstruction,
+      oldInstruction,
+      newInstruction,
+      renderMetadata: newRenderMetadata,
+      oldRenderMetadata,
+      newRenderMetadata,
+      hasStructuralChange: false,
+      hasTextOnlyChange: false,
+    };
+  }
+
+  if (
+    !isContactOrCoil(newInstruction) &&
+    !hasReorderedOrAmbiguousOperandMapping(oldInstruction, newInstruction, changedOperandIndexes)
+  ) {
+    const operandTextChanges = buildOperandTextChanges(
+      oldInstruction,
+      newInstruction,
+      changedOperandIndexes,
+      options,
+    );
+    const changedOperandIndex = changedOperandIndexes.length === 1 ? changedOperandIndexes[0] : undefined;
+
+    return {
+      state: 'text-modified',
+      instruction: newInstruction,
+      oldInstruction,
+      newInstruction,
+      textChange: changedOperandIndex === undefined ? undefined : operandTextChanges[0]?.change,
+      changedOperandIndex,
+      operandTextChanges,
+      renderMetadata: newRenderMetadata,
+      oldRenderMetadata,
+      newRenderMetadata,
+      hasStructuralChange: false,
+      hasTextOnlyChange: true,
+    };
+  }
+
   if (changedOperandIndexes.length !== 1) {
     return {
       state: 'replaced',
@@ -100,7 +181,7 @@ export function classifyInstructionChange(
   const changedOperandIndex = changedOperandIndexes[0];
 
   if (
-    (newInstruction.category === 'input' || newInstruction.category === 'output') &&
+    isContactOrCoil(newInstruction) &&
     changedOperandIndex === 0
   ) {
     return {
@@ -126,6 +207,8 @@ export function classifyInstructionChange(
     instruction: newInstruction,
     oldInstruction,
     newInstruction,
+    changedOperandIndex,
+    operandTextChanges: buildOperandTextChanges(oldInstruction, newInstruction, [changedOperandIndex], options),
     textChange: truncateTextChange(
       oldInstruction.operands[changedOperandIndex] ?? '',
       newInstruction.operands[changedOperandIndex] ?? '',

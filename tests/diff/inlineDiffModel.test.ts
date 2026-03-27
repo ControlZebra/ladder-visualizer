@@ -129,6 +129,81 @@ describe('classifyInstructionChange', () => {
     expect(result.hasStructuralChange).toBe(true);
     expect(result.hasTextOnlyChange).toBe(false);
   });
+
+  it('tracks the changed operand index for compact box diffs', () => {
+    const result = classifyInstructionChange(
+      instruction('MOV', 'math', ['Source_A', 'DestTag']),
+      instruction('MOV', 'math', ['Source_B', 'DestTag']),
+    );
+
+    expect(result.state).toBe('text-modified');
+    expect(result.changedOperandIndex).toBe(0);
+    expect(result.textChange).toEqual({
+      oldText: 'Source_A',
+      newText: 'Source_B',
+      truncatedOldText: undefined,
+      truncatedNewText: undefined,
+      isTruncated: false,
+    });
+    expect(result.operandTextChanges).toEqual([
+      {
+        operandIndex: 0,
+        change: {
+          oldText: 'Source_A',
+          newText: 'Source_B',
+          truncatedOldText: undefined,
+          truncatedNewText: undefined,
+          isTruncated: false,
+        },
+      },
+    ]);
+  });
+
+  it('keeps stable multi-operand box value edits on the text-only path', () => {
+    const result = classifyInstructionChange(
+      instruction('CPT', 'math', ['Source_A', 'Multiplier_A', 'DestTag']),
+      instruction('CPT', 'math', ['Source_B', 'Multiplier_B', 'DestTag']),
+    );
+
+    expect(result.state).toBe('text-modified');
+    expect(result.hasStructuralChange).toBe(false);
+    expect(result.hasTextOnlyChange).toBe(true);
+    expect(result.changedOperandIndex).toBeUndefined();
+    expect(result.textChange).toBeUndefined();
+    expect(result.operandTextChanges).toEqual([
+      {
+        operandIndex: 0,
+        change: {
+          oldText: 'Source_A',
+          newText: 'Source_B',
+          truncatedOldText: undefined,
+          truncatedNewText: undefined,
+          isTruncated: false,
+        },
+      },
+      {
+        operandIndex: 1,
+        change: {
+          oldText: 'Multiplier_A',
+          newText: 'Multiplier_B',
+          truncatedOldText: undefined,
+          truncatedNewText: undefined,
+          isTruncated: false,
+        },
+      },
+    ]);
+  });
+
+  it('keeps reordered box operands on the structural replacement path', () => {
+    const result = classifyInstructionChange(
+      instruction('MOV', 'math', ['Source_A', 'Dest_A']),
+      instruction('MOV', 'math', ['Dest_A', 'Source_A']),
+    );
+
+    expect(result.state).toBe('replaced');
+    expect(result.hasStructuralChange).toBe(true);
+    expect(result.hasTextOnlyChange).toBe(false);
+  });
 });
 
 describe('buildInlineDiffModel', () => {
@@ -208,6 +283,38 @@ describe('buildInlineDiffModel', () => {
         hasLabel: true,
         hasAddress: true,
       },
+    });
+  });
+
+  it('builds a text-only rung model for stable multi-operand box changes', () => {
+    const model = buildInlineDiffModel({
+      oldRung: rung(10, [instruction('CPT', 'math', ['Source_A', 'Multiplier_A', 'DestTag'])]),
+      newRung: rung(10, [instruction('CPT', 'math', ['Source_B', 'Multiplier_B', 'DestTag'])]),
+    });
+
+    expect(model.rungState).toBe('modified');
+    expect(model.hasStructuralChanges).toBe(false);
+    expect(model.hasTextOnlyChanges).toBe(true);
+    expect(model.nodes[0]).toMatchObject({
+      kind: 'instruction',
+      state: 'text-modified',
+      id: 'rung:10/seq:0',
+      operandTextChanges: [
+        {
+          operandIndex: 0,
+          change: {
+            oldText: 'Source_A',
+            newText: 'Source_B',
+          },
+        },
+        {
+          operandIndex: 1,
+          change: {
+            oldText: 'Multiplier_A',
+            newText: 'Multiplier_B',
+          },
+        },
+      ],
     });
   });
 
