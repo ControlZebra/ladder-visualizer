@@ -301,7 +301,6 @@ function createInlineDiffDemoScenario(rung: NormalizedRung): InlineDiffDemoScena
     model: buildInlineDiffModel({
       oldRung: rung,
       newRung,
-      maxLength: 32,
     }),
     highlights,
   };
@@ -323,7 +322,6 @@ function createContactTextOnlyDemoScenario(): InlineDiffDemoScenario {
     model: buildInlineDiffModel({
       oldRung,
       newRung,
-      maxLength: 32,
     }),
     highlights: [
       'Rung 37',
@@ -353,7 +351,6 @@ function createCoilTextOnlyDemoScenario(): InlineDiffDemoScenario {
     model: buildInlineDiffModel({
       oldRung,
       newRung,
-      maxLength: 32,
     }),
     highlights: [
       'Rung 40',
@@ -377,7 +374,6 @@ function createSingleOperandBoxTextOnlyDemoScenario(): InlineDiffDemoScenario {
     model: buildInlineDiffModel({
       oldRung,
       newRung,
-      maxLength: 32,
     }),
     highlights: [
       'Rung 41',
@@ -401,7 +397,6 @@ function createMultiOperandBoxTextOnlyDemoScenario(): InlineDiffDemoScenario {
     model: buildInlineDiffModel({
       oldRung,
       newRung,
-      maxLength: 32,
     }),
     highlights: [
       'Rung 42',
@@ -425,7 +420,6 @@ function createReorderedBoxOperandsDemoScenario(): InlineDiffDemoScenario {
     model: buildInlineDiffModel({
       oldRung,
       newRung,
-      maxLength: 32,
     }),
     highlights: [
       'Rung 43',

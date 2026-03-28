@@ -146,4 +146,34 @@ describe('inline diff layout adapter', () => {
     expect(instructionLayout.position.y + instructionLayout.dimensions.centerY).toBe(layout.lines[0].wireY);
     expect(instructionLayout.changedOperandIndex).toBe(0);
   });
+
+  it('measures unchanged wrapped comments above the diff rung logic', () => {
+    const model = buildInlineDiffModel({
+      oldRung: rung(53, [instruction('XIC', 'input', ['StartPB'])], 'Cooker #1\nDrop To Drop Tub\nVerify No Alarms And Path OK'),
+      newRung: rung(53, [instruction('XIC', 'input', ['StartPB'])], 'Cooker #1\nDrop To Drop Tub\nVerify No Alarms And Path OK'),
+    });
+
+    const layout = buildLayout(model);
+
+    expect(layout.comment).toBeDefined();
+    expect(layout.comment?.lines.length ?? 0).toBeGreaterThan(3);
+    expect(layout.lines[0].wireY).toBeGreaterThan(layout.comment?.height ?? 0);
+  });
+
+  it('measures changed comments as stacked old and new wrapped text blocks', () => {
+    const model = buildInlineDiffModel({
+      oldRung: rung(54, [instruction('XIC', 'input', ['StartPB'])], 'Original permissive comment for startup'),
+      newRung: rung(54, [instruction('XIC', 'input', ['StartPB'])], 'Updated permissive comment for operators'),
+    });
+
+    const layout = buildLayout(model);
+
+    expect(layout.comment).toBeDefined();
+    expect(layout.comment?.state).toBe('text-modified');
+    expect((layout.comment?.oldLines?.length ?? 0) + (layout.comment?.newLines?.length ?? 0)).toBeGreaterThan(2);
+    expect(layout.comment?.height).toBe(
+      ((layout.comment?.oldLines?.length ?? 0) + (layout.comment?.newLines?.length ?? 0)) * (layout.comment?.lineHeight ?? 0),
+    );
+    expect(layout.lines[0].wireY).toBeGreaterThan(layout.comment?.height ?? 0);
+  });
 });

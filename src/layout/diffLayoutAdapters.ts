@@ -17,6 +17,8 @@ import {
   CHAR_WIDTH_ESTIMATE,
   BRANCH_CONNECTOR_OFFSET,
   BRANCH_VERTICAL_GAP,
+  COMMENT_BOTTOM_GAP,
+  COMMENT_LINE_HEIGHT,
   INSTRUCTION_GAP,
   LABEL_PADDING,
   MIN_CONDITION_OPERATION_GAP,
@@ -26,13 +28,14 @@ import {
   RUNG_PADDING,
   RUNG_START_OFFSET,
   SYMBOL_WIDTH,
+  calculateRungCommentLayout,
   calculateElementVerticalClearance,
   calculateInstructionDimensions,
+  getRungCommentWidth,
+  wrapRungComment,
 } from './rungLayout';
 
 const INLINE_TEXT_DIFF_PADDING_X = 8;
-const INLINE_TEXT_DIFF_LINE_HEIGHT = 18;
-const INLINE_COMMENT_DIFF_GAP = 8;
 
 const INLINE_NATIVE_LABEL_STACK_HEIGHT = 30;
 const INLINE_NATIVE_BOX_ROW_HEIGHT = 30;
@@ -109,6 +112,11 @@ export interface InlineDiffCommentLayout {
   y: number;
   width: number;
   height: number;
+  lineHeight: number;
+  lines: string[];
+  state: 'unchanged' | 'text-modified';
+  oldLines?: string[];
+  newLines?: string[];
 }
 
 export interface InlineDiffRungLayout {
@@ -465,6 +473,46 @@ function measureInlineDiffRung(model: InlineDiffRungModel): MeasuredInlineDiffRu
   };
 }
 
+function buildInlineDiffCommentLayout(
+  model: InlineDiffRungModel,
+  yOffset: number,
+  leftRailX: number,
+  rightRailX: number,
+): InlineDiffCommentLayout | undefined {
+  if (model.commentChange) {
+    const width = getRungCommentWidth(leftRailX, rightRailX);
+    const oldLines = wrapRungComment(model.commentChange.oldText, width);
+    const newLines = wrapRungComment(model.commentChange.newText, width);
+    const totalLineCount = oldLines.length + newLines.length;
+
+    if (totalLineCount === 0) {
+      return undefined;
+    }
+
+    return {
+      x: leftRailX + RUNG_START_OFFSET,
+      y: yOffset,
+      width,
+      height: totalLineCount * COMMENT_LINE_HEIGHT,
+      lineHeight: COMMENT_LINE_HEIGHT,
+      lines: newLines.length > 0 ? newLines : oldLines,
+      state: 'text-modified',
+      oldLines,
+      newLines,
+    };
+  }
+
+  const comment = calculateRungCommentLayout(model.comment, yOffset, leftRailX, rightRailX);
+  if (!comment) {
+    return undefined;
+  }
+
+  return {
+    ...comment,
+    state: 'unchanged',
+  };
+}
+
 export function calculateInlineDiffRungContentWidth(model: InlineDiffRungModel): number {
   return measureInlineDiffRung(model).contentWidth;
 }
@@ -480,11 +528,11 @@ function buildInlineDiffRungLayoutFromMeasured(
 ): InlineDiffRungLayout {
   const yOffset = options.yOffset ?? 0;
   const leftRailX = options.leftRailX ?? (RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH);
-  const commentHeight = model.commentChange ? INLINE_TEXT_DIFF_LINE_HEIGHT : 0;
-  const commentGap = model.commentChange ? INLINE_COMMENT_DIFF_GAP : 0;
+  const comment = buildInlineDiffCommentLayout(model, yOffset, leftRailX, options.rightRailX);
+  const commentHeight = comment?.height ?? 0;
+  const commentGap = comment ? COMMENT_BOTTOM_GAP : 0;
   const contentYOffset = yOffset + commentHeight + commentGap;
   const wireY = contentYOffset + measured.lineMetrics.aboveWire;
-  const commentWidth = Math.max(options.rightRailX - leftRailX - 2 * RUNG_START_OFFSET, 0);
 
   let conditionX = leftRailX + RUNG_START_OFFSET;
   const conditionLayouts = measured.measuredConditions.map((node) => {
@@ -510,14 +558,7 @@ function buildInlineDiffRungLayoutFromMeasured(
     contentWidth: measured.contentWidth,
     leftRailX,
     rightRailX: options.rightRailX,
-    comment: model.commentChange
-      ? {
-          x: leftRailX + RUNG_START_OFFSET,
-          y: yOffset,
-          width: commentWidth,
-          height: INLINE_TEXT_DIFF_LINE_HEIGHT,
-        }
-      : undefined,
+    comment,
     lines: [
       {
         lineIndex: 0,

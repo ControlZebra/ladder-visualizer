@@ -12,9 +12,6 @@ export interface InlineInstructionRenderMetadata {
 export interface InlineTextChange {
   oldText: string;
   newText: string;
-  truncatedOldText?: string;
-  truncatedNewText?: string;
-  isTruncated: boolean;
 }
 
 export interface InlineOperandTextChange {
@@ -57,6 +54,7 @@ export type InlineDiffNode = InlineDiffInstructionNode | InlineDiffBranchNode;
 export interface InlineDiffRungModel {
   rungNumber: number;
   rungState: 'unchanged' | 'added' | 'removed' | 'modified';
+  comment?: string;
   commentChange?: InlineTextChange;
   nodes: InlineDiffNode[];
   hasStructuralChanges: boolean;

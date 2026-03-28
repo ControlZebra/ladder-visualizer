@@ -7,7 +7,7 @@ import type { LadderDiagramTheme } from '../../../types';
 import { mergeTheme } from '../../../types';
 import { InlineDiffBranch } from './InlineDiffBranch';
 import { InlineDiffInstruction } from './InlineDiffInstruction';
-import { InlineTextChange } from './InlineTextChange';
+import { RungCommentText } from '../RungCommentText';
 
 export interface InlineDiffRungProps {
   model: InlineDiffRungModel;
@@ -81,16 +81,8 @@ export function InlineDiffRung({ model, width, yOffset = 0, theme: themeOverride
         {model.rungNumber}
       </text>
 
-      {layout.comment && model.commentChange && (
-        <InlineTextChange
-          x={layout.comment.x}
-          y={layout.comment.y}
-          width={layout.comment.width}
-          height={layout.comment.height}
-          change={model.commentChange}
-          theme={theme}
-          prefixLabel="Comment"
-        />
+      {layout.comment && (
+        <RungCommentText layout={layout.comment} theme={theme} className="inline-diff-rung-comment" />
       )}
 
       <line x1={layout.leftRailX} y1={0} x2={layout.leftRailX} y2={layout.height} stroke={theme.powerRailColor} strokeWidth={2} />

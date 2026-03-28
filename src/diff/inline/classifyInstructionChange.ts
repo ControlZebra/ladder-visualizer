@@ -1,6 +1,5 @@
 import type { Instruction } from '../../types';
 import { getInstructionLabelAndAddress } from '../../layout/rungLayout';
-import { truncateTextChange, type TruncateTextChangeOptions } from './truncateTextChange';
 import type {
   InlineDiffState,
   InlineInstructionRenderMetadata,
@@ -71,22 +70,19 @@ function buildOperandTextChanges(
   oldInstruction: Instruction,
   newInstruction: Instruction,
   changedOperandIndexes: number[],
-  options: TruncateTextChangeOptions,
 ): InlineOperandTextChange[] {
   return changedOperandIndexes.map((operandIndex) => ({
     operandIndex,
-    change: truncateTextChange(
-      oldInstruction.operands[operandIndex] ?? '',
-      newInstruction.operands[operandIndex] ?? '',
-      options,
-    ),
+    change: {
+      oldText: oldInstruction.operands[operandIndex] ?? '',
+      newText: newInstruction.operands[operandIndex] ?? '',
+    },
   }));
 }
 
 export function classifyInstructionChange(
   oldInstruction: Instruction,
   newInstruction: Instruction,
-  options: TruncateTextChangeOptions = {},
 ): InstructionChangeClassification {
   const oldRenderMetadata = getInstructionRenderMetadata(oldInstruction);
   const newRenderMetadata = getInstructionRenderMetadata(newInstruction);
@@ -146,7 +142,6 @@ export function classifyInstructionChange(
       oldInstruction,
       newInstruction,
       changedOperandIndexes,
-      options,
     );
     const changedOperandIndex = changedOperandIndexes.length === 1 ? changedOperandIndexes[0] : undefined;
 
@@ -189,11 +184,10 @@ export function classifyInstructionChange(
       instruction: newInstruction,
       oldInstruction,
       newInstruction,
-      labelChange: truncateTextChange(
-        oldRenderMetadata.label ?? oldInstruction.operands[0] ?? '',
-        newRenderMetadata.label ?? newInstruction.operands[0] ?? '',
-        options,
-      ),
+      labelChange: {
+        oldText: oldRenderMetadata.label ?? oldInstruction.operands[0] ?? '',
+        newText: newRenderMetadata.label ?? newInstruction.operands[0] ?? '',
+      },
       renderMetadata: newRenderMetadata,
       oldRenderMetadata,
       newRenderMetadata,
@@ -208,12 +202,11 @@ export function classifyInstructionChange(
     oldInstruction,
     newInstruction,
     changedOperandIndex,
-    operandTextChanges: buildOperandTextChanges(oldInstruction, newInstruction, [changedOperandIndex], options),
-    textChange: truncateTextChange(
-      oldInstruction.operands[changedOperandIndex] ?? '',
-      newInstruction.operands[changedOperandIndex] ?? '',
-      options,
-    ),
+    operandTextChanges: buildOperandTextChanges(oldInstruction, newInstruction, [changedOperandIndex]),
+    textChange: {
+      oldText: oldInstruction.operands[changedOperandIndex] ?? '',
+      newText: newInstruction.operands[changedOperandIndex] ?? '',
+    },
     renderMetadata: newRenderMetadata,
     oldRenderMetadata,
     newRenderMetadata,

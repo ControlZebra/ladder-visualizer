@@ -1,6 +1,5 @@
 import type { InlineTextChange as InlineTextChangeModel } from '../../../diff';
 import type { LadderDiagramTheme } from '../../../types';
-import { DiffDetailPopover } from './DiffDetailPopover';
 
 export interface InlineTextChangeProps {
   x: number;
@@ -12,10 +11,6 @@ export interface InlineTextChangeProps {
   prefixLabel?: string;
 }
 
-function getVisibleText(text: string, truncatedText?: string): string {
-  return truncatedText ?? text;
-}
-
 export function InlineTextChange({
   x,
   y,
@@ -25,8 +20,6 @@ export function InlineTextChange({
   theme,
   prefixLabel,
 }: InlineTextChangeProps) {
-  const oldText = getVisibleText(change.oldText, change.truncatedOldText);
-  const newText = getVisibleText(change.newText, change.truncatedNewText);
   const prefix = prefixLabel ? `${prefixLabel}: ` : '';
 
   const oldAnchorX = x + 8;
@@ -44,7 +37,6 @@ export function InlineTextChange({
         stroke={theme.borderColor}
         strokeWidth={1}
       />
-      {change.isTruncated && <DiffDetailPopover oldText={change.oldText} newText={change.newText} />}
       <text
         x={oldAnchorX}
         y={labelY}
@@ -60,7 +52,7 @@ export function InlineTextChange({
         fill={theme.diffOldTextColor}
         textDecoration="line-through"
       >
-        {oldText}
+        {change.oldText}
       </text>
       <text
         x={x + width / 2}
@@ -79,7 +71,7 @@ export function InlineTextChange({
         fill={theme.diffNewTextColor}
         fontWeight="700"
       >
-        {newText}
+        {change.newText}
       </text>
     </g>
   );

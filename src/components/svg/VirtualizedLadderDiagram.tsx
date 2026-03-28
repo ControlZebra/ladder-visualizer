@@ -24,6 +24,7 @@ import { ContactSymbol } from './ContactSymbol';
 import { CoilSymbol } from './CoilSymbol';
 import { BoxSymbol } from './BoxSymbol';
 import { getInstructionVisualColors } from './instructionVisuals';
+import { RungCommentText } from './RungCommentText';
 
 // ============================================================================
 // THEME CONTEXT
@@ -243,9 +244,13 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
   );
 
   if (rungLayout.lines.length === 0) {
-    const wireY = yOffset + MIN_RUNG_HEIGHT / 2;
+    const commentHeight = rungLayout.comment ? rungLayout.comment.height + 8 : 0;
+    const wireY = yOffset + commentHeight + MIN_RUNG_HEIGHT / 2;
     return (
-      <g className="rung">
+      <g className="rung" data-rung-index={rungIndex}>
+        {rungLayout.comment && (
+          <RungCommentText layout={rungLayout.comment} theme={theme} />
+        )}
         <line x1={leftRailX} y1={wireY} x2={rightRailX} y2={wireY} stroke={theme.wireColor} strokeWidth="1" />
       </g>
     );
@@ -253,6 +258,9 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
 
   return (
     <g className="rung" data-rung-index={rungIndex}>
+      {rungLayout.comment && (
+        <RungCommentText layout={rungLayout.comment} theme={theme} />
+      )}
       {rungLayout.lines.map((line, lineIndex) => {
         // Calculate conditions end position
         let conditionsEndX = line.conditionsStartX;

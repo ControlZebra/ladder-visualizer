@@ -198,7 +198,6 @@ export const INLINE_DIFF_MODEL_GOLDEN_FIXTURES: InlineDiffModelGoldenFixture[] =
     input: {
       oldRung: rung(23, [instruction('MOV', 'math', ['Source_A', 'DestTag'])]),
       newRung: rung(23, [instruction('MOV', 'math', ['Source_B', 'DestTag'])]),
-      maxLength: 32,
     },
     expected: {
       rungNumber: 23,
@@ -215,8 +214,16 @@ export const INLINE_DIFF_MODEL_GOLDEN_FIXTURES: InlineDiffModelGoldenFixture[] =
           textChange: {
             oldText: 'Source_A',
             newText: 'Source_B',
-            isTruncated: false,
           },
+          operandTextChanges: [
+            {
+              operandIndex: 0,
+              change: {
+                oldText: 'Source_A',
+                newText: 'Source_B',
+              },
+            },
+          ],
           renderMetadata: { hasLabel: false, hasAddress: false },
           oldRenderMetadata: { hasLabel: false, hasAddress: false },
           newRenderMetadata: { hasLabel: false, hasAddress: false },
@@ -252,7 +259,6 @@ export const INLINE_DIFF_MODEL_GOLDEN_FIXTURES: InlineDiffModelGoldenFixture[] =
           labelChange: {
             oldText: 'Local:1:I.Data.0',
             newText: 'Local:2:I.Data.1',
-            isTruncated: false,
           },
           renderMetadata: metadata('Local:2:I.Data.1', '<Local:2:I.Data.1>'),
           oldRenderMetadata: metadata('Local:1:I.Data.0', '<Local:1:I.Data.0>'),
@@ -317,7 +323,6 @@ export const INLINE_DIFF_MODEL_GOLDEN_FIXTURES: InlineDiffModelGoldenFixture[] =
                   labelChange: {
                     oldText: 'Local:1:O.Data.0',
                     newText: 'Local:2:O.Data.1',
-                    isTruncated: false,
                   },
                   renderMetadata: metadata('Local:2:O.Data.1', '<Local:2:O.Data.1>'),
                   oldRenderMetadata: metadata('Local:1:O.Data.0', '<Local:1:O.Data.0>'),

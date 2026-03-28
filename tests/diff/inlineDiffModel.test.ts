@@ -3,7 +3,6 @@ import {
   buildInlineDiffModel,
   classifyInstructionChange,
   matchRungElements,
-  truncateTextChange,
 } from '../../src/diff';
 import type {
   BranchGroup,
@@ -54,22 +53,8 @@ function rung(number: number, elements: RungElement[], comment?: string): Normal
   };
 }
 
-describe('truncateTextChange', () => {
-  it('marks truncation while preserving full values', () => {
-    const result = truncateTextChange('MotorStartPermissiveSignal', 'MotorStartPermissiveBypassSignal', {
-      maxLength: 12,
-    });
-
-    expect(result.oldText).toBe('MotorStartPermissiveSignal');
-    expect(result.newText).toBe('MotorStartPermissiveBypassSignal');
-    expect(result.truncatedOldText).toBe('MotorStar...');
-    expect(result.truncatedNewText).toBe('MotorStar...');
-    expect(result.isTruncated).toBe(true);
-  });
-});
-
 describe('matchRungElements', () => {
-  it('matches by structural position and preserves added tail elements', () => {
+  it('preserves added tail elements after exact structural matches', () => {
     const matches = matchRungElements(
       [instruction('XIC', 'input', ['Start']), branch([instruction('XIC', 'input', ['Auto'])])],
       [
@@ -84,6 +69,51 @@ describe('matchRungElements', () => {
       { id: 'rung:4/seq:0', kind: 'instruction' },
       { id: 'rung:4/seq:1', kind: 'branch' },
       { id: 'rung:4/seq:2', kind: 'added' },
+    ]);
+  });
+
+  it('resynchronizes on later exact matches so a mid-rung insertion does not cascade', () => {
+    const matches = matchRungElements(
+      [
+        instruction('XIC', 'input', ['Start']),
+        instruction('XIC', 'input', ['Permissive']),
+        instruction('OTE', 'output', ['Run']),
+      ],
+      [
+        instruction('XIC', 'input', ['Start']),
+        instruction('XIC', 'input', ['Override']),
+        instruction('XIC', 'input', ['Permissive']),
+        instruction('OTE', 'output', ['Run']),
+      ],
+      'rung:5',
+    );
+
+    expect(matches.map((match) => ({ id: match.id, kind: match.kind, oldIndex: match.oldIndex, newIndex: match.newIndex }))).toEqual([
+      { id: 'rung:5/seq:0', kind: 'instruction', oldIndex: 0, newIndex: 0 },
+      { id: 'rung:5/seq:1', kind: 'added', oldIndex: undefined, newIndex: 1 },
+      { id: 'rung:5/seq:2', kind: 'instruction', oldIndex: 1, newIndex: 2 },
+      { id: 'rung:5/seq:3', kind: 'instruction', oldIndex: 2, newIndex: 3 },
+    ]);
+  });
+
+  it('resynchronizes on later exact matches so a mid-rung removal does not cascade', () => {
+    const matches = matchRungElements(
+      [
+        instruction('XIC', 'input', ['Start']),
+        instruction('XIC', 'input', ['Permissive']),
+        instruction('OTE', 'output', ['Run']),
+      ],
+      [
+        instruction('XIC', 'input', ['Start']),
+        instruction('OTE', 'output', ['Run']),
+      ],
+      'rung:6',
+    );
+
+    expect(matches.map((match) => ({ id: match.id, kind: match.kind, oldIndex: match.oldIndex, newIndex: match.newIndex }))).toEqual([
+      { id: 'rung:6/seq:0', kind: 'instruction', oldIndex: 0, newIndex: 0 },
+      { id: 'rung:6/seq:1', kind: 'removed', oldIndex: 1, newIndex: undefined },
+      { id: 'rung:6/seq:2', kind: 'instruction', oldIndex: 2, newIndex: 1 },
     ]);
   });
 });
@@ -101,9 +131,6 @@ describe('classifyInstructionChange', () => {
     expect(result.labelChange).toEqual({
       oldText: 'Local:1:I.Data.0',
       newText: 'Local:2:I.Data.1',
-      truncatedOldText: undefined,
-      truncatedNewText: undefined,
-      isTruncated: false,
     });
     expect(result.oldRenderMetadata).toEqual({
       label: 'Local:1:I.Data.0',
@@ -141,9 +168,6 @@ describe('classifyInstructionChange', () => {
     expect(result.textChange).toEqual({
       oldText: 'Source_A',
       newText: 'Source_B',
-      truncatedOldText: undefined,
-      truncatedNewText: undefined,
-      isTruncated: false,
     });
     expect(result.operandTextChanges).toEqual([
       {
@@ -151,9 +175,6 @@ describe('classifyInstructionChange', () => {
         change: {
           oldText: 'Source_A',
           newText: 'Source_B',
-          truncatedOldText: undefined,
-          truncatedNewText: undefined,
-          isTruncated: false,
         },
       },
     ]);
@@ -176,9 +197,6 @@ describe('classifyInstructionChange', () => {
         change: {
           oldText: 'Source_A',
           newText: 'Source_B',
-          truncatedOldText: undefined,
-          truncatedNewText: undefined,
-          isTruncated: false,
         },
       },
       {
@@ -186,9 +204,6 @@ describe('classifyInstructionChange', () => {
         change: {
           oldText: 'Multiplier_A',
           newText: 'Multiplier_B',
-          truncatedOldText: undefined,
-          truncatedNewText: undefined,
-          isTruncated: false,
         },
       },
     ]);
@@ -318,6 +333,63 @@ describe('buildInlineDiffModel', () => {
     });
   });
 
+  it('marks a mid-rung inserted instruction as added without changing later unchanged nodes', () => {
+    const model = buildInlineDiffModel({
+      oldRung: rung(11, [
+        instruction('XIC', 'input', ['Start']),
+        instruction('XIC', 'input', ['Permissive']),
+        instruction('OTE', 'output', ['Run']),
+      ]),
+      newRung: rung(11, [
+        instruction('XIC', 'input', ['Start']),
+        instruction('XIC', 'input', ['Override']),
+        instruction('XIC', 'input', ['Permissive']),
+        instruction('OTE', 'output', ['Run']),
+      ]),
+    });
+
+    expect(model.rungState).toBe('modified');
+    expect(model.hasStructuralChanges).toBe(true);
+    expect(model.nodes).toMatchObject([
+      { kind: 'instruction', state: 'unchanged', id: 'rung:11/seq:0' },
+      {
+        kind: 'instruction',
+        state: 'added',
+        id: 'rung:11/seq:1',
+        newInstruction: { mnemonic: 'XIC', operands: ['Override'] },
+      },
+      { kind: 'instruction', state: 'unchanged', id: 'rung:11/seq:2' },
+      { kind: 'instruction', state: 'unchanged', id: 'rung:11/seq:3' },
+    ]);
+  });
+
+  it('marks a mid-rung removed instruction as removed without changing later unchanged nodes', () => {
+    const model = buildInlineDiffModel({
+      oldRung: rung(12, [
+        instruction('XIC', 'input', ['Start']),
+        instruction('XIC', 'input', ['Permissive']),
+        instruction('OTE', 'output', ['Run']),
+      ]),
+      newRung: rung(12, [
+        instruction('XIC', 'input', ['Start']),
+        instruction('OTE', 'output', ['Run']),
+      ]),
+    });
+
+    expect(model.rungState).toBe('modified');
+    expect(model.hasStructuralChanges).toBe(true);
+    expect(model.nodes).toMatchObject([
+      { kind: 'instruction', state: 'unchanged', id: 'rung:12/seq:0' },
+      {
+        kind: 'instruction',
+        state: 'removed',
+        id: 'rung:12/seq:1',
+        oldInstruction: { mnemonic: 'XIC', operands: ['Permissive'] },
+      },
+      { kind: 'instruction', state: 'unchanged', id: 'rung:12/seq:2' },
+    ]);
+  });
+
   it('preserves empty added branch legs as first-class leg metadata', () => {
     const model = buildInlineDiffModel({
       oldRung: rung(9, [branch([instruction('XIC', 'input', ['Auto'])], [])]),
@@ -346,7 +418,7 @@ describe('buildInlineDiffModel', () => {
     });
   });
 
-  it('accepts a rung diff and emits comment truncation metadata', () => {
+  it('accepts a rung diff and emits comment change metadata', () => {
     const model = buildInlineDiffModel({
       rungDiff: {
         rungNumber: 10,
@@ -354,15 +426,11 @@ describe('buildInlineDiffModel', () => {
         oldRung: rung(10, [instruction('XIC', 'input', ['Start'])], 'Original permissive comment'),
         newRung: rung(10, [instruction('XIC', 'input', ['Start'])], 'Updated permissive comment for operators'),
       },
-      maxLength: 16,
     });
 
     expect(model.commentChange).toEqual({
       oldText: 'Original permissive comment',
       newText: 'Updated permissive comment for operators',
-      truncatedOldText: 'Original perm...',
-      truncatedNewText: 'Updated permi...',
-      isTruncated: true,
     });
     expect(model.hasTextOnlyChanges).toBe(true);
   });
