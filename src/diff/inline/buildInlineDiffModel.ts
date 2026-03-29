@@ -3,7 +3,6 @@ import type { NormalizedRung, RungElement, BranchGroup, Instruction } from '../.
 import { isBranchGroup } from '../../types';
 import { matchRungElements } from './matchRungElements';
 import { classifyInstructionChange, getInstructionRenderMetadata } from './classifyInstructionChange';
-import { truncateTextChange, type TruncateTextChangeOptions } from './truncateTextChange';
 import type {
   InlineDiffBranchLeg,
   InlineDiffBranchNode,
@@ -14,8 +13,8 @@ import type {
 } from './types';
 
 export type BuildInlineDiffModelInput =
-  | ({ rungDiff: RungDiff } & TruncateTextChangeOptions)
-  | ({ oldRung?: NormalizedRung; newRung?: NormalizedRung; rungNumber?: number } & TruncateTextChangeOptions);
+  | { rungDiff: RungDiff }
+  | { oldRung?: NormalizedRung; newRung?: NormalizedRung; rungNumber?: number };
 
 interface BuildNodeResult {
   nodes: InlineDiffNode[];
@@ -47,9 +46,8 @@ function buildBranchLeg(
   branchElements: RungElement[],
   id: string,
   state: 'added' | 'removed',
-  options: TruncateTextChangeOptions,
 ): InlineDiffBranchLeg {
-  const result = buildSingleSidedNodes(branchElements, id, state, options);
+  const result = buildSingleSidedNodes(branchElements, id, state);
 
   return {
     id,
@@ -63,12 +61,11 @@ function buildSingleSidedNodes(
   elements: RungElement[],
   parentPath: string,
   state: 'added' | 'removed',
-  options: TruncateTextChangeOptions,
 ): BuildNodeResult {
   const nodes: InlineDiffNode[] = elements.map((element, index) => {
     const id = `${parentPath}/seq:${index}`;
     if (isBranchGroup(element)) {
-      return buildBranchNode(element, undefined, id, options, state);
+      return buildBranchNode(element, undefined, id, state);
     }
 
     return buildInstructionNode(element, id, state);
@@ -97,7 +94,6 @@ function buildBranchNode(
   oldBranch: BranchGroup | undefined,
   newBranch: BranchGroup | undefined,
   id: string,
-  options: TruncateTextChangeOptions,
   forcedState?: 'added' | 'removed',
 ): InlineDiffBranchNode {
   if (!oldBranch && !newBranch) {
@@ -114,7 +110,7 @@ function buildBranchNode(
       kind: 'branch',
       id,
       state: 'added',
-      legs: newBranch.branches.map((leg, index) => buildBranchLeg(leg, `${id}/leg:${index}`, 'added', options)),
+      legs: newBranch.branches.map((leg, index) => buildBranchLeg(leg, `${id}/leg:${index}`, 'added')),
     };
   }
 
@@ -123,7 +119,7 @@ function buildBranchNode(
       kind: 'branch',
       id,
       state: 'removed',
-      legs: oldBranch.branches.map((leg, index) => buildBranchLeg(leg, `${id}/leg:${index}`, 'removed', options)),
+      legs: oldBranch.branches.map((leg, index) => buildBranchLeg(leg, `${id}/leg:${index}`, 'removed')),
     };
   }
 
@@ -138,7 +134,7 @@ function buildBranchNode(
     const legId = `${id}/leg:${index}`;
 
     if (oldLeg && newLeg) {
-      const result = buildNodes(oldLeg, newLeg, legId, options);
+      const result = buildNodes(oldLeg, newLeg, legId);
       let state: InlineDiffState = 'unchanged';
       if (result.hasStructuralChanges) {
         state = 'replaced';
@@ -156,12 +152,12 @@ function buildBranchNode(
     }
 
     if (oldLeg) {
-      legs.push(buildBranchLeg(oldLeg, legId, 'removed', options));
+      legs.push(buildBranchLeg(oldLeg, legId, 'removed'));
       continue;
     }
 
     if (newLeg) {
-      legs.push(buildBranchLeg(newLeg, legId, 'added', options));
+      legs.push(buildBranchLeg(newLeg, legId, 'added'));
     }
   }
 
@@ -177,7 +173,6 @@ function buildNodes(
   oldElements: RungElement[],
   newElements: RungElement[],
   parentPath: string,
-  options: TruncateTextChangeOptions,
 ): BuildNodeResult {
   const matches = matchRungElements(oldElements, newElements, parentPath);
   const nodes: InlineDiffNode[] = [];
@@ -190,7 +185,6 @@ function buildNodes(
         const result = classifyInstructionChange(
           match.oldElement as Instruction,
           match.newElement as Instruction,
-          options,
         );
 
         nodes.push({
@@ -201,6 +195,8 @@ function buildNodes(
           oldInstruction: result.oldInstruction,
           newInstruction: result.newInstruction,
           textChange: result.textChange,
+          changedOperandIndex: result.changedOperandIndex,
+          operandTextChanges: result.operandTextChanges,
           labelChange: result.labelChange,
           renderMetadata: result.renderMetadata,
           oldRenderMetadata: result.oldRenderMetadata,
@@ -211,7 +207,7 @@ function buildNodes(
         break;
       }
       case 'branch': {
-        const node = buildBranchNode(match.oldElement as BranchGroup, match.newElement as BranchGroup, match.id, options);
+        const node = buildBranchNode(match.oldElement as BranchGroup, match.newElement as BranchGroup, match.id);
         nodes.push(node);
         hasStructuralChanges ||= node.state === 'replaced' || node.state === 'added' || node.state === 'removed';
         hasTextOnlyChanges ||= node.state === 'text-modified';
@@ -220,7 +216,7 @@ function buildNodes(
       case 'added': {
         const newElement = match.newElement as RungElement;
         const node = isBranchGroup(newElement)
-          ? buildBranchNode(undefined, newElement, match.id, options, 'added')
+          ? buildBranchNode(undefined, newElement, match.id, 'added')
           : buildInstructionNode(newElement, match.id, 'added');
         nodes.push(node);
         hasStructuralChanges = true;
@@ -229,7 +225,7 @@ function buildNodes(
       case 'removed': {
         const oldElement = match.oldElement as RungElement;
         const node = isBranchGroup(oldElement)
-          ? buildBranchNode(oldElement, undefined, match.id, options, 'removed')
+          ? buildBranchNode(oldElement, undefined, match.id, 'removed')
           : buildInstructionNode(oldElement, match.id, 'removed');
         nodes.push(node);
         hasStructuralChanges = true;
@@ -240,12 +236,12 @@ function buildNodes(
         const newElement = match.newElement as RungElement;
         nodes.push(
           isBranchGroup(oldElement)
-            ? buildBranchNode(oldElement, undefined, `${match.id}/old`, options, 'removed')
+            ? buildBranchNode(oldElement, undefined, `${match.id}/old`, 'removed')
             : buildInstructionNode(oldElement, `${match.id}/old`, 'removed'),
         );
         nodes.push(
           isBranchGroup(newElement)
-            ? buildBranchNode(undefined, newElement, `${match.id}/new`, options, 'added')
+            ? buildBranchNode(undefined, newElement, `${match.id}/new`, 'added')
             : buildInstructionNode(newElement, `${match.id}/new`, 'added'),
         );
         hasStructuralChanges = true;
@@ -265,17 +261,12 @@ function normalizeInput(input: BuildInlineDiffModelInput): {
   oldRung?: NormalizedRung;
   newRung?: NormalizedRung;
   rungNumber: number;
-  options: TruncateTextChangeOptions;
 } {
   if ('rungDiff' in input) {
     return {
       oldRung: input.rungDiff.oldRung,
       newRung: input.rungDiff.newRung,
       rungNumber: input.rungDiff.rungNumber,
-      options: {
-        maxLength: input.maxLength,
-        ellipsis: input.ellipsis,
-      },
     };
   }
 
@@ -283,23 +274,19 @@ function normalizeInput(input: BuildInlineDiffModelInput): {
     oldRung: input.oldRung,
     newRung: input.newRung,
     rungNumber: input.rungNumber ?? input.newRung?.number ?? input.oldRung?.number ?? 0,
-    options: {
-      maxLength: input.maxLength,
-      ellipsis: input.ellipsis,
-    },
   };
 }
 
 export function buildInlineDiffModel(input: BuildInlineDiffModelInput): InlineDiffRungModel {
-  const { oldRung, newRung, rungNumber, options } = normalizeInput(input);
+  const { oldRung, newRung, rungNumber } = normalizeInput(input);
   const oldElements = oldRung?.elements ?? [];
   const newElements = newRung?.elements ?? [];
-  const result = buildNodes(oldElements, newElements, `rung:${rungNumber}`, options);
+  const result = buildNodes(oldElements, newElements, `rung:${rungNumber}`);
 
   const oldComment = oldRung?.comment ?? '';
   const newComment = newRung?.comment ?? '';
   const commentChange = oldComment !== newComment
-    ? truncateTextChange(oldComment, newComment, options)
+    ? { oldText: oldComment, newText: newComment }
     : undefined;
 
   let rungState: InlineDiffRungModel['rungState'] = 'unchanged';
@@ -314,6 +301,7 @@ export function buildInlineDiffModel(input: BuildInlineDiffModelInput): InlineDi
   return {
     rungNumber,
     rungState,
+    comment: newRung?.comment ?? oldRung?.comment,
     commentChange,
     nodes: result.nodes,
     hasStructuralChanges: rungState === 'added' || rungState === 'removed' || result.hasStructuralChanges,

@@ -11,45 +11,26 @@ export interface InlineDiffBranchProps {
 function getTintColors(state: InlineDiffBranchLayout['state'] | InlineDiffBranchLayout['legs'][number]['state'], theme: Required<LadderDiagramTheme>) {
   if (state === 'added') {
     return {
-      stroke: theme.diffAddedBorderColor,
       fill: theme.diffAddedFillColor,
     };
   }
 
   if (state === 'removed') {
     return {
-      stroke: theme.diffRemovedBorderColor,
       fill: theme.diffRemovedFillColor,
     };
   }
 
   return {
-    stroke: 'transparent',
     fill: 'transparent',
   };
 }
 
-function getBranchConnectorStroke(state: InlineDiffBranchLayout['state'], theme: Required<LadderDiagramTheme>) {
-  if (state === 'added') {
-    return theme.diffAddedBorderColor;
-  }
-
-  if (state === 'removed') {
-    return theme.diffRemovedBorderColor;
-  }
-
+function getBranchConnectorStroke(theme: Required<LadderDiagramTheme>) {
   return theme.branchConnectorColor;
 }
 
-function getLegWireStroke(state: InlineDiffBranchLayout['legs'][number]['state'], theme: Required<LadderDiagramTheme>) {
-  if (state === 'added') {
-    return theme.diffAddedBorderColor;
-  }
-
-  if (state === 'removed') {
-    return theme.diffRemovedBorderColor;
-  }
-
+function getLegWireStroke(theme: Required<LadderDiagramTheme>) {
   return theme.wireColor;
 }
 
@@ -68,7 +49,7 @@ export function InlineDiffBranch({ layout, theme }: InlineDiffBranchProps) {
 
   const topY = layout.legs[0].wireY;
   const bottomY = layout.legs[layout.legs.length - 1].wireY;
-  const connectorStroke = getBranchConnectorStroke(layout.state, theme);
+  const connectorStroke = getBranchConnectorStroke(theme);
 
   return (
     <g data-inline-diff-node="branch" data-state={layout.state}>
@@ -97,7 +78,7 @@ export function InlineDiffBranch({ layout, theme }: InlineDiffBranchProps) {
 
       {layout.legs.map((leg) => {
         const legColors = getTintColors(leg.state, theme);
-        const legWireStroke = getLegWireStroke(leg.state, theme);
+        const legWireStroke = getLegWireStroke(theme);
 
         return (
           <g key={leg.id} data-inline-diff-leg={leg.id} data-state={leg.state}>
@@ -109,8 +90,6 @@ export function InlineDiffBranch({ layout, theme }: InlineDiffBranchProps) {
                 height={leg.height}
                 rx={4}
                 fill={legColors.fill}
-                stroke={legColors.stroke}
-                strokeWidth={1}
                 className="inline-diff-leg-tint"
               />
             )}

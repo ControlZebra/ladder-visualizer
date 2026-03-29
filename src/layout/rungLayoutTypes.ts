@@ -52,10 +52,20 @@ export interface LineLayout {
   isLastLine: boolean;
 }
 
+export interface RungCommentLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  lineHeight: number;
+  lines: string[];
+}
+
 export interface RungLayoutResult {
   rungIndex: number;
   yOffset: number;
   height: number;
+  comment?: RungCommentLayout;
   lines: LineLayout[];
   hasBranches: boolean;
 }

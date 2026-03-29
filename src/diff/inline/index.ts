@@ -3,14 +3,12 @@ export type {
   InlineDiffBranchNode,
   InlineDiffInstructionNode,
   InlineDiffNode,
+  InlineOperandTextChange,
   InlineDiffRungModel,
   InlineDiffState,
   InlineInstructionRenderMetadata,
   InlineTextChange,
 } from './types';
-
-export { truncateTextChange } from './truncateTextChange';
-export type { TruncateTextChangeOptions } from './truncateTextChange';
 
 export { classifyInstructionChange, getInstructionRenderMetadata } from './classifyInstructionChange';
 export type { InstructionChangeClassification } from './classifyInstructionChange';

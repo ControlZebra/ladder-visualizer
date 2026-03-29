@@ -3,16 +3,24 @@ import type {
   InlineDiffBranchNode,
   InlineDiffInstructionNode,
   InlineDiffNode,
+  InlineOperandTextChange,
   InlineDiffRungModel,
   InlineDiffState,
   InlineInstructionRenderMetadata,
+  InlineTextChange,
 } from '../diff/inline';
+import { calculateBoxDimensions } from '../components/svg/BoxSymbol';
+import { getInstructionParameterLabels } from '../types';
 import type { Instruction } from '../types';
 import type { Dimensions, VerticalClearance } from './rungLayoutTypes';
 import {
+  CHAR_WIDTH_ESTIMATE,
   BRANCH_CONNECTOR_OFFSET,
   BRANCH_VERTICAL_GAP,
+  COMMENT_BOTTOM_GAP,
+  COMMENT_LINE_HEIGHT,
   INSTRUCTION_GAP,
+  LABEL_PADDING,
   MIN_CONDITION_OPERATION_GAP,
   MIN_RUNG_HEIGHT,
   RAIL_VISUAL_WIDTH,
@@ -20,9 +28,17 @@ import {
   RUNG_PADDING,
   RUNG_START_OFFSET,
   SYMBOL_WIDTH,
+  calculateRungCommentLayout,
   calculateElementVerticalClearance,
   calculateInstructionDimensions,
+  getRungCommentWidth,
+  wrapRungComment,
 } from './rungLayout';
+
+const INLINE_TEXT_DIFF_PADDING_X = 8;
+
+const INLINE_NATIVE_LABEL_STACK_HEIGHT = 30;
+const INLINE_NATIVE_BOX_ROW_HEIGHT = 30;
 
 interface MeasuredNodeBase {
   dimensions: Dimensions;
@@ -36,6 +52,7 @@ export interface InlineDiffInstructionSegmentLayout {
   instruction: Instruction;
   position: { x: number; y: number };
   dimensions: Dimensions;
+  intrinsicDimensions: Dimensions;
   clearance: VerticalClearance;
   symbolOffset: number;
   renderMetadata?: InlineInstructionRenderMetadata;
@@ -47,6 +64,10 @@ export interface InlineDiffInstructionLayout extends MeasuredNodeBase {
   state: InlineDiffState;
   position: { x: number; y: number };
   segments: InlineDiffInstructionSegmentLayout[];
+  textChange?: InlineTextChange;
+  changedOperandIndex?: number;
+  operandTextChanges?: InlineOperandTextChange[];
+  labelChange?: InlineTextChange;
 }
 
 export interface InlineDiffBranchLegLayout {
@@ -86,6 +107,18 @@ export interface InlineDiffLineLayout {
   operationsStartX: number;
 }
 
+export interface InlineDiffCommentLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  lineHeight: number;
+  lines: string[];
+  state: 'unchanged' | 'text-modified';
+  oldLines?: string[];
+  newLines?: string[];
+}
+
 export interface InlineDiffRungLayout {
   rungNumber: number;
   rungState: InlineDiffRungModel['rungState'];
@@ -94,6 +127,7 @@ export interface InlineDiffRungLayout {
   contentWidth: number;
   leftRailX: number;
   rightRailX: number;
+  comment?: InlineDiffCommentLayout;
   lines: InlineDiffLineLayout[];
 }
 
@@ -120,6 +154,7 @@ interface MeasuredInstructionSegment {
   state: InlineDiffState;
   instruction: Instruction;
   dimensions: Dimensions;
+  intrinsicDimensions: Dimensions;
   clearance: VerticalClearance;
   renderMetadata?: InlineInstructionRenderMetadata;
 }
@@ -197,20 +232,84 @@ function getSymbolOffset(instruction: Instruction, dimensions: Dimensions): numb
   return (dimensions.width - SYMBOL_WIDTH) / 2;
 }
 
+function estimateInlineTextWidth(text: string): number {
+  return text.length * CHAR_WIDTH_ESTIMATE;
+}
+
+function calculateCompactLabelWidth(change: InlineTextChange): number {
+  const oldText = change.oldText;
+  const newText = change.newText;
+
+  return oldText.length > 0 || newText.length > 0
+    ? Math.max(estimateInlineTextWidth(oldText), estimateInlineTextWidth(newText)) + LABEL_PADDING * 2
+    : 0;
+}
+
+function calculateCompactOperandWidth(
+  instruction: Instruction,
+  changedOperandIndex: number | undefined,
+  change: InlineTextChange,
+): number {
+  const prefixLabel = changedOperandIndex === undefined
+    ? ''
+    : `${getInstructionParameterLabels(instruction.mnemonic)[changedOperandIndex] ?? `Param ${changedOperandIndex + 1}`}: `;
+  const oldText = change.oldText;
+  const newText = change.newText;
+
+  return estimateInlineTextWidth(prefixLabel) + Math.max(estimateInlineTextWidth(oldText), estimateInlineTextWidth(newText)) + 2 * INLINE_TEXT_DIFF_PADDING_X;
+}
+
+function getEffectiveOperandTextChanges(node: InlineDiffInstructionNode): InlineOperandTextChange[] {
+  if (node.operandTextChanges && node.operandTextChanges.length > 0) {
+    return node.operandTextChanges;
+  }
+
+  if (node.changedOperandIndex === undefined || !node.textChange) {
+    return [];
+  }
+
+  return [{ operandIndex: node.changedOperandIndex, change: node.textChange }];
+}
+
+function getBoxRowHeights(
+  operandCount: number,
+  operandTextChanges: InlineOperandTextChange[],
+): number[] | undefined {
+  if (operandTextChanges.length === 0) {
+    return undefined;
+  }
+
+  const changedIndexes = new Set(operandTextChanges.map(({ operandIndex }) => operandIndex));
+  return Array.from({ length: operandCount }, (_, index) => (
+    changedIndexes.has(index) ? INLINE_NATIVE_BOX_ROW_HEIGHT : 16
+  ));
+}
+
+function calculateExpandedOperandWidth(
+  instruction: Instruction,
+  operandTextChanges: InlineOperandTextChange[],
+): number {
+  return operandTextChanges.reduce((maxWidth, { operandIndex, change }) => (
+    Math.max(maxWidth, calculateCompactOperandWidth(instruction, operandIndex, change))
+  ), calculateInstructionDimensions(instruction).width);
+}
+
 function createMeasuredSegment(
   role: 'single' | 'old' | 'new',
   state: InlineDiffState,
   instruction: Instruction,
   renderMetadata?: InlineInstructionRenderMetadata,
+  overrides?: Partial<Pick<MeasuredInstructionSegment, 'dimensions' | 'clearance'>>,
 ): MeasuredInstructionSegment {
-  const dimensions = calculateInstructionDimensions(instruction);
+  const intrinsicDimensions = calculateInstructionDimensions(instruction);
 
   return {
     role,
     state,
     instruction,
-    dimensions,
-    clearance: calculateElementVerticalClearance(instruction, dimensions),
+    dimensions: overrides?.dimensions ?? intrinsicDimensions,
+    intrinsicDimensions,
+    clearance: overrides?.clearance ?? calculateElementVerticalClearance(instruction, intrinsicDimensions),
     renderMetadata,
   };
 }
@@ -219,7 +318,56 @@ function measureInstructionNode(node: InlineDiffInstructionNode): MeasuredInstru
   const representativeInstruction = node.instruction ?? node.newInstruction ?? node.oldInstruction;
   const segments: MeasuredInstructionSegment[] = [];
 
-  if (node.state === 'replaced' || node.state === 'text-modified') {
+  if (node.state === 'text-modified' && representativeInstruction) {
+    const intrinsicDimensions = calculateInstructionDimensions(representativeInstruction);
+    const intrinsicClearance = calculateElementVerticalClearance(representativeInstruction, intrinsicDimensions);
+    let dimensions = intrinsicDimensions;
+    let clearance = intrinsicClearance;
+
+    if (node.labelChange && (representativeInstruction.category === 'input' || representativeInstruction.category === 'output')) {
+      dimensions = {
+        ...intrinsicDimensions,
+        width: Math.max(intrinsicDimensions.width, calculateCompactLabelWidth(node.labelChange)),
+      };
+      clearance = {
+        ...intrinsicClearance,
+        aboveWire: intrinsicDimensions.centerY + INLINE_NATIVE_LABEL_STACK_HEIGHT,
+      };
+    }
+
+    const operandTextChanges = getEffectiveOperandTextChanges(node);
+
+    if (operandTextChanges.length > 0 && representativeInstruction.category !== 'input' && representativeInstruction.category !== 'output') {
+      const operandRowHeights = getBoxRowHeights(
+        representativeInstruction.operands.length,
+        operandTextChanges,
+      );
+      const expandedDimensions = calculateBoxDimensions(
+        representativeInstruction.mnemonic,
+        representativeInstruction.operands,
+        operandRowHeights,
+      );
+      dimensions = {
+        width: Math.max(
+          expandedDimensions.width,
+          calculateExpandedOperandWidth(representativeInstruction, operandTextChanges),
+        ),
+        height: expandedDimensions.height,
+        centerY: expandedDimensions.centerY,
+      };
+      clearance = {
+        aboveWire: dimensions.centerY,
+        belowWire: dimensions.height - dimensions.centerY,
+      };
+    }
+
+    segments.push(
+      createMeasuredSegment('single', 'text-modified', representativeInstruction, node.renderMetadata, {
+        dimensions,
+        clearance,
+      }),
+    );
+  } else if (node.state === 'replaced') {
     if (node.oldInstruction) {
       segments.push(createMeasuredSegment('old', 'removed', node.oldInstruction, node.oldRenderMetadata));
     }
@@ -325,6 +473,46 @@ function measureInlineDiffRung(model: InlineDiffRungModel): MeasuredInlineDiffRu
   };
 }
 
+function buildInlineDiffCommentLayout(
+  model: InlineDiffRungModel,
+  yOffset: number,
+  leftRailX: number,
+  rightRailX: number,
+): InlineDiffCommentLayout | undefined {
+  if (model.commentChange) {
+    const width = getRungCommentWidth(leftRailX, rightRailX);
+    const oldLines = wrapRungComment(model.commentChange.oldText, width);
+    const newLines = wrapRungComment(model.commentChange.newText, width);
+    const totalLineCount = oldLines.length + newLines.length;
+
+    if (totalLineCount === 0) {
+      return undefined;
+    }
+
+    return {
+      x: leftRailX + RUNG_START_OFFSET,
+      y: yOffset,
+      width,
+      height: totalLineCount * COMMENT_LINE_HEIGHT,
+      lineHeight: COMMENT_LINE_HEIGHT,
+      lines: newLines.length > 0 ? newLines : oldLines,
+      state: 'text-modified',
+      oldLines,
+      newLines,
+    };
+  }
+
+  const comment = calculateRungCommentLayout(model.comment, yOffset, leftRailX, rightRailX);
+  if (!comment) {
+    return undefined;
+  }
+
+  return {
+    ...comment,
+    state: 'unchanged',
+  };
+}
+
 export function calculateInlineDiffRungContentWidth(model: InlineDiffRungModel): number {
   return measureInlineDiffRung(model).contentWidth;
 }
@@ -340,7 +528,11 @@ function buildInlineDiffRungLayoutFromMeasured(
 ): InlineDiffRungLayout {
   const yOffset = options.yOffset ?? 0;
   const leftRailX = options.leftRailX ?? (RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH);
-  const wireY = yOffset + measured.lineMetrics.aboveWire;
+  const comment = buildInlineDiffCommentLayout(model, yOffset, leftRailX, options.rightRailX);
+  const commentHeight = comment?.height ?? 0;
+  const commentGap = comment ? COMMENT_BOTTOM_GAP : 0;
+  const contentYOffset = yOffset + commentHeight + commentGap;
+  const wireY = contentYOffset + measured.lineMetrics.aboveWire;
 
   let conditionX = leftRailX + RUNG_START_OFFSET;
   const conditionLayouts = measured.measuredConditions.map((node) => {
@@ -362,14 +554,15 @@ function buildInlineDiffRungLayoutFromMeasured(
     rungNumber: model.rungNumber,
     rungState: model.rungState,
     yOffset,
-    height: measured.lineMetrics.height,
+    height: commentHeight + commentGap + measured.lineMetrics.height,
     contentWidth: measured.contentWidth,
     leftRailX,
     rightRailX: options.rightRailX,
+    comment,
     lines: [
       {
         lineIndex: 0,
-        yOffset: 0,
+        yOffset: commentHeight + commentGap,
         height: measured.lineMetrics.height,
         wireY,
         conditions: conditionLayouts,
@@ -424,6 +617,7 @@ function positionMeasuredInstructionNode(
       instruction: segment.instruction,
       position,
       dimensions: segment.dimensions,
+      intrinsicDimensions: segment.intrinsicDimensions,
       clearance: segment.clearance,
       symbolOffset: getSymbolOffset(segment.instruction, segment.dimensions),
       renderMetadata: segment.renderMetadata,
@@ -441,6 +635,10 @@ function positionMeasuredInstructionNode(
     dimensions: measured.dimensions,
     clearance: measured.clearance,
     segments,
+    textChange: measured.node.textChange,
+    changedOperandIndex: measured.node.changedOperandIndex,
+    operandTextChanges: measured.node.operandTextChanges,
+    labelChange: measured.node.labelChange,
   };
 }
 

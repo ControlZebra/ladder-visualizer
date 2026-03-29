@@ -3,6 +3,8 @@ export {
   BRANCH_CONNECTOR_OFFSET,
   BRANCH_VERTICAL_GAP,
   CHAR_WIDTH_ESTIMATE,
+  COMMENT_BOTTOM_GAP,
+  COMMENT_LINE_HEIGHT,
   INSTRUCTION_GAP,
   LABEL_OFFSET,
   LABEL_PADDING,
@@ -20,13 +22,16 @@ export {
   calculateElementVerticalClearance,
   calculateInstructionDimensions,
   calculateMinDiagramWidth,
+  calculateRungCommentLayout,
   calculateRungContentWidth,
   calculateRungLayoutComplete,
   calculateRungLayouts,
   containsBranches,
   getInstructionLabelAndAddress,
+  getRungCommentWidth,
   getRungElements,
   positionBranch,
+  wrapRungComment,
 } from './rungLayout';
 
 export {
@@ -34,6 +39,14 @@ export {
   calculateInlineDiffRungContentWidth,
   calculateInlineDiffRungMinWidth,
 } from './diffLayoutAdapters';
+
+export {
+  measureRoutineDiffRowHeight,
+} from './routineDiffMeasurement';
+
+export type {
+  RoutineDiffRowMeasurementInput,
+} from './routineDiffMeasurement';
 
 export type {
   BranchGroupLayout,
@@ -43,6 +56,7 @@ export type {
   ElementPartition,
   InstructionLayout,
   LineLayout,
+  RungCommentLayout,
   RungElementLayout,
   RungLayout,
   RungLayoutResult,
@@ -53,6 +67,7 @@ export type {
   BuildInlineDiffRungLayoutOptions,
   InlineDiffBranchLayout,
   InlineDiffBranchLegLayout,
+  InlineDiffCommentLayout,
   InlineDiffInstructionLayout,
   InlineDiffInstructionSegmentLayout,
   InlineDiffLineLayout,

@@ -44,6 +44,13 @@ interface InlineDiffDemoScenario {
   highlights: string[];
 }
 
+interface InlineDiffDemoScenarioOption {
+  id: string;
+  label: string;
+  description: string;
+  scenario: InlineDiffDemoScenario;
+}
+
 function isBranchGroupElement(element: RungElement): element is BranchGroup {
   return 'type' in element && element.type === 'branch';
 }
@@ -81,6 +88,35 @@ function flattenInstructions(elements: RungElement[]): Instruction[] {
   }
 
   return instructions;
+}
+
+function createInstruction(
+  mnemonic: string,
+  category: Instruction['category'],
+  operands: string[],
+): Instruction {
+  return {
+    mnemonic,
+    category,
+    operands,
+  };
+}
+
+function createBranch(...branches: BranchGroup['branches']): BranchGroup {
+  return {
+    type: 'branch',
+    branches,
+  };
+}
+
+function createDemoRung(number: number, elements: RungElement[], comment?: string): NormalizedRung {
+  return {
+    number,
+    raw: `rung-${number}`,
+    comment,
+    elements,
+    instructions: flattenInstructions(elements),
+  };
 }
 
 function cloneRung(rung: NormalizedRung): NormalizedRung {
@@ -265,14 +301,137 @@ function createInlineDiffDemoScenario(rung: NormalizedRung): InlineDiffDemoScena
     model: buildInlineDiffModel({
       oldRung: rung,
       newRung,
-      maxLength: 32,
     }),
     highlights,
   };
 }
 
+function createContactTextOnlyDemoScenario(): InlineDiffDemoScenario {
+  const oldRung = createDemoRung(37, [
+    createInstruction('XIC', 'input', ['Local:1:I.Data.0']),
+    createInstruction('OTE', 'output', ['RunCmd']),
+  ]);
+  const newRung = createDemoRung(37, [
+    createInstruction('XIC', 'input', ['Local:2:I.Data.1']),
+    createInstruction('OTE', 'output', ['RunCmd']),
+  ]);
+
+  return {
+    oldRung,
+    newRung,
+    model: buildInlineDiffModel({
+      oldRung,
+      newRung,
+    }),
+    highlights: [
+      'Rung 37',
+      'Text-only contact label change',
+      'No mnemonic swap or structural insertion',
+    ],
+  };
+}
+
+function createCoilTextOnlyDemoScenario(): InlineDiffDemoScenario {
+  const oldRung = createDemoRung(40, [
+    createBranch(
+      [createInstruction('OTE', 'output', ['Local:3:O.Data.0'])],
+      [createInstruction('OTE', 'output', ['RunCmd'])],
+    ),
+  ]);
+  const newRung = createDemoRung(40, [
+    createBranch(
+      [createInstruction('OTE', 'output', ['Local:4:O.Data.1'])],
+      [createInstruction('OTE', 'output', ['RunCmd'])],
+    ),
+  ]);
+
+  return {
+    oldRung,
+    newRung,
+    model: buildInlineDiffModel({
+      oldRung,
+      newRung,
+    }),
+    highlights: [
+      'Rung 40',
+      'Text-only coil label change',
+      'Branch-contained label diff without structural replacement',
+    ],
+  };
+}
+
+function createSingleOperandBoxTextOnlyDemoScenario(): InlineDiffDemoScenario {
+  const oldRung = createDemoRung(41, [
+    createInstruction('MOV', 'math', ['MotorStartPermissiveSignal', 'DestTag']),
+  ]);
+  const newRung = createDemoRung(41, [
+    createInstruction('MOV', 'math', ['MotorStartPermissiveBypassSignal', 'DestTag']),
+  ]);
+
+  return {
+    oldRung,
+    newRung,
+    model: buildInlineDiffModel({
+      oldRung,
+      newRung,
+    }),
+    highlights: [
+      'Rung 41',
+      'Single-row box operand text change',
+      'One changed operand stays inside the existing box row',
+    ],
+  };
+}
+
+function createMultiOperandBoxTextOnlyDemoScenario(): InlineDiffDemoScenario {
+  const oldRung = createDemoRung(42, [
+    createInstruction('CPT', 'math', ['MotorSpeedSource', 'ScaleFactorA', 'DestTag']),
+  ]);
+  const newRung = createDemoRung(42, [
+    createInstruction('CPT', 'math', ['MotorSpeedFallback', 'ScaleFactorB', 'DestTag']),
+  ]);
+
+  return {
+    oldRung,
+    newRung,
+    model: buildInlineDiffModel({
+      oldRung,
+      newRung,
+    }),
+    highlights: [
+      'Rung 42',
+      'Stable multi-row box operand diff',
+      'Two changed operands render in place inside one CPT box',
+    ],
+  };
+}
+
+function createReorderedBoxOperandsDemoScenario(): InlineDiffDemoScenario {
+  const oldRung = createDemoRung(43, [
+    createInstruction('MOV', 'math', ['Source_A', 'Dest_A']),
+  ]);
+  const newRung = createDemoRung(43, [
+    createInstruction('MOV', 'math', ['Dest_A', 'Source_A']),
+  ]);
+
+  return {
+    oldRung,
+    newRung,
+    model: buildInlineDiffModel({
+      oldRung,
+      newRung,
+    }),
+    highlights: [
+      'Rung 43',
+      'Reordered box operands stay structural',
+      'Expected old/new replacement pair because operand mapping is ambiguous',
+    ],
+  };
+}
+
 function InlineDiffDemoPanel({ routine, programLabel }: { routine: NormalizedRoutine; programLabel: string }) {
   const [selectedRungIndex, setSelectedRungIndex] = useState(() => findDefaultInlineDiffRungIndex(routine));
+  const [selectedScenarioId, setSelectedScenarioId] = useState('synthetic-routine');
 
   useEffect(() => {
     setSelectedRungIndex(findDefaultInlineDiffRungIndex(routine));
@@ -280,13 +439,63 @@ function InlineDiffDemoPanel({ routine, programLabel }: { routine: NormalizedRou
 
   const selectedRung = routine.rungs[selectedRungIndex] ?? null;
   const selectId = `inline-diff-rung-select-${programLabel.replace(/\s+/g, '-').toLowerCase()}-${routine.name.replace(/\s+/g, '-').toLowerCase()}`;
-  const scenario = useMemo(() => {
+  const scenarioSelectId = `inline-diff-scenario-select-${programLabel.replace(/\s+/g, '-').toLowerCase()}-${routine.name.replace(/\s+/g, '-').toLowerCase()}`;
+  const routineScenario = useMemo(() => {
     if (!selectedRung) {
       return null;
     }
 
     return createInlineDiffDemoScenario(selectedRung);
   }, [selectedRung]);
+  const scenarioOptions = useMemo<InlineDiffDemoScenarioOption[]>(() => {
+    const options: InlineDiffDemoScenarioOption[] = [];
+
+    if (routineScenario) {
+      options.push({
+        id: 'synthetic-routine',
+        label: `Routine-based synthetic diff (Rung ${selectedRung?.number ?? 'n/a'})`,
+        description: 'Mixed diff generated from the selected routine rung with structural and comment changes.',
+        scenario: routineScenario,
+      });
+    }
+
+    options.push(
+      {
+        id: 'text-only-contact',
+        label: 'Text-only contact label diff (Rung 37)',
+        description: 'Top-level contact label change rendered in the native contact label slot.',
+        scenario: createContactTextOnlyDemoScenario(),
+      },
+      {
+        id: 'text-only-coil',
+        label: 'Text-only coil label diff (Rung 40)',
+        description: 'Branch-contained coil label change rendered in the native coil label slot.',
+        scenario: createCoilTextOnlyDemoScenario(),
+      },
+      {
+        id: 'text-only-box-single-operand',
+        label: 'Single-row box operand diff (Rung 41)',
+        description: 'Baseline box case where one operand changes and the diff stays inside one MOV operand row.',
+        scenario: createSingleOperandBoxTextOnlyDemoScenario(),
+      },
+      {
+        id: 'text-only-box-multi-operand',
+        label: 'Multi-row box operand diff (Rung 42)',
+        description: 'Two fixed-position operand edits stay text-only and render as stacked old/new values inside one CPT box.',
+        scenario: createMultiOperandBoxTextOnlyDemoScenario(),
+      },
+      {
+        id: 'box-reordered-operands-structural',
+        label: 'Reordered box operands fallback (Rung 43)',
+        description: 'Operand reordering remains structural, so the demo should show separate old and new MOV segments.',
+        scenario: createReorderedBoxOperandsDemoScenario(),
+      },
+    );
+
+    return options;
+  }, [routineScenario, selectedRung]);
+  const selectedScenario = scenarioOptions.find((option) => option.id === selectedScenarioId) ?? scenarioOptions[0] ?? null;
+  const scenario = selectedScenario?.scenario ?? null;
 
   const selectedRungHasBranch = useMemo(
     () => (selectedRung ? hasBranchGroup(selectedRung.elements) : false),
@@ -319,10 +528,27 @@ function InlineDiffDemoPanel({ routine, programLabel }: { routine: NormalizedRou
         <div>
           <h2 style={styles.inlineDiffDemoTitle}>One-Rung Inline Diff</h2>
           <p style={styles.inlineDiffDemoDescription}>
-            Synthetic review preview for {programLabel} / {routine.name}. The demo reuses the exported inline diff model builder and SVG renderer.
+            Review preview for {programLabel} / {routine.name}. Choose between the routine-based synthetic diff and targeted contact, coil, and box instruction examples.
           </p>
         </div>
         <div style={styles.inlineDiffDemoControls}>
+          <label style={styles.inlineDiffDemoLabel} htmlFor={scenarioSelectId}>
+            Scenario
+          </label>
+          <select
+            id={scenarioSelectId}
+            value={selectedScenario?.id ?? ''}
+            onChange={(event) => setSelectedScenarioId(event.target.value)}
+            style={styles.inlineDiffDemoSelect}
+          >
+            {scenarioOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {selectedScenario?.id === 'synthetic-routine' && (
+            <>
           <label style={styles.inlineDiffDemoLabel} htmlFor={selectId}>
             Demo rung
           </label>
@@ -338,10 +564,18 @@ function InlineDiffDemoPanel({ routine, programLabel }: { routine: NormalizedRou
               </option>
             ))}
           </select>
+            </>
+          )}
         </div>
       </div>
 
+      <p style={styles.inlineDiffDemoScenarioDescription}>{selectedScenario?.description}</p>
+
       <div style={styles.inlineDiffDemoMetaRow}>
+        <div style={styles.inlineDiffDemoMetaCard}>
+          <span style={styles.inlineDiffDemoMetaLabel}>Scenario</span>
+          <strong style={styles.inlineDiffDemoMetaValue}>{selectedScenario?.label ?? 'Unavailable'}</strong>
+        </div>
         <div style={styles.inlineDiffDemoMetaCard}>
           <span style={styles.inlineDiffDemoMetaLabel}>Preview state</span>
           <strong style={styles.inlineDiffDemoMetaValue}>{scenario.model.rungState}</strong>
@@ -352,7 +586,15 @@ function InlineDiffDemoPanel({ routine, programLabel }: { routine: NormalizedRou
         </div>
         <div style={styles.inlineDiffDemoMetaCard}>
           <span style={styles.inlineDiffDemoMetaLabel}>Branch coverage</span>
-          <strong style={styles.inlineDiffDemoMetaValue}>{selectedRungHasBranch ? 'Selected rung includes branches' : 'Series-only fallback'}</strong>
+          <strong style={styles.inlineDiffDemoMetaValue}>
+            {selectedScenario?.id === 'synthetic-routine'
+              ? selectedRungHasBranch
+                ? 'Selected rung includes branches'
+                : 'Series-only fallback'
+              : scenario.model.nodes.some((node) => node.kind === 'branch')
+                ? 'Scenario includes branches'
+                : 'Series-only scenario'}
+          </strong>
         </div>
       </div>
 
@@ -1104,6 +1346,12 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.5,
     color: colors.textLight,
     maxWidth: '720px',
+  },
+  inlineDiffDemoScenarioDescription: {
+    margin: '0',
+    fontSize: '13px',
+    lineHeight: 1.5,
+    color: colors.text,
   },
   inlineDiffDemoControls: {
     display: 'flex',

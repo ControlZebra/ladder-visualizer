@@ -1,13 +1,19 @@
 # One Rung Inline Visual Diff Product Requirements
 
 Status: Draft
-Last Updated: March 26, 2026
+Last Updated: March 27, 2026
 Owner: Engineering
 Applies To: ladder-visualizer package, with ControlZebra consuming the package API
 
 ## Summary
 
 This document defines the product requirements for a one-rung inline visual diff experience for Rockwell RLL ladder logic.
+
+## Implementation Snapshot
+
+- the Phase 3 instruction-local text rendering contract is implemented in `ladder-visualizer`
+- focused ControlZebra L5X diff integration tests pass against the linked package
+- remaining work is centered on Phase 4 hardening, richer comment disclosure, and stronger desktop-specific inline-rung validation
 
 The goal is to let users review rung changes inside a single rung surface instead of comparing separate old and new rung diagrams. The experience should remain understandable for controls engineers and non-software specialists who understand ladder logic but should not need to reason in source diff terms.
 
@@ -49,7 +55,7 @@ The rendering model should follow these principles:
 - As a user, I want unchanged parts of the rung to stay visible so I can understand the full logic context.
 - As a user, I want added and removed branch structures to remain understandable within the same rung layout.
 - As a user, I want text-only changes such as tag or parameter name changes to be shown compactly so the diff stays readable.
-- As a user, I want long text diffs to degrade gracefully so large industrial tag names do not make the rung unreadable.
+- As a user, I want long text diffs to remain readable without detached helper widgets even when industrial tag names are large.
 
 ## Core Functional Requirements
 
@@ -90,19 +96,32 @@ The rendering model should follow these principles:
 For component parameter, operand, or tag-name changes where the change is effectively text inside an otherwise stable instruction shape:
 
 - The system must keep a neutral box rather than rendering separate red and green component boxes.
+- The system must render the changed text inside the instruction's native text area rather than in a detached diff widget above, below, or outside the instruction.
 - The system must show only the primary changed text inline.
-- The old text must render in red with strikethrough.
-- The new text must render after it in green bold text.
-- When space is limited, the inline text diff may be truncated.
-- A hover or detail affordance must reveal the full text diff when truncation occurs.
+- The old text must render in red with strikethrough on the first row of the native text area.
+- The new text must render in green bold text on the second row of the same native text area.
+- Under the normal instruction-local Phase 3 contract, label and operand diffs should not truncate; the native text region may grow instead.
+
+For box instructions specifically:
+
+- Operand-only text changes must render on the operand row where that value normally appears.
+- Operand-only text changes must use the same two-line old/new stack inside that operand row.
+- The system must not render a detached footer pill or accessory operand diff block beneath the box.
 
 ### 6. Contact And Coil Label Changes
 
 For label-style changes where the label is shown around the contact or coil rather than inside a large instruction box:
 
-- The new label must remain the primary visible label.
-- The old label must render as struck-through red text just before the new label or above it in a smaller style.
+- The label diff must render in the normal label slot above the symbol.
+- The old label must render as struck-through red text on the first row within that label slot.
+- The new label must render as the emphasized primary visible label on the second row within that label slot.
 - The label treatment must preserve readability of the ladder symbol itself.
+- The system must not render a detached label badge or accessory label widget outside the native label region.
+
+### 6a. Comment Change Exception
+
+- Rung comment diffs may render in a dedicated comment band above the ladder content.
+- Comment diffs are the one allowed external text-diff presentation because the comment is already external to any one instruction.
 
 ### 7. Branch-Aware Diff Rendering
 
@@ -134,19 +153,22 @@ For label-style changes where the label is shown around the contact or coil rath
 
 - Old text must be shown in red with strikethrough.
 - New text must be shown in green and bold.
+- Instruction-local label and operand diffs must render as a two-line stack in the native instruction text region, with old on the first row and new on the second row.
 - Inline text diff styling must remain readable in dense industrial naming patterns.
+- Instruction-local text diffs must read as one instruction with changed text, not as an instruction plus a separate diff badge.
 
 ### 4. Density Management
 
 - The inline diff must remain readable when modified components expand horizontally.
 - The system may use horizontal scrolling when needed.
+- The system may expand the native label or operand text region to fit a two-line instruction-local diff.
 - The system must not shrink symbols or text to the point that ladder review becomes unsafe.
 
 ## Interaction Requirements
 
 ### 1. Detail Access
 
-- The user must be able to inspect the full value of truncated inline text diffs.
+- The user must be able to inspect the full value of truncated comment diffs or any future overflow fallback.
 - The user must be able to inspect additional detail for a changed component when the inline presentation is insufficient.
 
 ### 2. Fallback Behavior
@@ -183,14 +205,28 @@ These decisions were explicitly chosen for v1.
 
 - Text-only parameter or tag-name changes use a neutral box.
 - Only the primary changed text is shown inline.
+- Instruction-local text diffs render in the instruction's native text area, not in detached helper widgets.
 - Old text is red and struck through.
 - New text is green and bold.
-- Long inline text diffs are truncated with hover or detail fallback.
+- Instruction-local label and operand diffs render as a two-line stack with old on the first row and new on the second row.
+- Instruction-local label and operand diffs do not truncate in the normal path; the native text region grows instead.
 
 ### Decision 6: Contact And Coil Label Changes
 
-- New label remains primary.
-- Old label appears struck through just before it or above it in smaller text.
+- Old label appears struck through on the first row in the native label slot above the symbol.
+- New label remains primary on the second row in the native label slot above the symbol.
+- Detached label badges are not part of the intended design.
+
+### Decision 7: Box Operand Text Changes
+
+- Operand-only diffs stay inside the box on the affected operand row.
+- Operand-only diffs render as a two-line old/new stack inside that operand row.
+- Detached footer operand widgets are not part of the intended design.
+
+### Decision 8: Comment Diff Placement
+
+- Comment diffs may remain in a dedicated external comment band.
+- Comments are the only accepted external text diff band for v1.
 
 ## Acceptance Criteria
 
@@ -198,8 +234,11 @@ These decisions were explicitly chosen for v1.
 - A user can distinguish added, removed, and modified components directly in one rung.
 - A user can understand rung-level additions and removals from rung tinting alone.
 - A user can understand text-only changes without duplicated instruction boxes.
+- A user sees contact and coil label-only changes in the normal label area above the symbol as a two-line old/new stack.
+- A user sees box operand-only changes inside the relevant box row as a two-line old/new stack.
+- No detached label or operand diff widget is rendered for instruction-local text changes.
 - A user can identify branch additions, removals, and in-leg edits within the same rung context.
-- Truncated text diffs still allow access to the full values through hover or detail disclosure.
+- Truncated comment diffs still allow access to the full values through hover or detail disclosure.
 - The rendering remains legible in both light and dark themes.
 
 ## Out Of Scope For V1
@@ -218,8 +257,8 @@ At minimum, the package will need reusable seams for:
 
 - component-level diff render metadata
 - rung-level diff state styling
-- text-only inline diff rendering inside or around existing instruction shapes
+- text-only inline diff rendering inside native instruction text regions as two-line old/new stacks, with only rung comments allowed in a dedicated external band
 - branch-aware diff rendering rules
-- overflow-safe detail disclosure for truncated inline text changes
+- detail disclosure for comment diffs and any future overflow fallback
 
 ControlZebra remains responsible for mapping controller diffs into the package's rendering contract, but ladder-visualizer should own the reusable rendering behavior.

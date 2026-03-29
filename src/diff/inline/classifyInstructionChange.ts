@@ -1,9 +1,9 @@
 import type { Instruction } from '../../types';
-import { getInstructionLabelAndAddress } from '../../layout';
-import { truncateTextChange, type TruncateTextChangeOptions } from './truncateTextChange';
+import { getInstructionLabelAndAddress } from '../../layout/rungLayout';
 import type {
   InlineDiffState,
   InlineInstructionRenderMetadata,
+  InlineOperandTextChange,
   InlineTextChange,
 } from './types';
 
@@ -13,6 +13,8 @@ export interface InstructionChangeClassification {
   oldInstruction?: Instruction;
   newInstruction?: Instruction;
   textChange?: InlineTextChange;
+  changedOperandIndex?: number;
+  operandTextChanges?: InlineOperandTextChange[];
   labelChange?: InlineTextChange;
   renderMetadata?: InlineInstructionRenderMetadata;
   oldRenderMetadata?: InlineInstructionRenderMetadata;
@@ -44,10 +46,43 @@ function instructionsEqual(oldInstruction: Instruction, newInstruction: Instruct
   return oldInstruction.operands.every((operand, index) => operand === newInstruction.operands[index]);
 }
 
+function isContactOrCoil(instruction: Instruction): boolean {
+  return instruction.category === 'input' || instruction.category === 'output';
+}
+
+function hasReorderedOrAmbiguousOperandMapping(
+  oldInstruction: Instruction,
+  newInstruction: Instruction,
+  changedOperandIndexes: number[],
+): boolean {
+  if (changedOperandIndexes.length <= 1) {
+    return false;
+  }
+
+  const oldChangedOperands = new Set(
+    changedOperandIndexes.map((index) => oldInstruction.operands[index] ?? ''),
+  );
+
+  return changedOperandIndexes.some((index) => oldChangedOperands.has(newInstruction.operands[index] ?? ''));
+}
+
+function buildOperandTextChanges(
+  oldInstruction: Instruction,
+  newInstruction: Instruction,
+  changedOperandIndexes: number[],
+): InlineOperandTextChange[] {
+  return changedOperandIndexes.map((operandIndex) => ({
+    operandIndex,
+    change: {
+      oldText: oldInstruction.operands[operandIndex] ?? '',
+      newText: newInstruction.operands[operandIndex] ?? '',
+    },
+  }));
+}
+
 export function classifyInstructionChange(
   oldInstruction: Instruction,
   newInstruction: Instruction,
-  options: TruncateTextChangeOptions = {},
 ): InstructionChangeClassification {
   const oldRenderMetadata = getInstructionRenderMetadata(oldInstruction);
   const newRenderMetadata = getInstructionRenderMetadata(newInstruction);
@@ -85,6 +120,47 @@ export function classifyInstructionChange(
     return indexes;
   }, []);
 
+  if (changedOperandIndexes.length === 0) {
+    return {
+      state: 'unchanged',
+      instruction: newInstruction,
+      oldInstruction,
+      newInstruction,
+      renderMetadata: newRenderMetadata,
+      oldRenderMetadata,
+      newRenderMetadata,
+      hasStructuralChange: false,
+      hasTextOnlyChange: false,
+    };
+  }
+
+  if (
+    !isContactOrCoil(newInstruction) &&
+    !hasReorderedOrAmbiguousOperandMapping(oldInstruction, newInstruction, changedOperandIndexes)
+  ) {
+    const operandTextChanges = buildOperandTextChanges(
+      oldInstruction,
+      newInstruction,
+      changedOperandIndexes,
+    );
+    const changedOperandIndex = changedOperandIndexes.length === 1 ? changedOperandIndexes[0] : undefined;
+
+    return {
+      state: 'text-modified',
+      instruction: newInstruction,
+      oldInstruction,
+      newInstruction,
+      textChange: changedOperandIndex === undefined ? undefined : operandTextChanges[0]?.change,
+      changedOperandIndex,
+      operandTextChanges,
+      renderMetadata: newRenderMetadata,
+      oldRenderMetadata,
+      newRenderMetadata,
+      hasStructuralChange: false,
+      hasTextOnlyChange: true,
+    };
+  }
+
   if (changedOperandIndexes.length !== 1) {
     return {
       state: 'replaced',
@@ -100,7 +176,7 @@ export function classifyInstructionChange(
   const changedOperandIndex = changedOperandIndexes[0];
 
   if (
-    (newInstruction.category === 'input' || newInstruction.category === 'output') &&
+    isContactOrCoil(newInstruction) &&
     changedOperandIndex === 0
   ) {
     return {
@@ -108,11 +184,10 @@ export function classifyInstructionChange(
       instruction: newInstruction,
       oldInstruction,
       newInstruction,
-      labelChange: truncateTextChange(
-        oldRenderMetadata.label ?? oldInstruction.operands[0] ?? '',
-        newRenderMetadata.label ?? newInstruction.operands[0] ?? '',
-        options,
-      ),
+      labelChange: {
+        oldText: oldRenderMetadata.label ?? oldInstruction.operands[0] ?? '',
+        newText: newRenderMetadata.label ?? newInstruction.operands[0] ?? '',
+      },
       renderMetadata: newRenderMetadata,
       oldRenderMetadata,
       newRenderMetadata,
@@ -126,11 +201,12 @@ export function classifyInstructionChange(
     instruction: newInstruction,
     oldInstruction,
     newInstruction,
-    textChange: truncateTextChange(
-      oldInstruction.operands[changedOperandIndex] ?? '',
-      newInstruction.operands[changedOperandIndex] ?? '',
-      options,
-    ),
+    changedOperandIndex,
+    operandTextChanges: buildOperandTextChanges(oldInstruction, newInstruction, [changedOperandIndex]),
+    textChange: {
+      oldText: oldInstruction.operands[changedOperandIndex] ?? '',
+      newText: newInstruction.operands[changedOperandIndex] ?? '',
+    },
     renderMetadata: newRenderMetadata,
     oldRenderMetadata,
     newRenderMetadata,

@@ -50,7 +50,6 @@ export type {
   InlineDiffElementMatch,
   InlineDiffElementMatchKind,
   InstructionChangeClassification,
-  TruncateTextChangeOptions,
 } from './inline';
 
 export {
@@ -58,7 +57,6 @@ export {
   classifyInstructionChange,
   getInstructionRenderMetadata,
   matchRungElements,
-  truncateTextChange,
 } from './inline';
 
 // Matching utilities (useful for custom diffing or testing)

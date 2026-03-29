@@ -8,7 +8,6 @@ import type {
 import { DEFAULT_THEME, mergeTheme } from '../../types';
 import type { BranchGroupLayout, InstructionLayout, RungElementLayout, RungLayout } from '../../layout';
 import {
-  ADDRESS_LABEL_OFFSET,
   BRANCH_CONNECTOR_OFFSET,
   INSTRUCTION_GAP,
   MIN_RUNG_HEIGHT,
@@ -24,6 +23,7 @@ import { ContactSymbol } from './ContactSymbol';
 import { CoilSymbol } from './CoilSymbol';
 import { BoxSymbol } from './BoxSymbol';
 import { getInstructionVisualColors } from './instructionVisuals';
+import { RungCommentText } from './RungCommentText';
 
 // ============================================================================
 // THEME CONTEXT
@@ -51,7 +51,7 @@ export function useLadderTheme(): Required<LadderDiagramTheme> {
  */
 function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
   const theme = useLadderTheme();
-  const { instruction, position, dimensions, symbolOffset, label, address } = layout;
+  const { instruction, position, dimensions, symbolOffset, label } = layout;
   const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
   const colors = getInstructionVisualColors('unchanged', theme);
   const symbolX = position.x + symbolOffset;
@@ -59,11 +59,10 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
 
   const labelX = position.x + dimensions.width / 2;
   const labelY = position.y - 5;
-  const addressY = position.y + dimensions.height + ADDRESS_LABEL_OFFSET;
 
   return (
     <g className={`instruction instruction-${instruction.category}`} data-mnemonic={instruction.mnemonic}>
-      {/* Labels for contacts/coils */}
+      {/* Contacts and coils render only the primary label above the symbol. */}
       {isContactOrCoil && label && (
         <>
           <text
@@ -77,18 +76,6 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
           >
             {label}
           </text>
-          {address && (
-            <text
-              x={labelX}
-              y={addressY}
-              textAnchor="middle"
-              fontSize="8"
-              fill={theme.addressColor}
-              className="instruction-address"
-            >
-              {address}
-            </text>
-          )}
           {/* Connecting wires for centering */}
           {symbolOffset > 0 && (
             <>
@@ -243,9 +230,13 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
   );
 
   if (rungLayout.lines.length === 0) {
-    const wireY = yOffset + MIN_RUNG_HEIGHT / 2;
+    const commentHeight = rungLayout.comment ? rungLayout.comment.height + 8 : 0;
+    const wireY = yOffset + commentHeight + MIN_RUNG_HEIGHT / 2;
     return (
-      <g className="rung">
+      <g className="rung" data-rung-index={rungIndex}>
+        {rungLayout.comment && (
+          <RungCommentText layout={rungLayout.comment} theme={theme} />
+        )}
         <line x1={leftRailX} y1={wireY} x2={rightRailX} y2={wireY} stroke={theme.wireColor} strokeWidth="1" />
       </g>
     );
@@ -253,6 +244,9 @@ function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererPr
 
   return (
     <g className="rung" data-rung-index={rungIndex}>
+      {rungLayout.comment && (
+        <RungCommentText layout={rungLayout.comment} theme={theme} />
+      )}
       {rungLayout.lines.map((line, lineIndex) => {
         // Calculate conditions end position
         let conditionsEndX = line.conditionsStartX;

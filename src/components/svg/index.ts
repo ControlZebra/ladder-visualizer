@@ -7,6 +7,8 @@ export type { CoilSymbolProps } from './CoilSymbol';
 export { BoxSymbol, calculateBoxDimensions } from './BoxSymbol';
 export type { BoxSymbolProps, BoxDimensions } from './BoxSymbol';
 
+export { RungCommentText } from './RungCommentText';
+
 export { VirtualizedLadderDiagram, useLadderTheme } from './VirtualizedLadderDiagram';
 export type { VirtualizedLadderDiagramProps } from './VirtualizedLadderDiagram';
 

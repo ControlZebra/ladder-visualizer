@@ -8,6 +8,7 @@ import type {
   ElementPartition,
   InstructionLayout,
   LineLayout,
+  RungCommentLayout,
   RungElementLayout,
   RungLayout,
   RungLayoutResult,
@@ -30,6 +31,8 @@ export const SYMBOL_WIDTH = 30;
 export const SYMBOL_HEIGHT = 20;
 export const CHAR_WIDTH_ESTIMATE = 7;
 export const LABEL_PADDING = 10;
+export const COMMENT_LINE_HEIGHT = 16;
+export const COMMENT_BOTTOM_GAP = 8;
 
 export function getRungElements(rung: NormalizedRung): RungElement[] {
   return rung.elements && rung.elements.length > 0 ? rung.elements : rung.instructions;
@@ -38,6 +41,104 @@ export function getRungElements(rung: NormalizedRung): RungElement[] {
 function calculateSymbolWidth(label: string): number {
   const textWidth = label.length * CHAR_WIDTH_ESTIMATE;
   return Math.max(SYMBOL_WIDTH, textWidth + LABEL_PADDING * 2);
+}
+
+function estimateTextWidth(text: string): number {
+  return text.length * CHAR_WIDTH_ESTIMATE;
+}
+
+function chunkToken(token: string, maxCharsPerLine: number): string[] {
+  if (maxCharsPerLine <= 0 || token.length <= maxCharsPerLine) {
+    return [token];
+  }
+
+  const chunks: string[] = [];
+  for (let index = 0; index < token.length; index += maxCharsPerLine) {
+    chunks.push(token.slice(index, index + maxCharsPerLine));
+  }
+
+  return chunks;
+}
+
+function wrapCommentLine(line: string, maxWidth: number): string[] {
+  if (line.length === 0 || maxWidth <= 0 || estimateTextWidth(line) <= maxWidth) {
+    return [line];
+  }
+
+  const maxCharsPerLine = Math.max(1, Math.floor(maxWidth / CHAR_WIDTH_ESTIMATE));
+  const tokens = line.match(/(\s+|\S+)/g) ?? [line];
+  const wrapped: string[] = [];
+  let currentLine = '';
+
+  for (const token of tokens) {
+    const candidate = `${currentLine}${token}`;
+    if (currentLine.length === 0 && estimateTextWidth(token) > maxWidth) {
+      const chunks = chunkToken(token, maxCharsPerLine);
+      wrapped.push(...chunks.slice(0, -1));
+      currentLine = chunks[chunks.length - 1] ?? '';
+      continue;
+    }
+
+    if (estimateTextWidth(candidate) <= maxWidth) {
+      currentLine = candidate;
+      continue;
+    }
+
+    wrapped.push(currentLine);
+
+    if (estimateTextWidth(token) > maxWidth) {
+      const chunks = chunkToken(token, maxCharsPerLine);
+      wrapped.push(...chunks.slice(0, -1));
+      currentLine = chunks[chunks.length - 1] ?? '';
+    } else {
+      currentLine = token;
+    }
+  }
+
+  wrapped.push(currentLine);
+  return wrapped;
+}
+
+export function getRungCommentWidth(leftRailX: number, rightRailX: number): number {
+  return Math.max(rightRailX - leftRailX - 2 * RUNG_START_OFFSET, 0);
+}
+
+export function wrapRungComment(comment: string, maxWidth: number): string[] {
+  if (!comment) {
+    return [];
+  }
+
+  return comment
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .flatMap((line) => wrapCommentLine(line, maxWidth));
+}
+
+export function calculateRungCommentLayout(
+  comment: string | undefined,
+  yOffset: number,
+  leftRailX: number,
+  rightRailX: number,
+): RungCommentLayout | undefined {
+  if (!comment) {
+    return undefined;
+  }
+
+  const width = getRungCommentWidth(leftRailX, rightRailX);
+  const lines = wrapRungComment(comment, width);
+  if (lines.length === 0) {
+    return undefined;
+  }
+
+  return {
+    x: leftRailX + RUNG_START_OFFSET,
+    y: yOffset,
+    width,
+    height: lines.length * COMMENT_LINE_HEIGHT,
+    lineHeight: COMMENT_LINE_HEIGHT,
+    lines,
+  };
 }
 
 function isOperation(instruction: Instruction): boolean {
@@ -96,11 +197,11 @@ export function calculateElementVerticalClearance(
     return baseClearance;
   }
 
-  const { label, address } = getInstructionLabelAndAddress(element);
+  const { label } = getInstructionLabelAndAddress(element);
 
   return {
     aboveWire: baseClearance.aboveWire + (label ? LABEL_OFFSET : 0),
-    belowWire: baseClearance.belowWire + (address ? ADDRESS_LABEL_OFFSET : 0),
+    belowWire: baseClearance.belowWire,
   };
 }
 
@@ -400,7 +501,11 @@ export function calculateRungLayoutComplete(
   const elements = getRungElements(rung);
   const { conditions, operations } = separateElements(elements);
   const lines = splitIntoLines(conditions, operations);
-  const rungHeight = calculateLineMetrics(lines, yOffset);
+  const comment = calculateRungCommentLayout(rung.comment, yOffset, leftRailX, rightRailX);
+  const commentBlockHeight = comment ? comment.height + COMMENT_BOTTOM_GAP : 0;
+  const rungContentYOffset = yOffset + commentBlockHeight;
+  const contentHeight = calculateLineMetrics(lines, rungContentYOffset);
+  const rungHeight = commentBlockHeight + contentHeight;
 
   const lineLayouts: LineLayout[] = lines.map((line, lineIndex) => {
     const { layouts: operationsLayouts, startX: operationsStartX } = line.isLastLine && line.operations.length > 0
@@ -411,7 +516,7 @@ export function calculateRungLayoutComplete(
 
     return {
       lineIndex,
-      yOffset: line.yOffset,
+      yOffset: commentBlockHeight + line.yOffset,
       height: line.height,
       wireY: line.wireY,
       conditions: conditionLayouts,
@@ -426,6 +531,7 @@ export function calculateRungLayoutComplete(
     rungIndex,
     yOffset,
     height: rungHeight,
+    comment,
     lines: lineLayouts,
     hasBranches: containsBranches(elements),
   };

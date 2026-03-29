@@ -132,6 +132,37 @@ describe('L5XParser', () => {
       expect(rung?.instructions[2].operands).toEqual(['Output1']);
     });
 
+    it('should preserve multi-line rung comments exactly as authored', () => {
+      const l5xContent = `<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="TestProgram" TargetType="Program">
+<Controller Use="Context" Name="TestController">
+<Programs>
+<Program Name="MainProgram">
+<Routines>
+<Routine Name="Main" Type="RLL">
+<RLLContent>
+<Rung Number="137" Type="N">
+<Comment><![CDATA[Cooker #1
+Drop To Drop Tub
+Verify No Alarms
+And Path OK]]></Comment>
+<Text><![CDATA[XIC(Cooker1.BIT_Logic[5].0)OTE(Cooker1.Transfer_Step_OK[1]);]]></Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</Program>
+</Programs>
+</Controller>
+</RSLogix5000Content>`;
+
+      const result = parser.parse(l5xContent);
+      const rung = result.data?.programs[0].routines[0].rungs[0];
+
+      expect(result.success).toBe(true);
+      expect(rung?.comment).toBe('Cooker #1\nDrop To Drop Tub\nVerify No Alarms\nAnd Path OK');
+    });
+
     it('should parse data types', () => {
       const l5xContent = `<?xml version="1.0" encoding="UTF-8"?>
 <RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="Test" TargetType="Program">
