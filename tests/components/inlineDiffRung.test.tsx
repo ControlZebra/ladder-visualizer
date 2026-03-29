@@ -322,7 +322,7 @@ describe('InlineDiffRung', () => {
     expect(markup).not.toContain('data-inline-diff-segment="new"');
     expect(markup).toContain('Local:1:I.Data.0');
     expect(markup).toContain('Local:2:I.Data.1');
-    expect(markup).toContain('&lt;Local:2:I.Data.1&gt;');
+    expect(markup).not.toContain('instruction-address');
     expect(markup).toContain('text-decoration="line-through"');
   });
 
@@ -370,6 +370,63 @@ describe('InlineDiffRung', () => {
     expect(markup).not.toContain('data-inline-diff-segment="new"');
   });
 
+  it('keeps the native box outline while removing the outer tint stroke for added box instructions', () => {
+    const tintFillColor = '#d7f5dd';
+    const boxBorderColor = '#0f9d58';
+    const model = buildInlineDiffModel({
+      newRung: rung(39, [instruction('MOV', 'math', ['SourceTag', 'DestTag'])]),
+    });
+
+    const markup = renderToStaticMarkup(
+      <InlineDiffRung
+        model={model}
+        theme={{
+          diffAddedFillColor: tintFillColor,
+          diffAddedBorderColor: boxBorderColor,
+        }}
+      />,
+    );
+
+    expect(markup).toContain(`fill="${tintFillColor}"`);
+    expect(markup).not.toMatch(/<rect[^>]*class="inline-diff-segment-tint"[^>]*stroke=/);
+    expect(markup).toMatch(new RegExp(`<rect[^>]*stroke="${boxBorderColor}"`));
+  });
+
+  it('keeps full branch highlights as fill-only without diff-colored connector rails or tint strokes', () => {
+    const connectorColor = '#335577';
+    const wireColor = '#557799';
+    const tintFillColor = '#d7f5dd';
+    const diffBorderColor = '#0f9d58';
+    const model = buildInlineDiffModel({
+      newRung: rung(40, [
+        branch(
+          [instruction('XIC', 'input', ['AutoMode'])],
+          [instruction('XIC', 'input', ['ManualMode'])],
+        ),
+      ]),
+    });
+
+    const markup = renderToStaticMarkup(
+      <InlineDiffRung
+        model={model}
+        theme={{
+          branchConnectorColor: connectorColor,
+          wireColor,
+          diffAddedFillColor: tintFillColor,
+          diffAddedBorderColor: diffBorderColor,
+        }}
+      />,
+    );
+
+    expect(markup).toContain(`fill="${tintFillColor}"`);
+    expect(markup).not.toMatch(/<rect[^>]*class="inline-diff-leg-tint"[^>]*stroke=/);
+    expect((markup.match(/class="branch-connector"/g) ?? [])).toHaveLength(2);
+    expect((markup.match(new RegExp(`class="branch-connector"`, 'g')) ?? [])).toHaveLength(2);
+    expect((markup.match(new RegExp(`stroke="${connectorColor}"`, 'g')) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(markup).not.toContain(`class="branch-connector"></line><line x1="159" y1="43" x2="159" y2="86" stroke="${diffBorderColor}"`);
+    expect((markup.match(new RegExp(`stroke="${wireColor}"`, 'g')) ?? []).length).toBeGreaterThan(1);
+  });
+
   it('renders changed comments as native stacked old and new text above the diff rung content', () => {
     const model = buildInlineDiffModel({
       oldRung: rung(39, [instruction('XIC', 'input', ['StartPB'])], 'Original permissive comment'),
@@ -413,7 +470,7 @@ describe('InlineDiffRung', () => {
     expect(markup).toContain('data-inline-diff-text-row="old"');
     expect(markup).toContain('data-inline-diff-text-row="new"');
     expect(markup).not.toContain('data-inline-diff-text-change="label"');
-    expect(markup).toContain('&lt;Local:4:O.Data.1&gt;');
+    expect(markup).not.toContain('instruction-address');
     expect(markup).not.toContain('data-inline-diff-segment="old"');
     expect(markup).not.toContain('data-inline-diff-segment="new"');
   });

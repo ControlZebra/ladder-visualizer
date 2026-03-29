@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ADDRESS_LABEL_OFFSET,
   BRANCH_CONNECTOR_OFFSET,
   LABEL_OFFSET,
   SYMBOL_HEIGHT,
@@ -46,14 +45,14 @@ function expectInstructionLayout(element: RungElement | { type: string } | unkno
 }
 
 describe('rungLayout', () => {
-  it('centralizes vertical clearance rules for labeled and addressed contacts', () => {
+  it('centralizes vertical clearance rules for contact and coil labels above the wire only', () => {
     const addressedContact = instruction('XIC', 'input', ['Local:1:I.Data.0']);
     const plainContact = instruction('XIC', 'input', ['MotorStartPB']);
     const coil = instruction('OTE', 'output', ['RunCommand']);
 
     expect(calculateElementVerticalClearance(addressedContact)).toEqual({
       aboveWire: SYMBOL_HEIGHT / 2 + LABEL_OFFSET,
-      belowWire: SYMBOL_HEIGHT / 2 + ADDRESS_LABEL_OFFSET,
+      belowWire: SYMBOL_HEIGHT / 2,
     });
 
     expect(calculateElementVerticalClearance(plainContact)).toEqual({

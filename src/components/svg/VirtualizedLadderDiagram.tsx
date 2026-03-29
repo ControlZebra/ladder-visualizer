@@ -8,7 +8,6 @@ import type {
 import { DEFAULT_THEME, mergeTheme } from '../../types';
 import type { BranchGroupLayout, InstructionLayout, RungElementLayout, RungLayout } from '../../layout';
 import {
-  ADDRESS_LABEL_OFFSET,
   BRANCH_CONNECTOR_OFFSET,
   INSTRUCTION_GAP,
   MIN_RUNG_HEIGHT,
@@ -52,7 +51,7 @@ export function useLadderTheme(): Required<LadderDiagramTheme> {
  */
 function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
   const theme = useLadderTheme();
-  const { instruction, position, dimensions, symbolOffset, label, address } = layout;
+  const { instruction, position, dimensions, symbolOffset, label } = layout;
   const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
   const colors = getInstructionVisualColors('unchanged', theme);
   const symbolX = position.x + symbolOffset;
@@ -60,11 +59,10 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
 
   const labelX = position.x + dimensions.width / 2;
   const labelY = position.y - 5;
-  const addressY = position.y + dimensions.height + ADDRESS_LABEL_OFFSET;
 
   return (
     <g className={`instruction instruction-${instruction.category}`} data-mnemonic={instruction.mnemonic}>
-      {/* Labels for contacts/coils */}
+      {/* Contacts and coils render only the primary label above the symbol. */}
       {isContactOrCoil && label && (
         <>
           <text
@@ -78,18 +76,6 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
           >
             {label}
           </text>
-          {address && (
-            <text
-              x={labelX}
-              y={addressY}
-              textAnchor="middle"
-              fontSize="8"
-              fill={theme.addressColor}
-              className="instruction-address"
-            >
-              {address}
-            </text>
-          )}
           {/* Connecting wires for centering */}
           {symbolOffset > 0 && (
             <>

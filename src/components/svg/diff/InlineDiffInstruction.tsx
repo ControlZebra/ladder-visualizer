@@ -1,6 +1,5 @@
 import type { LadderDiagramTheme } from '../../../types';
 import {
-  ADDRESS_LABEL_OFFSET,
   SYMBOL_WIDTH,
 } from '../../../layout';
 import type { InlineDiffInstructionLayout, InlineDiffInstructionSegmentLayout } from '../../../layout';
@@ -106,7 +105,6 @@ function renderSegment(
   const wireY = position.y + dimensions.centerY;
   const labelX = position.x + dimensions.width / 2;
   const labelY = position.y - 5;
-  const addressY = position.y + dimensions.height + ADDRESS_LABEL_OFFSET;
   const tintY = wireY - layout.clearance.aboveWire;
   const tintHeight = layout.clearance.aboveWire + layout.clearance.belowWire;
   const effectiveOperandTextChanges = operandTextChanges && operandTextChanges.length > 0
@@ -125,27 +123,13 @@ function renderSegment(
           height={tintHeight}
           rx={4}
           fill={colors.tintFillColor}
-          stroke={colors.tintStrokeColor}
-          strokeWidth={1}
           className="inline-diff-segment-tint"
         />
       )}
 
-      {isContactOrCoil && (renderMetadata?.label || renderMetadata?.address) && (
+      {isContactOrCoil && renderMetadata?.label && (
         <>
           {renderInstructionLabel(layout, theme, labelX, labelY, labelChange)}
-          {renderMetadata.address && (
-            <text
-              x={labelX}
-              y={addressY}
-              textAnchor="middle"
-              fontSize="8"
-              fill={colors.addressColor}
-              className="instruction-address"
-            >
-              {renderMetadata.address}
-            </text>
-          )}
           {contentOffset > 0 && (
             <>
               <line x1={position.x} y1={wireY} x2={position.x + contentOffset} y2={wireY} stroke={colors.wireColor} strokeWidth="1" />

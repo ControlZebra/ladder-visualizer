@@ -197,11 +197,11 @@ export function calculateElementVerticalClearance(
     return baseClearance;
   }
 
-  const { label, address } = getInstructionLabelAndAddress(element);
+  const { label } = getInstructionLabelAndAddress(element);
 
   return {
     aboveWire: baseClearance.aboveWire + (label ? LABEL_OFFSET : 0),
-    belowWire: baseClearance.belowWire + (address ? ADDRESS_LABEL_OFFSET : 0),
+    belowWire: baseClearance.belowWire,
   };
 }
 
