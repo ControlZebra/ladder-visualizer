@@ -6,6 +6,7 @@
 
 // Parser
 export { L5XParser, l5xParser } from './l5x-parser';
+export { L5XConflictVisualAdapter, l5xConflictVisualAdapter } from './l5x-conflict-visual-adapter';
 
 // Transformation
 export { l5xToNormalized } from './l5x-to-normalized';

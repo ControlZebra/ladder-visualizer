@@ -47,6 +47,9 @@ export * from './types';
 // Export parsers
 export * from './parsers';
 
+// Export conflict visualization contracts
+export * from './conflict';
+
 // Export diff engine
 export * from './diff';
 
