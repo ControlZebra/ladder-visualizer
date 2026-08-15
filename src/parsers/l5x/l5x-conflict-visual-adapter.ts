@@ -46,18 +46,32 @@ export class L5XConflictVisualAdapter implements ConflictVisualAdapter {
   private classifyFragment(source: string): ClassifiedFragment {
     const rootName = this.getSingleRootName(source);
     if (!rootName) {
+      const bareCdata = extractSingleCdata(source);
+      if (bareCdata !== null) {
+        return this.parseSyntheticRung(syntheticRungWithText(bareCdata), false);
+      }
       return { fallback: { reason: 'invalid-fragment' } };
     }
 
     switch (rootName) {
       case 'Rung':
-        return this.parseRung(source);
+        return this.parseSyntheticRung(source, true);
       case 'Tag':
         return this.parseTag(source);
       case 'Line':
         return this.parseStructuredTextLine(source);
-      case 'Comment':
-      case 'Text':
+      case 'Text': {
+        const cdata = extractElementCdata(source, 'Text');
+        return cdata !== null
+          ? this.parseSyntheticRung(syntheticRungWithText(cdata), false)
+          : { fallback: { reason: 'incomplete-unit' } };
+      }
+      case 'Comment': {
+        const cdata = extractElementCdata(source, 'Comment');
+        return cdata !== null
+          ? this.parseSyntheticRung(syntheticRungWithComment(cdata), false)
+          : { fallback: { reason: 'incomplete-unit' } };
+      }
       case 'STContent':
         return { fallback: { reason: 'incomplete-unit' } };
       default:
@@ -91,16 +105,16 @@ export class L5XConflictVisualAdapter implements ConflictVisualAdapter {
     }
   }
 
-  private parseRung(source: string): ClassifiedFragment {
-    const result = new L5XParser().parse(wrapRung(source));
+  private parseSyntheticRung(rungSource: string, requireRaw: boolean): ClassifiedFragment {
+    const result = new L5XParser().parse(wrapRung(rungSource));
     const rung = result.data?.programs[0]?.routines[0]?.rungs[0];
     if (!rung) {
       return { fallback: { reason: 'invalid-fragment' } };
     }
-
-    return rung.raw.trim()
-      ? { kind: 'ladder', preview: rung }
-      : { fallback: { reason: 'incomplete-unit' } };
+    if (requireRaw && !rung.raw.trim()) {
+      return { fallback: { reason: 'incomplete-unit' } };
+    }
+    return { kind: 'ladder', preview: rung };
   }
 
   private parseTag(source: string): ClassifiedFragment {
@@ -117,6 +131,29 @@ export class L5XConflictVisualAdapter implements ConflictVisualAdapter {
 }
 
 export const l5xConflictVisualAdapter = new L5XConflictVisualAdapter();
+
+const SINGLE_CDATA_PATTERN = /^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/;
+
+function extractSingleCdata(source: string): string | null {
+  const match = source.match(SINGLE_CDATA_PATTERN);
+  return match ? match[1] : null;
+}
+
+function extractElementCdata(source: string, tagName: string): string | null {
+  const pattern = new RegExp(
+    `^\\s*<${tagName}(?:\\s[^>]*)?>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*</${tagName}>\\s*$`,
+  );
+  const match = source.match(pattern);
+  return match ? match[1] : null;
+}
+
+function syntheticRungWithText(cdata: string): string {
+  return `<Rung Number="0" Type="N"><Text><![CDATA[${cdata}]]></Text></Rung>`;
+}
+
+function syntheticRungWithComment(cdata: string): string {
+  return `<Rung Number="0" Type="N"><Comment><![CDATA[${cdata}]]></Comment><Text><![CDATA[]]></Text></Rung>`;
+}
 
 function wrapRung(source: string): string {
   return wrapInRoutine('RLL', `<RLLContent>${source}</RLLContent>`);

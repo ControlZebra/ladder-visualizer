@@ -25,7 +25,13 @@ export { ParserRegistry, parserRegistry, createParserRegistry } from './parser-r
 
 // Individual parsers
 export { JSONParser, jsonParser, jsonToNormalized } from './json';
-export { L5XParser, l5xParser, l5xToNormalized } from './l5x';
+export {
+  L5XParser,
+  l5xParser,
+  l5xToNormalized,
+  L5XConflictVisualAdapter,
+  l5xConflictVisualAdapter,
+} from './l5x';
 
 // ============================================
 // Register default parsers
