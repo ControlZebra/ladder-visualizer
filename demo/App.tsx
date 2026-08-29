@@ -1,19 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   parseFile,
+  parseString,
   VirtualizedLadderDiagram,
   InlineDiffRung,
   TagTable,
   ControllerInfo,
   ProgramNavigator,
-  jsonToNormalized,
   AOIParameterTable,
   AOILocalTagTable,
   StructuredTextViewer,
   ModuleInfoTable,
   buildInlineDiffModel,
-  registerAOIsFromController,
-  clearAOIs,
 } from '../src';
 import type { 
   NormalizedController,
@@ -30,8 +28,9 @@ import { DataTypeTable } from './DataTypeTable';
 import { TabBar, TabData } from './TabBar';
 import { useTabs } from './useTabs';
 
-// Import the sample data
-import controllerData from '../examples/controller_output.json';
+// Import the single real-world sample as source text so the demo exercises the
+// same public L5X parsing path as uploaded files.
+import controllerSource from '../examples/Cooker_1_AutoLogic_Program.L5X?raw';
 
 // ============================================================================
 // MAIN APP COMPONENT
@@ -639,11 +638,11 @@ export default function App() {
   // Load demo data on mount
   useEffect(() => {
     try {
-      const normalized = jsonToNormalized(controllerData);
-      // Register AOIs from the parsed controller for proper parameter label display
-      clearAOIs();
-      registerAOIsFromController(normalized);
-      setController(normalized);
+      const result = parseString(controllerSource, 'l5x');
+      if (!result.success || !result.data) {
+        throw new Error(result.errors?.map((parseError) => parseError.message).join(', ') || 'Failed to parse demo L5X');
+      }
+      setController(result.data);
       setFileName(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse controller data');
@@ -687,11 +686,11 @@ export default function App() {
    */
   const handleLoadDemo = useCallback(() => {
     try {
-      const normalized = jsonToNormalized(controllerData);
-      // Register AOIs from the parsed controller for proper parameter label display
-      clearAOIs();
-      registerAOIsFromController(normalized);
-      setController(normalized);
+      const result = parseString(controllerSource, 'l5x');
+      if (!result.success || !result.data) {
+        throw new Error(result.errors?.map((parseError) => parseError.message).join(', ') || 'Failed to parse demo L5X');
+      }
+      setController(result.data);
       setFileName(null);
       setError(null);
       closeAllTabs();

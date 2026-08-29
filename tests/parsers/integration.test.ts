@@ -1,137 +1,111 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { parseString, parserRegistry, jsonToNormalized } from '../../src/parsers';
+import { parseString, parserRegistry } from '../../src/parsers';
 import { createTagResolver } from '../../src/parsers/tag-resolver';
 
-describe('Integration: Real Controller Export', () => {
-  const jsonPath = join(__dirname, '../../examples/controller_output.json');
-  const jsonData = JSON.parse(readFileSync(jsonPath, 'utf-8'));
+const l5xPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+const l5xContent = readFileSync(l5xPath, 'utf-8');
+const parsedExample = parseString(l5xContent, 'l5x');
 
-  it('should parse the real controller export', () => {
-    const controller = jsonToNormalized(jsonData);
+if (!parsedExample.success || !parsedExample.data) {
+  throw new Error(parsedExample.errors?.map((error) => error.message).join(', ') || 'Failed to parse example L5X');
+}
 
-    // Controller name is extracted from comm_path or serial_number
-    expect(controller.name).toBeDefined();
-    expect(controller.name.length).toBeGreaterThan(0);
+const controller = parsedExample.data;
+
+const minimalJsonContent = JSON.stringify({
+  serial_number: 'TEST-JSON',
+  comm_path: '',
+  created_date: '',
+  modified_date: '',
+  data_types: [],
+  tags: [],
+  programs: [],
+  aois: [],
+  map_devices: [],
+});
+
+describe('Integration: Real L5X Controller Export', () => {
+  it('parses the restored real controller export', () => {
+    expect(controller.name).toBe('PLC100_Mashing');
     expect(controller.dataTypes.length).toBeGreaterThan(0);
     expect(controller.tags.length).toBeGreaterThan(0);
     expect(controller.programs.length).toBeGreaterThan(0);
   });
 
-  it('should parse all routines from the real export', () => {
-    const controller = jsonToNormalized(jsonData);
+  it('parses ladder instructions across real routines', () => {
+    const rllRoutines = controller.programs
+      .flatMap((program) => program.routines)
+      .filter((routine) => routine.type === 'RLL' && routine.rungs.length > 0);
 
-    for (const program of controller.programs) {
-      for (const routine of program.routines) {
-        expect(routine.name).toBeDefined();
-        expect(routine.rungs.length).toBeGreaterThan(0);
+    expect(rllRoutines.length).toBeGreaterThan(0);
 
-        // Each rung should have at least some instructions
-        for (const rung of routine.rungs) {
-          if (rung.raw && rung.raw.length > 0) {
-            expect(rung.instructions.length).toBeGreaterThan(0);
-          }
+    for (const routine of rllRoutines) {
+      for (const rung of routine.rungs) {
+        if (rung.raw.trim()) {
+          expect(rung.instructions.length).toBeGreaterThan(0);
         }
       }
     }
   });
 
-  it('should resolve tags from the real export', () => {
-    const controller = jsonToNormalized(jsonData);
+  it('resolves tags used by the real controller', () => {
     const resolver = createTagResolver(controller);
 
-    // Check that we have tags
-    const allTags = resolver.getAllTags();
-    expect(allTags.length).toBeGreaterThan(0);
-
-    // Check that some tags are used
-    const usedTags = resolver.getUsedTags();
-    expect(usedTags.length).toBeGreaterThan(0);
-
-    // Verify a known tag from the export
-    const tempTag = resolver.getTag('Ambient_Temperature');
-    if (tempTag) {
-      expect(tempTag.dataType).toBe('INT');
-      expect(tempTag.tagType).toBe('Base');
-    }
+    expect(resolver.getAllTags().length).toBeGreaterThan(0);
+    expect(resolver.getUsedTags().length).toBeGreaterThan(0);
   });
 
-  it('should parse instructions with complex expressions', () => {
-    const controller = jsonToNormalized(jsonData);
-    const routine = controller.programs[0].routines[0];
+  it('parses complex CPT expressions from the real controller', () => {
+    const cptInstruction = controller.programs
+      .flatMap((program) => program.routines)
+      .flatMap((routine) => routine.rungs)
+      .flatMap((rung) => rung.instructions)
+      .find((instruction) => instruction.mnemonic === 'CPT');
 
-    // Find a CPT instruction
-    const cptRung = routine.rungs.find((r) =>
-      r.instructions.some((i) => i.mnemonic === 'CPT')
-    );
-
-    expect(cptRung).toBeDefined();
-    if (cptRung) {
-      const cptInstr = cptRung.instructions.find((i) => i.mnemonic === 'CPT');
-      expect(cptInstr?.operands.length).toBe(2);
-    }
+    expect(cptInstruction).toBeDefined();
+    expect(cptInstruction?.operands.length).toBe(2);
   });
 });
 
 describe('Integration: Unified parseString API', () => {
-  it('should parse JSON format using auto-detection', () => {
-    const jsonPath = join(__dirname, '../../examples/controller_output.json');
-    const jsonContent = readFileSync(jsonPath, 'utf-8');
-
-    const result = parseString(jsonContent);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    expect(result.data?.vendor).toBe('rockwell');
-    expect(result.data?.sourceFormat).toBe('json');
-    expect(result.data?.programs.length).toBeGreaterThan(0);
-  });
-
-  it('should parse L5X format using auto-detection', () => {
-    const l5xPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    const l5xContent = readFileSync(l5xPath, 'utf-8');
-
+  it('auto-detects the restored L5X example', () => {
     const result = parseString(l5xContent);
 
     expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    expect(result.data?.vendor).toBe('rockwell');
     expect(result.data?.sourceFormat).toBe('l5x');
     expect(result.data?.name).toBe('PLC100_Mashing');
     expect(result.data?.programs.length).toBeGreaterThan(0);
     expect(result.data?.dataTypes.length).toBeGreaterThan(0);
   });
 
-  it('should parse JSON format with explicit format hint', () => {
-    const jsonPath = join(__dirname, '../../examples/controller_output.json');
-    const jsonContent = readFileSync(jsonPath, 'utf-8');
-
-    const result = parseString(jsonContent, 'json');
-
-    expect(result.success).toBe(true);
-    expect(result.data?.sourceFormat).toBe('json');
-  });
-
-  it('should parse L5X format with explicit format hint', () => {
-    const l5xPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    const l5xContent = readFileSync(l5xPath, 'utf-8');
-
+  it('parses the restored L5X example with an explicit format hint', () => {
     const result = parseString(l5xContent, 'l5x');
 
     expect(result.success).toBe(true);
     expect(result.data?.sourceFormat).toBe('l5x');
   });
 
-  it('should have both JSON and L5X parsers registered', () => {
+  it('still auto-detects JSON without keeping a second multi-megabyte fixture', () => {
+    const result = parseString(minimalJsonContent);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.sourceFormat).toBe('json');
+  });
+
+  it('still parses JSON with an explicit format hint', () => {
+    const result = parseString(minimalJsonContent, 'json');
+
+    expect(result.success).toBe(true);
+    expect(result.data?.sourceFormat).toBe('json');
+  });
+
+  it('has both JSON and L5X parsers registered', () => {
     const allParsers = parserRegistry.getAllParsers();
-    
+
     expect(allParsers.length).toBeGreaterThanOrEqual(2);
-    
-    const jsonParser = parserRegistry.getParser('rockwell-json');
-    expect(jsonParser).toBeDefined();
-    
-    const l5xParser = parserRegistry.getParser('rockwell-l5x');
-    expect(l5xParser).toBeDefined();
+    expect(parserRegistry.getParser('rockwell-json')).toBeDefined();
+    expect(parserRegistry.getParser('rockwell-l5x')).toBeDefined();
   });
 });

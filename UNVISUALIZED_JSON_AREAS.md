@@ -1,6 +1,6 @@
 # Unvisualized JSON Areas
 
-This document lists the content from `controller_output.json` that is **not currently visualized** in the Ladder Visualizer application.
+This historical audit was produced from the former `controller_output.json` sample, which is no longer stored in the repository. The current demo and real-world integration coverage use `Cooker_1_AutoLogic_Program.L5X`; focused inline fixtures retain JSON parser coverage.
 
 ## Overview
 

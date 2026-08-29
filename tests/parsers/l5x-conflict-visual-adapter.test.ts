@@ -105,16 +105,24 @@ describe('L5XConflictVisualAdapter', () => {
     }
   });
 
-  it('classifies a bare CDATA payload as a ladder preview', () => {
-    const result = adapter.classifyRegion(
+  it.each([
+    [
+      'ladder-looking content',
       '<![CDATA[XIC(Cooker1.BIT_Logic[0].4)OTE(Cooker1.STATUS_BIT_HMI[0].13);]]>',
       '<![CDATA[XIC(Cooker1.BIT_Logic[0].6)OTE(Cooker1.STATUS_BIT_HMI[0].12);]]>',
+    ],
+    [
+      'descriptive content',
+      '<![CDATA[Pump description]]>',
+      '<![CDATA[Updated pump description]]>',
+    ],
+  ])('falls back for bare CDATA containing %s', (_description, current, incoming) => {
+    const result = adapter.classifyRegion(
+      current,
+      incoming,
     );
-    expect('kind' in result && result.kind).toBe('ladder');
-    if ('kind' in result) {
-      expect(result.current).toMatchObject({ raw: 'XIC(Cooker1.BIT_Logic[0].4)OTE(Cooker1.STATUS_BIT_HMI[0].13);' });
-      expect(result.incoming).toMatchObject({ raw: 'XIC(Cooker1.BIT_Logic[0].6)OTE(Cooker1.STATUS_BIT_HMI[0].12);' });
-    }
+
+    expect(result).toEqual({ reason: 'incomplete-unit' });
   });
 
   it('classifies a multi-line Comment CDATA as a ladder preview', () => {

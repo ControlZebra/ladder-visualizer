@@ -38,7 +38,7 @@ JSON File → parseControllerExport() → ControllerExport (domain type) → Com
 
 ### Current Data Flow
 ```
-controller_output.json
+Rockwell JSON export
         ↓
 parseControllerExport(json) → Zod validation → ControllerExport
         ↓
@@ -573,14 +573,14 @@ const handleFileUpload = async (file: File) => {
 
 | Test Scenario | Description |
 |---------------|-------------|
-| JSON → Normalized → Render | Full flow with existing JSON |
+| JSON → Normalized → Render | Full flow with focused synthetic JSON fixtures |
 | L5X → Normalized → Render | Full flow with L5X file |
 | Same project, both formats | Parse same PLC project exported in both formats, compare |
 
 ### Test Files
 
-- Use existing `controller_output.json`
-- Use existing `Cooker_1_AutoLogic_Program.L5X`
+- Use `Cooker_1_AutoLogic_Program.L5X` for real-world parser and rendering coverage
+- Use focused inline JSON fixtures for JSON detection and parser edge cases
 - Create minimal test fixtures for edge cases
 
 ---

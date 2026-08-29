@@ -230,7 +230,7 @@ function highlightLine(line: string): TokenSpan[] {
     if (matched) continue;
 
     // Single character operators/punctuation
-    if (/[+\-*\/=<>()[\]{};:,.]/.test(line[i])) {
+    if (/[+\-*/=<>()[\]{};:,.]/.test(line[i])) {
       spans.push({ text: line[i], className: 'st-operator' });
       i++;
       continue;

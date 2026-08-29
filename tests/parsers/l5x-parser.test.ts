@@ -3,6 +3,9 @@ import { L5XParser, l5xParser } from '../../src/parsers/l5x';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+const exampleL5XPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+const exampleL5XContent = readFileSync(exampleL5XPath, 'utf-8');
+
 describe('L5XParser', () => {
   let parser: L5XParser;
 
@@ -329,18 +332,7 @@ And Path OK]]></Comment>
 
 describe('L5XParser with real L5X file', () => {
   it('should parse the example Cooker_1_AutoLogic_Program.L5X file', () => {
-    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    let content: string;
-    
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      // Skip test if file doesn't exist
-      console.log('Skipping test: example L5X file not found');
-      return;
-    }
-
-    const result = l5xParser.parse(content);
+    const result = l5xParser.parse(exampleL5XContent);
 
     expect(result.success).toBe(true);
     expect(result.data).toBeDefined();
@@ -384,17 +376,7 @@ describe('L5XParser with real L5X file', () => {
   });
 
   it('should parse AOIs with full metadata from example file', () => {
-    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    let content: string;
-    
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      console.log('Skipping test: example L5X file not found');
-      return;
-    }
-
-    const result = l5xParser.parse(content);
+    const result = l5xParser.parse(exampleL5XContent);
 
     expect(result.success).toBe(true);
     expect(result.data).toBeDefined();
@@ -447,17 +429,7 @@ describe('L5XParser with real L5X file', () => {
   });
 
   it('should parse VFD AOI with InOut parameters', () => {
-    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    let content: string;
-    
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      console.log('Skipping test: example L5X file not found');
-      return;
-    }
-
-    const result = l5xParser.parse(content);
+    const result = l5xParser.parse(exampleL5XContent);
 
     expect(result.success).toBe(true);
 
@@ -479,17 +451,7 @@ describe('L5XParser with real L5X file', () => {
   });
 
   it('should parse AOI local tags with dimensions (arrays)', () => {
-    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    let content: string;
-    
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      console.log('Skipping test: example L5X file not found');
-      return;
-    }
-
-    const result = l5xParser.parse(content);
+    const result = l5xParser.parse(exampleL5XContent);
 
     expect(result.success).toBe(true);
 
@@ -505,17 +467,7 @@ describe('L5XParser with real L5X file', () => {
   });
 
   it('should correctly extract controller name and metadata from Program export', () => {
-    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    let content: string;
-    
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      console.log('Skipping test: example L5X file not found');
-      return;
-    }
-
-    const result = l5xParser.parse(content);
+    const result = l5xParser.parse(exampleL5XContent);
 
     expect(result.success).toBe(true);
     expect(result.data).toBeDefined();
@@ -530,17 +482,7 @@ describe('L5XParser with real L5X file', () => {
   });
 
   it('should parse data types with usage context information', () => {
-    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    let content: string;
-    
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      console.log('Skipping test: example L5X file not found');
-      return;
-    }
-
-    const result = l5xParser.parse(content);
+    const result = l5xParser.parse(exampleL5XContent);
 
     expect(result.success).toBe(true);
     expect(result.data).toBeDefined();
@@ -553,17 +495,7 @@ describe('L5XParser with real L5X file', () => {
   });
 
   it('should parse modules with name and usage information', () => {
-    const filePath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
-    let content: string;
-    
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      console.log('Skipping test: example L5X file not found');
-      return;
-    }
-
-    const result = l5xParser.parse(content);
+    const result = l5xParser.parse(exampleL5XContent);
 
     expect(result.success).toBe(true);
     expect(result.data).toBeDefined();

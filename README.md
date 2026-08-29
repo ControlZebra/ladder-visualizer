@@ -406,7 +406,7 @@ Based on analysis of the controller export JSON, the following high-level catego
 
 #### Task 8.3: Demo Application
 - [ ] Build standalone demo app
-- [ ] Load sample `controller_output.json`
+- [ ] Load sample `Cooker_1_AutoLogic_Program.L5X`
 - [ ] Showcase all visualization components
 
 ---
@@ -463,7 +463,7 @@ ladder-visualizer/
 │   └── index.ts                   # Public API
 │
 ├── examples/
-│   └── controller_output.json     # Sample data
+│   └── Cooker_1_AutoLogic_Program.L5X  # Real-world sample data
 │
 ├── tests/
 │   ├── parsers/

@@ -46,9 +46,8 @@ export class L5XConflictVisualAdapter implements ConflictVisualAdapter {
   private classifyFragment(source: string): ClassifiedFragment {
     const rootName = this.getSingleRootName(source);
     if (!rootName) {
-      const bareCdata = extractSingleCdata(source);
-      if (bareCdata !== null) {
-        return this.parseSyntheticRung(syntheticRungWithText(bareCdata), false);
+      if (SINGLE_CDATA_PATTERN.test(source)) {
+        return { fallback: { reason: 'incomplete-unit' } };
       }
       return { fallback: { reason: 'invalid-fragment' } };
     }
@@ -132,12 +131,7 @@ export class L5XConflictVisualAdapter implements ConflictVisualAdapter {
 
 export const l5xConflictVisualAdapter = new L5XConflictVisualAdapter();
 
-const SINGLE_CDATA_PATTERN = /^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/;
-
-function extractSingleCdata(source: string): string | null {
-  const match = source.match(SINGLE_CDATA_PATTERN);
-  return match ? match[1] : null;
-}
+const SINGLE_CDATA_PATTERN = /^\s*<!\[CDATA\[[\s\S]*?\]\]>\s*$/;
 
 function extractElementCdata(source: string, tagName: string): string | null {
   const pattern = new RegExp(
