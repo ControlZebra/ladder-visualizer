@@ -15,10 +15,19 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: ControlZebra/l5x-schema
+          ref: 441573b4f96493a0fa31627a51b8a4ecb857e980
+          path: l5x-schema
       - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+      - run: npm run test:schema
+        env:
+          L5X_SCHEMA_DIR: ${{ github.workspace }}/l5x-schema/schemas
       - run: npm run test:conformance
       - run: npm run typecheck

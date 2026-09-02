@@ -21,22 +21,29 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 ## Corpus matrix
 
-| Fixture                    | Studio 5000 | L5X target                 | Artifact           | Contract status | Current parser             |
-| -------------------------- | ----------- | -------------------------- | ------------------ | --------------- | -------------------------- |
-| `controller-rll-v35`       | 35.01       | Controller                 | Controller         | complete        | succeeds                   |
-| `program-rll-v34`          | 34.01       | Program                    | Program            | complete        | succeeds                   |
-| `routine-rll-v33`          | 33.00       | Routine                    | Routine            | complete        | succeeds                   |
-| `rung-rll-v33`             | 33.00       | Rung                       | Rung               | failed          | rejects unsupported target |
-| `tags-v34`                 | 34.01       | Tag                        | Tag set            | failed          | rejects unsupported target |
-| `datatype-v35`             | 35.01       | DataType                   | UDT                | failed          | rejects unsupported target |
-| `aoi-v35`                  | 35.01       | AddOnInstructionDefinition | AOI                | complete        | succeeds                   |
-| `module-v35`               | 35.01       | Module                     | Module             | failed          | rejects unsupported target |
-| `fbd-v35`                  | 35.01       | Program                    | FBD routine        | partial         | succeeds with body loss    |
-| `sfc-v35`                  | 35.01       | Program                    | SFC routine        | partial         | succeeds with body loss    |
-| `protected-routine-v35`    | 35.01       | Program                    | Protected routine  | partial         | succeeds with body loss    |
-| `malformed-truncated-v35`  | 35.01       | Controller                 | Truncated XML      | failed          | rejects invalid XML        |
-| `malformed-mismatched-v34` | 34.01       | Controller                 | Mismatched XML     | failed          | rejects invalid XML        |
-| `adversarial-doctype-v35`  | 35.01       | Controller                 | Entity declaration | failed          | currently succeeds         |
+The core corpus contains every required artifact target for every declared Studio 5000 version. Each cell is backed by a separate fixture rather than inferring compatibility from a different version.
+
+| Artifact target            | v33.00   | v34.01   | v35.01   | Current boundary                    |
+| -------------------------- | -------- | -------- | -------- | ----------------------------------- |
+| Controller                 | complete | complete | complete | Controller-shaped result            |
+| Program                    | complete | complete | complete | Controller-shaped result            |
+| Routine                    | complete | complete | complete | Controller-shaped result            |
+| Rung                       | failed   | failed   | failed   | Target validator rejects `Rung`     |
+| Tag                        | failed   | failed   | failed   | Target validator rejects `Tag`      |
+| DataType (UDT)             | failed   | failed   | failed   | Target validator rejects `DataType` |
+| AddOnInstructionDefinition | complete | complete | complete | AOI metadata and RLL normalize      |
+| Module                     | failed   | failed   | failed   | Target validator rejects `Module`   |
+
+Three additional `full-project-vXX` fixtures exercise the same semantic families in v33, v34, and v35:
+
+- Structured Text lines, RLL, FBD, SFC, and protected routines.
+- Base, produced, and consumed tags plus decorated array data.
+- AOI and program parameters and local tags.
+- Module ports and connections.
+- Tasks, scheduled programs, and wall-clock configuration.
+- The schema transition where `MaxObservedNetworkDelay` is an integer in v33 and a float in v34/v35.
+
+Focused v35 FBD, SFC, and protected-routine fixtures retain small loss-regression cases. Truncated v35 XML, mismatched v34 XML, and a v35 entity-declaration fixture cover malformed and adversarial handling.
 
 The distinction between contract status and current parser outcome is deliberate. The public parser still returns a legacy boolean result and cannot express `partial`; the corpus records the intended production status without pretending the legacy API already provides it. Later Phase 1 work can replace the current-outcome assertion with a direct status assertion.
 
@@ -47,7 +54,14 @@ Every fixture declares both `sourceCounts` and `normalizedCounts`:
 - Source counts are lexical counts of the entity elements present in the L5X input. This remains deterministic even for intentionally malformed files.
 - Normalized counts describe the current `NormalizedController` result. They are `null` when parsing fails.
 - AOI routines and rungs are included in the aggregate routine and rung totals.
+- Counts include ST lines, AOI parameters/local tags, module ports/connections, tasks, decorated arrays, protected-content containers, and wall-clock objects where applicable.
 - A count change requires an intentional manifest update and review; tests must not silently regenerate baselines.
+
+## Schema validation
+
+Every corpus fixture other than the intentionally malformed and entity-policy cases must validate against its matching v33, v34, or v35 XSD. `npm run test:schema` uses `xmllint` and the schema directory named by `L5X_SCHEMA_DIR`; locally it defaults to the sibling `l5x-schema` checkout.
+
+CI checks out `ControlZebra/l5x-schema` at commit `441573b4f96493a0fa31627a51b8a4ecb857e980`, so schema changes cannot silently alter the baseline. Intentionally malformed and entity-policy fixtures are excluded from XSD success validation and remain covered by parser assertions.
 
 ## Adding or changing fixtures
 
@@ -56,7 +70,7 @@ Every fixture declares both `sourceCounts` and `normalizedCounts`:
 3. Declare profiles, Studio 5000 version, root target type, artifact kind, expected contract status, exact source counts, and current normalized counts or error code.
 4. Use `partial` whenever source content is omitted or recovered. Use `failed` when the source must not produce a document under the intended production contract.
 5. Never weaken an existing count merely to make a regression pass. Explain intentional model changes in the pull request.
-6. Run `npm run test:conformance`, `npm run test:run`, and `npm run typecheck`.
+6. Run `npm run test:schema`, `npm run test:conformance`, `npm run test:run`, and `npm run typecheck`.
 
 ## Reporting
 
@@ -64,4 +78,4 @@ Report corpus results by profile and Studio 5000 version, including complete, pa
 
 ## Format reference
 
-The fixture taxonomy follows Rockwell Automation publication 1756-RM014D-EN-P, _Logix 5000 Controllers Import/Export_ (September 2025). Successful fixtures were checked against the corresponding `l5x-v33.xsd`, `l5x-v34.xsd`, or `l5x-v35.xsd` from the ControlZebra `l5x-schema` project. Public vendor-generated component exports were used only to corroborate root target spellings; committed fixtures are synthetic and contain no third-party project logic.
+The fixture taxonomy follows Rockwell Automation publication 1756-RM014D-EN-P, _Logix 5000 Controllers Import/Export_ (September 2025). Fixtures are continuously checked against the corresponding `l5x-v33.xsd`, `l5x-v34.xsd`, or `l5x-v35.xsd` from the pinned ControlZebra `l5x-schema` revision. Public vendor-generated component exports were used only to corroborate root target spellings; committed fixtures are synthetic and contain no third-party project logic.

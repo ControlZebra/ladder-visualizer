@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FullProjectV35" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="FullProjectV35">
+    <DataTypes><DataType Name="FixtureType" Family="NoFamily" Class="User"><Members><Member Name="Value" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write" /></Members></DataType></DataTypes>
+    <Modules><Module Name="FixtureModule" CatalogNumber="1756-IB16" Vendor="1" ProductType="7" ProductCode="2" Major="3" Minor="1" ParentModule="Local" ParentModPortId="1"><Ports><Port Id="1" Address="1" Type="ICP" Upstream="true" /></Ports><Communications><Connections><Connection Name="Input" RPI="20000" MaxObservedNetworkDelay="12.5"><InputTag DataType="DINT" /></Connection></Connections></Communications></Module></Modules>
+    <AddOnInstructionDefinitions><AddOnInstructionDefinition Name="FixtureAOI" Class="Standard" Revision="1.0"><Parameters><Parameter Name="In" TagType="Base" DataType="BOOL" Usage="Input" /></Parameters><LocalTags><LocalTag Name="State" DataType="BOOL" /></LocalTags></AddOnInstructionDefinition></AddOnInstructionDefinitions>
+    <Tags>
+      <Tag Name="Values" TagType="Base" DataType="DINT" Dimensions="3"><Data Format="Decorated"><Array DataType="DINT" Dimensions="3" Radix="Decimal"><Element Index="[0]" Value="1" /><Element Index="[1]" Value="2" /><Element Index="[2]" Value="3" /></Array></Data></Tag>
+      <Tag Name="ProducedValue" TagType="Produced" DataType="DINT" />
+      <Tag Name="ConsumedValue" TagType="Consumed" DataType="DINT" />
+    </Tags>
+    <Programs><Program Name="FixtureProgram" MainRoutineName="Main"><Parameters><Parameter Name="ProgramInput" TagType="Base" DataType="BOOL" Usage="Input" /></Parameters><LocalTags><LocalTag Name="ProgramState" DataType="DINT" /></LocalTags><Routines>
+      <Routine Name="Main" Type="RLL"><RLLContent><Rung Number="0" Type="N"><Text><![CDATA[XIC(ProgramInput)OTE(Output);]]></Text></Rung></RLLContent></Routine>
+      <Routine Name="Structured" Type="ST"><STContent><Line Number="0"><![CDATA[ProgramState := ProgramState + 1;]]></Line><Line Number="1"><![CDATA[Output := ProgramInput;]]></Line></STContent></Routine>
+      <Routine Name="FunctionBlock" Type="FBD"><FBDContent SheetOrientation="Landscape"><Sheet Number="1"><IRef ID="1" Operand="ProgramInput" X="20" Y="20" /><ORef ID="2" Operand="Output" X="200" Y="20" /><Wire FromID="1" ToID="2" /></Sheet></FBDContent></Routine>
+      <Routine Name="Sequence" Type="SFC"><SFCContent SheetOrientation="Portrait"><Step ID="1" X="20" Y="20" InitialStep="true" /><Step ID="3" X="20" Y="220" /><Transition ID="2" X="20" Y="120" /></SFCContent></Routine>
+      <Routine Name="Protected" Type="Encrypted" SourceProtectionType="Full Protection"><ExternalContent><ExternalRoutineXml><![CDATA[synthetic-protected-content-marker]]></ExternalRoutineXml></ExternalContent></Routine>
+    </Routines></Program></Programs>
+    <Tasks><Task Name="Periodic" Type="PERIODIC" Rate="10000" Priority="10"><ScheduledPrograms><ScheduledProgram Name="FixtureProgram" /></ScheduledPrograms></Task></Tasks>
+    <WallClockTime LocalTimeAdjustment="0" TimeZone="0" />
+  </Controller>
+</RSLogix5000Content>

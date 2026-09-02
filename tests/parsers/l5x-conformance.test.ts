@@ -25,6 +25,15 @@ const sourceElements: Record<keyof L5XSourceCounts, string> = {
   modules: 'Module',
   fbdSheets: 'Sheet',
   sfcSteps: 'Step',
+  stLines: 'Line',
+  parameters: 'Parameter',
+  localTags: 'LocalTag',
+  tasks: 'Task',
+  ports: 'Port',
+  connections: 'Connection',
+  arrays: 'Array',
+  externalContents: 'ExternalContent',
+  wallClockTimes: 'WallClockTime',
 };
 
 function countSourceEntities(source: string): L5XSourceCounts {
@@ -50,6 +59,14 @@ function countNormalizedEntities(controller: NormalizedController): L5XNormalize
     rungs: routines.reduce((count, routine) => count + routine.rungs.length, 0),
     aois: controller.aois.length,
     modules: controller.modules.length,
+    stLines: routines.reduce((count, routine) => count + (routine.stContent?.length ?? 0), 0),
+    aoiParameters: controller.aois.reduce((count, aoi) => count + aoi.parameters.length, 0),
+    aoiLocalTags: controller.aois.reduce((count, aoi) => count + aoi.localTags.length, 0),
+    modulePorts: controller.modules.reduce((count, module) => count + module.ports.length, 0),
+    moduleConnections: controller.modules.reduce(
+      (count, module) => count + module.connections.length,
+      0
+    ),
   };
 }
 
@@ -79,12 +96,12 @@ describe('L5X compatibility contract', () => {
     expect(files).toEqual(L5X_FIXTURES.map((fixture) => fixture.file).sort());
   });
 
-  it('covers every required artifact family, multiple source versions, and negative-input class', () => {
+  it('covers every required artifact family in every supported source version', () => {
     const artifactKinds = new Set(L5X_FIXTURES.map((fixture) => fixture.artifactKind));
     const versions = new Set(L5X_FIXTURES.map((fixture) => fixture.studio5000Version));
     const coverage = new Set(L5X_FIXTURES.flatMap((fixture) => fixture.coverage));
 
-    for (const kind of [
+    const requiredArtifactKinds = [
       'controller',
       'program',
       'routine',
@@ -93,19 +110,81 @@ describe('L5X compatibility contract', () => {
       'data-type',
       'add-on-instruction',
       'module',
-    ]) {
+    ] as const;
+
+    for (const kind of requiredArtifactKinds) {
       expect(artifactKinds).toContain(kind);
     }
     expect(versions).toEqual(new Set(['33.00', '34.01', '35.01']));
+    for (const version of versions) {
+      const versionArtifacts = new Set(
+        L5X_FIXTURES.filter((fixture) => fixture.studio5000Version === version).map(
+          (fixture) => fixture.artifactKind
+        )
+      );
+      for (const kind of requiredArtifactKinds) {
+        expect(versionArtifacts, `${version} is missing ${kind}`).toContain(kind);
+      }
+
+      const fullProjectFixture = L5X_FIXTURES.find(
+        (fixture) =>
+          fixture.studio5000Version === version && fixture.coverage.includes('full-project export')
+      );
+      expect(
+        fullProjectFixture,
+        `${version} is missing full-project semantic coverage`
+      ).toBeDefined();
+      for (const semantic of [
+        'structured text',
+        'unsupported FBD body',
+        'unsupported SFC body',
+        'protected routine',
+        'produced tag',
+        'consumed tag',
+        'decorated array',
+        'program parameter',
+        'program local tag',
+        'module connection',
+        'task',
+        'wall clock',
+      ]) {
+        expect(fullProjectFixture?.coverage, `${version} is missing ${semantic}`).toContain(
+          semantic
+        );
+      }
+    }
+
     for (const requiredCoverage of [
       'malformed input',
       'adversarial input',
       'protected routine',
       'unsupported FBD body',
       'unsupported SFC body',
+      'structured text',
+      'produced tag',
+      'consumed tag',
+      'decorated array',
+      'program parameter',
+      'program local tag',
+      'module connection',
+      'task',
+      'wall clock',
+      'v33 integer network delay',
+      'v34 float network delay',
+      'v35 float network delay',
     ]) {
       expect(coverage).toContain(requiredCoverage);
     }
+  });
+
+  it('pins the v33-to-v34 module connection schema transition', () => {
+    const v33 = readFileSync(join(fixtureDirectory, 'full-project-v33.L5X'), 'utf-8');
+    const v34 = readFileSync(join(fixtureDirectory, 'full-project-v34.L5X'), 'utf-8');
+    const v35 = readFileSync(join(fixtureDirectory, 'full-project-v35.L5X'), 'utf-8');
+
+    expect(v33).toContain('MaxObservedNetworkDelay="12"');
+    expect(v34).toContain('MaxObservedNetworkDelay="12.5"');
+    expect(v35).toContain('MaxObservedNetworkDelay="12.5"');
   });
 
   it.each(L5X_FIXTURES)('$id matches source metadata and exact source entity counts', (fixture) => {
@@ -132,12 +211,12 @@ describe('L5X compatibility contract', () => {
 
   it('reports status counts per profile without manufacturing an overall percentage', () => {
     expect(buildProfileStatusReport()).toEqual({
-      'rockwell-controller-rll': { complete: 2, partial: 0, failed: 1 },
-      'rockwell-program-rll': { complete: 1, partial: 0, failed: 0 },
-      'rockwell-routine-rll': { complete: 1, partial: 0, failed: 0 },
-      'rockwell-rung-rll': { complete: 0, partial: 0, failed: 1 },
-      'rockwell-tags': { complete: 2, partial: 0, failed: 2 },
-      'rockwell-full-project': { complete: 0, partial: 3, failed: 3 },
+      'rockwell-controller-rll': { complete: 6, partial: 0, failed: 3 },
+      'rockwell-program-rll': { complete: 3, partial: 0, failed: 0 },
+      'rockwell-routine-rll': { complete: 3, partial: 0, failed: 0 },
+      'rockwell-rung-rll': { complete: 0, partial: 0, failed: 3 },
+      'rockwell-tags': { complete: 4, partial: 0, failed: 6 },
+      'rockwell-full-project': { complete: 0, partial: 6, failed: 3 },
     });
   });
 });
