@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="MismatchedFixture" TargetType="Controller">
+  <Controller Use="Target" Name="MismatchedFixture">
+  </Controler>
+</RSLogix5000Content>

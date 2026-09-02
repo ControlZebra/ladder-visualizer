@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE RSLogix5000Content [
+  <!ENTITY fixture "synthetic-entity-value">
+]>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="AdversarialFixture" TargetType="Controller">
+  <Controller Use="Target" Name="AdversarialFixture"><Description>&fixture;</Description></Controller>
+</RSLogix5000Content>

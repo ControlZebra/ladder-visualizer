@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="FixtureTags" TargetType="Tag" TargetCount="2" ContainsContext="false" ExportOptions="NoRawData L5KData DecoratedData">
+  <Controller Use="Target" Name="FixtureTags">
+    <Tags>
+      <Tag Name="FixtureCounter" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+        <Data Format="L5K"><![CDATA[42]]></Data>
+      </Tag>
+      <Tag Name="FixtureCounterDone" TagType="Alias" DataType="BOOL" AliasFor="FixtureCounter.0" ExternalAccess="Read/Write" />
+    </Tags>
+  </Controller>
+</RSLogix5000Content>

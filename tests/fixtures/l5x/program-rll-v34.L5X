@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="FixtureProgram" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context">
+  <Controller Use="Context" Name="FixtureController">
+    <Programs>
+      <Program Name="FixtureProgram" MainRoutineName="Main">
+        <Tags><Tag Name="RunCommand" TagType="Base" DataType="BOOL" ExternalAccess="Read/Write" /></Tags>
+        <Routines>
+          <Routine Name="Main" Type="RLL">
+            <RLLContent>
+              <Rung Number="0" Type="N"><Text><![CDATA[XIC(RunCommand)OTE(Output);]]></Text></Rung>
+              <Rung Number="1" Type="N"><Text><![CDATA[[XIC(A),XIC(B)]OTE(ParallelOutput);]]></Text></Rung>
+            </RLLContent>
+          </Routine>
+        </Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

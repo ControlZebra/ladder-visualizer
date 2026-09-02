@@ -42,6 +42,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:conformance": "vitest run tests/parsers/l5x-conformance.test.ts",
     "lint": "eslint src --ext ts,tsx",
     "typecheck": "tsc --noEmit"
   },
