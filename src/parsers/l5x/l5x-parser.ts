@@ -4,7 +4,7 @@
  * Parses L5X files exported from Studio 5000/Logix Designer software.
  */
 
-import { XMLParser } from 'fast-xml-parser';
+import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import type { NormalizedController } from '../../types/normalized';
 import {
   BaseParser,
@@ -12,7 +12,11 @@ import {
   createSuccessResult,
   createFailureResult,
 } from '../parser-interface';
-import { createParseError, ParseErrorCodes } from '../parse-error';
+import {
+  createParseError,
+  ParseErrorCodes,
+  type ParseError,
+} from '../parse-error';
 import type { L5XContent } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
 
@@ -115,6 +119,11 @@ export class L5XParser extends BaseParser {
   private doParse(input: string | ArrayBuffer): ParseResult<NormalizedController> {
     const content = this.inputToString(input);
 
+    const xmlValidationError = this.validateXML(content);
+    if (xmlValidationError) {
+      return createFailureResult([xmlValidationError]);
+    }
+
     // Parse XML
     let xml: L5XContent;
     try {
@@ -146,6 +155,33 @@ export class L5XParser extends BaseParser {
         }),
       ]);
     }
+  }
+
+  /**
+   * Validate XML well-formedness before decoding it. fast-xml-parser's parser is
+   * intentionally lenient unless validation is requested separately, which can
+   * otherwise allow truncated or mismatched L5X documents to be normalized.
+   */
+  private validateXML(content: string): ParseError | undefined {
+    const validationResult = XMLValidator.validate(content, {
+      allowBooleanAttributes: XML_PARSER_OPTIONS.allowBooleanAttributes,
+    });
+
+    if (validationResult === true) {
+      return undefined;
+    }
+
+    return createParseError(
+      `The L5X file is incomplete or malformed. Re-export it from Studio 5000, then try again. ${validationResult.err.msg}`,
+      {
+        code: ParseErrorCodes.INVALID_XML,
+        location: {
+          line: validationResult.err.line,
+          column: validationResult.err.col,
+        },
+        cause: validationResult.err,
+      }
+    );
   }
 
   /**
@@ -213,6 +249,11 @@ export class L5XParser extends BaseParser {
    */
   validate(input: string | ArrayBuffer): ParseResult<void> {
     const content = this.inputToString(input);
+
+    const xmlValidationError = this.validateXML(content);
+    if (xmlValidationError) {
+      return createFailureResult([xmlValidationError]);
+    }
 
     // Parse XML
     let xml: L5XContent;

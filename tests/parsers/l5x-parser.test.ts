@@ -269,15 +269,45 @@ And Path OK]]></Comment>
       expect(rung?.elements.length).toBeGreaterThan(0);
     });
 
-    it('should fail for invalid XML', () => {
-      // fast-xml-parser is lenient with malformed XML, so we need to use
-      // something that will definitely fail validation
+    it('should fail for non-XML input', () => {
       const invalidXml = 'This is not XML at all';
       const result = parser.parse(invalidXml);
 
       expect(result.success).toBe(false);
-      expect(result.errors).toBeDefined();
-      // Will fail on structure validation rather than XML parsing
+      expect(result.errors?.[0].code).toBe('INVALID_XML');
+    });
+
+    it('should reject mismatched XML tags before normalization', () => {
+      const mismatchedXml = `<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content TargetName="Test" TargetType="Controller">
+<Controller Name="TestController">
+</Controler>
+</RSLogix5000Content>`;
+
+      const result = parser.parse(mismatchedXml);
+
+      expect(result.success).toBe(false);
+      expect(result.data).toBeUndefined();
+      expect(result.errors?.[0]).toMatchObject({
+        code: 'INVALID_XML',
+        message: expect.stringContaining('Re-export it from Studio 5000'),
+        location: {
+          line: expect.any(Number),
+          column: expect.any(Number),
+        },
+      });
+    });
+
+    it('should reject a truncated XML document before normalization', () => {
+      const truncatedXml = `<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content TargetName="Test" TargetType="Controller">
+<Controller Name="TestController">`;
+
+      const result = parser.parse(truncatedXml);
+
+      expect(result.success).toBe(false);
+      expect(result.data).toBeUndefined();
+      expect(result.errors?.[0].code).toBe('INVALID_XML');
     });
 
     it('should fail for missing required elements', () => {
@@ -311,6 +341,18 @@ And Path OK]]></Comment>
 
       const result = parser.validate(invalidL5x);
       expect(result.success).toBe(false);
+    });
+
+    it('should reject malformed XML', () => {
+      const malformedXml = `<?xml version="1.0"?>
+<RSLogix5000Content TargetName="Test" TargetType="Controller">
+<Controller Name="TestController">
+</RSLogix5000Content>`;
+
+      const result = parser.validate(malformedXml);
+
+      expect(result.success).toBe(false);
+      expect(result.errors?.[0].code).toBe('INVALID_XML');
     });
   });
 
