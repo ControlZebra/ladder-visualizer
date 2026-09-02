@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureFBD" TargetType="Program">
+  <Controller Name="FixtureController"><Programs><Program Name="FixtureProgram"><Routines><Routine Name="FixtureFBD" Type="FBD"><FBDContent><Sheet Number="1"><Blocks><Block Type="ADD" Name="Add" /></Blocks></Sheet></FBDContent></Routine></Routines></Program></Programs></Controller>
+</RSLogix5000Content>

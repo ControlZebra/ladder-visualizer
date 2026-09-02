@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureController" TargetType="Controller">
+  <Controller Name="FixtureController">
+    <DataTypes>
+      <DataType Name="FixtureUDT" Family="NoFamily" Class="User">
+        <Members><Member Name="Value" DataType="DINT" Dimension="0" /></Members>
+      </DataType>
+    </DataTypes>
+    <Tags><Tag Name="ControllerTag" TagType="Base" DataType="DINT" /></Tags>
+    <Modules><Module Name="FixtureModule" Use="Reference" CatalogNumber="1756-L85E" /></Modules>
+    <AddOnInstructionDefinitions>
+      <AddOnInstructionDefinition Name="FixtureAOI" Class="Standard" Revision="1.0">
+        <Routines><Routine Name="Logic" Type="RLL"><RLLContent><Rung Number="0" Type="N"><Text><![CDATA[XIC(Input)OTE(Output);]]></Text></Rung></RLLContent></Routine></Routines>
+      </AddOnInstructionDefinition>
+    </AddOnInstructionDefinitions>
+    <Programs>
+      <Program Name="FixtureProgram" MainRoutineName="Main">
+        <Tags><Tag Name="ProgramTag" TagType="Base" DataType="BOOL" /></Tags>
+        <Routines><Routine Name="Main" Type="RLL"><RLLContent><Rung Number="0" Type="N"><Text><![CDATA[XIC(ControllerTag)OTE(ProgramTag);]]></Text></Rung></RLLContent></Routine></Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

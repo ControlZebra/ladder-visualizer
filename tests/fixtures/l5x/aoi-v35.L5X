@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureAOI" TargetType="AddOnInstructionDefinition">
+  <Controller Name="FixtureController"><AddOnInstructionDefinitions><AddOnInstructionDefinition Name="FixtureAOI" Class="Standard" Revision="1.0"><Parameters><Parameter Name="EnableIn" DataType="BOOL" Usage="Input" /></Parameters><LocalTags><LocalTag Name="State" DataType="BOOL" /></LocalTags><Routines><Routine Name="Logic" Type="RLL"><RLLContent><Rung Number="0" Type="N"><Text><![CDATA[XIC(EnableIn)OTE(State);]]></Text></Rung></RLLContent></Routine></Routines></AddOnInstructionDefinition></AddOnInstructionDefinitions></Controller>
+</RSLogix5000Content>

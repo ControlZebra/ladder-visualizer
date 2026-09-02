@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureModule" TargetType="Controller">
+  <Controller Name="FixtureController"><Modules><Module Name="FixtureModule" Use="Target" CatalogNumber="1756-EN2T" Vendor="Rockwell Automation" ProductType="EtherNet/IP Bridge"><Ports><Port Id="1" Type="Ethernet" Address="192.0.2.10" /></Ports></Module></Modules></Controller>
+</RSLogix5000Content>

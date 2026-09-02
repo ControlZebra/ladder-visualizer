@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="FixtureTag" TargetType="Controller">
+  <Controller Name="FixtureController"><Tags><Tag Name="FixtureTag" TagType="Base" DataType="DINT" Radix="Decimal"><Data Format="L5K"><![CDATA[42]]></Data></Tag><Tag Name="FixtureAlias" TagType="Alias" DataType="BOOL" AliasFor="FixtureTag.0" /></Tags></Controller>
+</RSLogix5000Content>

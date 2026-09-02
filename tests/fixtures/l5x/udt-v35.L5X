@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureUDT" TargetType="Controller">
+  <Controller Name="FixtureController"><DataTypes><DataType Name="FixtureUDT" Family="NoFamily" Class="User"><Members><Member Name="Ready" DataType="BOOL" Dimension="0" /><Member Name="Count" DataType="DINT" Dimension="0" /></Members></DataType></DataTypes></Controller>
+</RSLogix5000Content>

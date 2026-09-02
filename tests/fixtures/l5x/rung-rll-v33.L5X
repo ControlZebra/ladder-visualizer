@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="FixtureRung" TargetType="Routine">
+  <Controller Name="FixtureController">
+    <Programs><Program Name="FixtureProgram"><Routines><Routine Name="FixtureRoutine" Type="RLL"><RLLContent><Rung Number="42" Type="N"><Comment><![CDATA[Fixture rung]]></Comment><Text><![CDATA[[XIC(A),XIC(B)]OTE(Result);]]></Text></Rung></RLLContent></Routine></Routines></Program></Programs>
+  </Controller>
+</RSLogix5000Content>

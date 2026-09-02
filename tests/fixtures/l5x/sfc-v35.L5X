@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureSFC" TargetType="Program">
+  <Controller Name="FixtureController"><Programs><Program Name="FixtureProgram"><Routines><Routine Name="FixtureSFC" Type="SFC"><SFCContent><Step Name="Initial" InitialStep="true" /><Transition Name="Done" /></SFCContent></Routine></Routines></Program></Programs></Controller>
+</RSLogix5000Content>
