@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureFBD" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context">
+  <Controller Use="Context" Name="FixtureController">
+    <Programs>
+      <Program Name="FixtureFBD">
+        <Routines><Routine Name="FBDLogic" Type="FBD"><FBDContent SheetSize="Tabloid - 11 x 17 in" SheetOrientation="Landscape"><Sheet Number="1"><IRef ID="1" Operand="Input" X="20" Y="20" /><ORef ID="2" Operand="Output" X="240" Y="20" /><Wire FromID="1" ToID="2" /></Sheet></FBDContent></Routine></Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

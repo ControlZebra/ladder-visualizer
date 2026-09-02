@@ -42,6 +42,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:conformance": "vitest run tests/parsers/l5x-conformance.test.ts",
+    "test:schema": "node scripts/validate-l5x-schemas.mjs",
     "lint": "eslint src --ext ts,tsx",
     "typecheck": "tsc --noEmit"
   },

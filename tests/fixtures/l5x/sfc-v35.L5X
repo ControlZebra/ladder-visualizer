@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureSFC" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context">
+  <Controller Use="Context" Name="FixtureController">
+    <Programs>
+      <Program Name="FixtureSFC">
+        <Routines><Routine Name="SFCLogic" Type="SFC"><SFCContent SheetSize="Letter - 8.5 x 11 in" SheetOrientation="Portrait"><Step ID="1" X="20" Y="20" InitialStep="true" /><Step ID="3" X="20" Y="220" /><Transition ID="2" X="20" Y="120" /></SFCContent></Routine></Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

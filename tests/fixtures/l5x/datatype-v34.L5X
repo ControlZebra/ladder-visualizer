@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="FixtureTypeV34" TargetType="DataType" ContainsContext="true">
+  <Controller Use="Context" Name="FixtureController"><DataTypes><DataType Use="Target" Name="FixtureTypeV34" Family="NoFamily" Class="User"><Members><Member Name="Value" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write" /></Members></DataType></DataTypes></Controller>
+</RSLogix5000Content>

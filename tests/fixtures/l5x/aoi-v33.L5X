@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="FixtureAOIV33" TargetType="AddOnInstructionDefinition" ContainsContext="true">
+  <Controller Use="Context" Name="FixtureController"><AddOnInstructionDefinitions><AddOnInstructionDefinition Name="FixtureAOIV33" Class="Standard" Revision="1.0"><Parameters><Parameter Name="In" TagType="Base" DataType="BOOL" Usage="Input" /></Parameters><LocalTags><LocalTag Name="State" DataType="BOOL" /></LocalTags><Routines><Routine Name="Logic" Type="RLL"><RLLContent><Rung Number="0" Type="N"><Text><![CDATA[XIC(In)OTE(State);]]></Text></Rung></RLLContent></Routine></Routines></AddOnInstructionDefinition></AddOnInstructionDefinitions></Controller>
+</RSLogix5000Content>

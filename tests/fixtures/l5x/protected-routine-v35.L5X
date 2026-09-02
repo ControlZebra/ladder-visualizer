@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureProtected" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData Context ForceProtectedEncoding">
+  <Controller Use="Context" Name="FixtureController">
+    <Programs>
+      <Program Name="FixtureProtected">
+        <Routines>
+          <Routine Name="ProtectedLogic" Type="Encrypted" SourceProtectionType="Full Protection"><ExternalContent><ExternalRoutineXml><![CDATA[synthetic-protected-content-marker]]></ExternalRoutineXml></ExternalContent></Routine>
+        </Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>
