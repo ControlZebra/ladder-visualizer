@@ -12,6 +12,10 @@ export { registerAOIsFromController } from './aoi-registration';
 export type { PLCParser, ParseResult, FileFormat } from './parser-interface';
 export { BaseParser, createSuccessResult, createFailureResult } from './parser-interface';
 
+// Parser resource guards and orchestration options
+export type { ParseOptions, ParserResourceLimits } from './resource-guards';
+export { DEFAULT_PARSER_RESOURCE_LIMITS } from './resource-guards';
+
 // Parse errors
 export type { ParseError, ParseWarning, ParseLocation, ParseErrorCode } from './parse-error';
 export { createParseError, createParseWarning, ParseErrorCodes } from './parse-error';

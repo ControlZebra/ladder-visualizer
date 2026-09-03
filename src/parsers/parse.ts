@@ -5,6 +5,14 @@ import { createParseError, ParseErrorCodes } from './parse-error';
 import { parserRegistry } from './parser-registry';
 import { detectFormatFromFilename } from './format-detector';
 import { registerAOIsFromController, clearAOIs } from './aoi-registration';
+import {
+  checkParseExecution,
+  createSourceSizeError,
+  exceedsSourceByteLimit,
+  resolveResourceLimits,
+  withParseDeadline,
+  type ParseOptions,
+} from './resource-guards';
 
 /**
  * Parse a File object into a normalized controller model.
@@ -23,14 +31,28 @@ import { registerAOIsFromController, clearAOIs } from './aoi-registration';
  * }
  * ```
  */
-export async function parseFile(file: File): Promise<ParseResult<NormalizedController>> {
+export async function parseFile(
+  file: File,
+  options?: ParseOptions
+): Promise<ParseResult<NormalizedController>> {
+  const executionOptions = withParseDeadline(options);
+  const executionError = checkParseExecution(executionOptions);
+  if (executionError) {
+    return createFailureResult([executionError]);
+  }
+
+  const limits = resolveResourceLimits(executionOptions);
+  if (file.size > limits.maxSourceBytes) {
+    return createFailureResult([createSourceSizeError(limits.maxSourceBytes)]);
+  }
+
   try {
     const content = await file.text();
     
     // Try to use filename for format hint
     const formatHint = detectFormatFromFilename(file.name);
     
-    return parseString(content, formatHint || undefined);
+    return parseInput(content, formatHint || undefined, executionOptions);
   } catch (error) {
     return createFailureResult([
       createParseError('Failed to read file', {
@@ -59,8 +81,27 @@ export async function parseFile(file: File): Promise<ParseResult<NormalizedContr
  */
 export function parseString(
   content: string,
-  formatHint?: FileFormat
+  formatHint?: FileFormat,
+  options?: ParseOptions
 ): ParseResult<NormalizedController> {
+  return parseInput(content, formatHint, withParseDeadline(options));
+}
+
+function parseInput(
+  input: string | ArrayBuffer,
+  formatHint: FileFormat | undefined,
+  options: ParseOptions | undefined
+): ParseResult<NormalizedController> {
+  const executionError = checkParseExecution(options);
+  if (executionError) {
+    return createFailureResult([executionError]);
+  }
+
+  const limits = resolveResourceLimits(options);
+  if (exceedsSourceByteLimit(input, limits.maxSourceBytes)) {
+    return createFailureResult([createSourceSizeError(limits.maxSourceBytes)]);
+  }
+
   // Ensure parsers are registered
   if (!parserRegistry.hasAnyParsers()) {
     return createFailureResult([
@@ -76,13 +117,13 @@ export function parseString(
   if (formatHint) {
     const parser = parserRegistry.getParserByFormat(formatHint);
     if (parser) {
-      result = parser.parse(content);
+      result = parser.parse(input, options);
     } else {
       // Fall back to auto-detection if hint didn't match
-      result = parserRegistry.parse(content);
+      result = parserRegistry.parse(input, undefined, options);
     }
   } else {
-    result = parserRegistry.parse(content);
+    result = parserRegistry.parse(input, undefined, options);
   }
 
   // Register AOIs from the parsed controller into the global instruction registry
@@ -107,8 +148,8 @@ export function parseString(
  */
 export function parseBuffer(
   buffer: ArrayBuffer,
-  formatHint?: FileFormat
+  formatHint?: FileFormat,
+  options?: ParseOptions
 ): ParseResult<NormalizedController> {
-  const content = new TextDecoder('utf-8').decode(buffer);
-  return parseString(content, formatHint);
+  return parseInput(buffer, formatHint, withParseDeadline(options));
 }
