@@ -3,6 +3,7 @@ import type { PLCParser, ParseResult, FileFormat } from './parser-interface';
 import { createFailureResult } from './parser-interface';
 import { detectFormat, detectFormatFromFilename } from './format-detector';
 import { createParseError, ParseErrorCodes } from './parse-error';
+import type { ParseOptions } from './resource-guards';
 
 /**
  * Registry for PLC parsers.
@@ -143,7 +144,11 @@ export class ParserRegistry {
    * @param parserId - Optional specific parser ID to use
    * @returns Parse result with normalized controller or errors
    */
-  parse(input: string | ArrayBuffer, parserId?: string): ParseResult<NormalizedController> {
+  parse(
+    input: string | ArrayBuffer,
+    parserId?: string,
+    options?: ParseOptions
+  ): ParseResult<NormalizedController> {
     let parser: PLCParser | undefined | null;
 
     if (parserId) {
@@ -166,7 +171,7 @@ export class ParserRegistry {
       }
     }
 
-    return parser.parse(input);
+    return parser.parse(input, options);
   }
 
   /**

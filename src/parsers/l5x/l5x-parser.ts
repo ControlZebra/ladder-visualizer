@@ -19,6 +19,15 @@ import {
 } from '../parse-error';
 import type { L5XContent } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
+import {
+  checkParseExecution,
+  createSourceSizeError,
+  exceedsSourceByteLimit,
+  inspectXmlResources,
+  resolveResourceLimits,
+  withParseDeadline,
+  type ParseOptions,
+} from '../resource-guards';
 
 /**
  * XML Parser configuration options for L5X files
@@ -63,11 +72,12 @@ const XML_PARSER_OPTIONS = {
   // Comments are not processed (use false, not boolean)
   commentPropName: false as const,
   
-  // Process entities
+  // Only XML's built-in entities are processed. DTD declarations are rejected
+  // before parsing so custom entity expansion cannot consume unbounded work.
   processEntities: true,
   
   // Handle HTML entities
-  htmlEntities: true,
+  htmlEntities: false,
   
   // Also parse CDATA as text nodes (important for L5X)
   alwaysCreateTextNode: false,
@@ -112,12 +122,25 @@ export class L5XParser extends BaseParser {
   /**
    * Parse L5X input into normalized controller model
    */
-  parse(input: string | ArrayBuffer): ParseResult<NormalizedController> {
-    return this.withTiming(() => this.doParse(input));
+  parse(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<NormalizedController> {
+    return this.withTiming(() => this.doParse(input, withParseDeadline(options)));
   }
 
-  private doParse(input: string | ArrayBuffer): ParseResult<NormalizedController> {
+  private doParse(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<NormalizedController> {
+    const limits = resolveResourceLimits(options);
+    const executionError = checkParseExecution(options);
+    if (executionError) {
+      return createFailureResult([executionError]);
+    }
+    if (exceedsSourceByteLimit(input, limits.maxSourceBytes)) {
+      return createFailureResult([createSourceSizeError(limits.maxSourceBytes)]);
+    }
     const content = this.inputToString(input);
+
+    const resourceError = inspectXmlResources(content, limits, options);
+    if (resourceError) {
+      return createFailureResult([resourceError]);
+    }
 
     const xmlValidationError = this.validateXML(content);
     if (xmlValidationError) {
@@ -135,6 +158,11 @@ export class L5XParser extends BaseParser {
           cause: error,
         }),
       ]);
+    }
+
+    const parseExecutionError = checkParseExecution(options);
+    if (parseExecutionError) {
+      return createFailureResult([parseExecutionError]);
     }
 
     // Validate structure
@@ -247,8 +275,22 @@ export class L5XParser extends BaseParser {
   /**
    * Validate L5X without full parsing
    */
-  validate(input: string | ArrayBuffer): ParseResult<void> {
+  validate(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<void> {
+    const executionOptions = withParseDeadline(options);
+    const limits = resolveResourceLimits(executionOptions);
+    const executionError = checkParseExecution(executionOptions);
+    if (executionError) {
+      return createFailureResult([executionError]);
+    }
+    if (exceedsSourceByteLimit(input, limits.maxSourceBytes)) {
+      return createFailureResult([createSourceSizeError(limits.maxSourceBytes)]);
+    }
     const content = this.inputToString(input);
+
+    const resourceError = inspectXmlResources(content, limits, executionOptions);
+    if (resourceError) {
+      return createFailureResult([resourceError]);
+    }
 
     const xmlValidationError = this.validateXML(content);
     if (xmlValidationError) {

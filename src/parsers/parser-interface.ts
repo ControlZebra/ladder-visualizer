@@ -1,5 +1,6 @@
 import type { NormalizedController } from '../types/normalized';
 import type { ParseError, ParseWarning } from './parse-error';
+import type { ParseOptions } from './resource-guards';
 
 /**
  * Supported file formats
@@ -89,7 +90,7 @@ export interface PLCParser {
    * @param input - String or binary content to parse
    * @returns Parse result with normalized controller or errors
    */
-  parse(input: string | ArrayBuffer): ParseResult<NormalizedController>;
+  parse(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<NormalizedController>;
 
   /**
    * Optionally validate input without full parsing.
@@ -98,7 +99,7 @@ export interface PLCParser {
    * @param input - String or binary content to validate
    * @returns Parse result (data will be undefined even on success)
    */
-  validate?(input: string | ArrayBuffer): ParseResult<void>;
+  validate?(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<void>;
 }
 
 /**
@@ -111,7 +112,7 @@ export abstract class BaseParser implements PLCParser {
   abstract readonly supportedMimeTypes: string[];
 
   abstract canParse(input: string | ArrayBuffer): boolean;
-  abstract parse(input: string | ArrayBuffer): ParseResult<NormalizedController>;
+  abstract parse(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<NormalizedController>;
 
   /**
    * Convert ArrayBuffer to string if needed

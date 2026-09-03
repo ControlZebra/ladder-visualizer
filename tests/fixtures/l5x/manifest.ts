@@ -374,7 +374,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     profiles: ['rockwell-full-project'],
     expectedParseStatus: 'failed',
     sourceCounts: { ...emptySourceCounts, controllers: 1 },
-    currentParser: { success: true, normalizedCounts: emptyNormalizedCounts },
+    currentParser: { success: false, errorCode: 'UNSAFE_XML_ENTITY', normalizedCounts: null },
     coverage: ['entity declaration', 'adversarial input'],
   },
   {

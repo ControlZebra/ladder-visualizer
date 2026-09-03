@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { L5XParser, l5xParser } from '../../src/parsers/l5x';
+import { parseBuffer, parseString } from '../../src/parsers';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -353,6 +354,115 @@ And Path OK]]></Comment>
 
       expect(result.success).toBe(false);
       expect(result.errors?.[0].code).toBe('INVALID_XML');
+    });
+  });
+
+  describe('resource guards', () => {
+    const minimalL5X = `<RSLogix5000Content TargetName="Test" TargetType="Controller"><Controller Name="Test"/></RSLogix5000Content>`;
+
+    it('rejects source bytes at the boundary before parsing', () => {
+      const result = parser.parse(minimalL5X, {
+        resourceLimits: { maxSourceBytes: minimalL5X.length - 1 },
+      });
+
+      expect(result).toMatchObject({
+        success: false,
+        errors: [{ code: 'SOURCE_BYTE_LIMIT_EXCEEDED' }],
+      });
+    });
+
+    it('accepts source bytes exactly at the configured boundary', () => {
+      const result = parser.parse(minimalL5X, {
+        resourceLimits: { maxSourceBytes: new TextEncoder().encode(minimalL5X).byteLength },
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it('counts UTF-8 bytes precisely when a string is within the cheap length bound', () => {
+      const multibyteL5X = minimalL5X.replace('Name="Test"', 'Name="Café"');
+      const result = parser.parse(multibyteL5X, {
+        resourceLimits: { maxSourceBytes: multibyteL5X.length },
+      });
+
+      expect(result).toMatchObject({
+        success: false,
+        errors: [{ code: 'SOURCE_BYTE_LIMIT_EXCEEDED' }],
+      });
+    });
+
+    it('checks ArrayBuffer size before decoding', () => {
+      const bytes = new TextEncoder().encode(minimalL5X);
+      const result = parseBuffer(bytes.buffer, 'l5x', {
+        resourceLimits: { maxSourceBytes: bytes.byteLength - 1 },
+      });
+
+      expect(result).toMatchObject({
+        success: false,
+        errors: [{ code: 'SOURCE_BYTE_LIMIT_EXCEEDED' }],
+      });
+    });
+
+    it('enforces the XML node limit at and just over its boundary', () => {
+      const nodes = `<RSLogix5000Content TargetName="Test" TargetType="Controller"><Controller Name="Test"><Tags><Tag Name="One"/></Tags></Controller></RSLogix5000Content>`;
+      const accepted = parser.parse(nodes, { resourceLimits: { maxXmlNodes: 4 } });
+      const rejected = parser.parse(nodes, { resourceLimits: { maxXmlNodes: 3 } });
+
+      expect(accepted.success).toBe(true);
+      expect(rejected).toMatchObject({
+        success: false,
+        errors: [{ code: 'XML_NODE_LIMIT_EXCEEDED' }],
+      });
+    });
+
+    it('enforces the XML nesting limit at and just over its boundary', () => {
+      const nested = `<RSLogix5000Content TargetName="Test" TargetType="Controller"><Controller Name="Test"><Tags><Tag Name="One"><Data/></Tag></Tags></Controller></RSLogix5000Content>`;
+      const accepted = parser.parse(nested, { resourceLimits: { maxXmlDepth: 4 } });
+      const rejected = parser.parse(nested, { resourceLimits: { maxXmlDepth: 3 } });
+
+      expect(accepted.success).toBe(true);
+      expect(rejected).toMatchObject({
+        success: false,
+        errors: [{ code: 'XML_DEPTH_LIMIT_EXCEEDED' }],
+      });
+    });
+
+    it('rejects DOCTYPE declarations instead of expanding custom entities', () => {
+      const result = parser.parse(`<!DOCTYPE RSLogix5000Content [<!ENTITY unsafe "expanded">]>
+<RSLogix5000Content TargetName="Test" TargetType="Controller"><Controller Name="Test"><Description>&unsafe;</Description></Controller></RSLogix5000Content>`);
+
+      expect(result).toMatchObject({
+        success: false,
+        errors: [{ code: 'UNSAFE_XML_ENTITY' }],
+      });
+    });
+
+    it('supports built-in XML entities without enabling HTML entities', () => {
+      const result = parser.parse(`<RSLogix5000Content TargetName="Test" TargetType="Controller"><Controller Name="Fish &amp; Chips"/></RSLogix5000Content>`);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.name).toBe('Fish & Chips');
+    });
+
+    it('returns a typed cancellation diagnostic', () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      const result = parseString(minimalL5X, 'l5x', { signal: controller.signal });
+
+      expect(result).toMatchObject({
+        success: false,
+        errors: [{ code: 'PARSE_CANCELLED' }],
+      });
+    });
+
+    it('returns a typed timeout diagnostic', () => {
+      const result = parser.parse(minimalL5X, { timeoutMs: 0 });
+
+      expect(result).toMatchObject({
+        success: false,
+        errors: [{ code: 'PARSE_TIMEOUT' }],
+      });
     });
   });
 

@@ -45,6 +45,33 @@ Use `parseFile()` for browser file uploads and `parseBuffer()` for an
 `ArrayBuffer`. Parsers are registered automatically when importing from the
 package root.
 
+## L5X input safety
+
+L5X parsing rejects XML `DOCTYPE` declarations and custom entities. Built-in
+XML entities such as `&amp;` remain supported. The default resource guard accepts
+at most 10 MiB of UTF-8 source, 100,000 XML elements, and 64 nested elements.
+These defaults cover normal controller exports while preventing unbounded input
+work; the real example export in this repository is about 2.1 MiB.
+
+Pass controlled overrides for trusted inputs, and use standard cancellation or
+timeout controls at any public parsing entry point:
+
+```ts
+const result = parseString(l5xSource, 'l5x', {
+  resourceLimits: {
+    maxSourceBytes: 20 * 1024 * 1024,
+    maxXmlNodes: 200_000,
+  },
+  signal: abortController.signal,
+  timeoutMs: 5_000,
+});
+```
+
+Failures use stable `ParseErrorCodes`, including
+`SOURCE_BYTE_LIMIT_EXCEEDED`, `XML_NODE_LIMIT_EXCEEDED`,
+`XML_DEPTH_LIMIT_EXCEEDED`, `UNSAFE_XML_ENTITY`, `PARSE_CANCELLED`, and
+`PARSE_TIMEOUT`.
+
 ## Theming
 
 Import the default stylesheet, or import only the CSS variables when integrating
