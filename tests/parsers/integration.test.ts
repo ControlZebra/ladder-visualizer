@@ -157,6 +157,31 @@ describe('Integration: Unified parseString API', () => {
     }
   });
 
+  it('does not let global instruction definitions influence parsed categories', () => {
+    globalInstructionRegistry.register({
+      mnemonic: 'SharedAOI',
+      category: 'input',
+      displayName: 'Conflicting global definition',
+      parameterLabels: ['GlobalInput'],
+      symbolType: 'contact',
+    }, { overwrite: true });
+
+    try {
+      const result = parseString(createAOIController('ControllerInput'), 'l5x');
+      const rung = result.data?.programs[0]?.routines[0]?.rungs[0];
+
+      expect(result.success).toBe(true);
+      expect(globalInstructionRegistry.getCategory('SharedAOI')).toBe('input');
+      expect(rung?.instructions[0]?.category).toBe('aoi');
+      expect(rung?.elements[0]).toMatchObject({
+        mnemonic: 'SharedAOI',
+        category: 'aoi',
+      });
+    } finally {
+      globalInstructionRegistry.remove('SharedAOI');
+    }
+  });
+
   it('keeps AOI metadata isolated across interleaved controller results', () => {
     const first = parseString(createAOIController('FirstControllerInput'), 'l5x');
     const second = parseString(createAOIController('SecondControllerInput'), 'l5x');

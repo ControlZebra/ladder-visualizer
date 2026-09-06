@@ -56,6 +56,11 @@ function classifyElements(elements: RungElement[], registry: InstructionRegistry
   }
 }
 
+export interface FinalizedController {
+  controller: NormalizedController;
+  context: InstructionContext;
+}
+
 /**
  * Create isolated instruction metadata for a parsed controller and classify
  * every rung against that same controller-scoped registry.
@@ -81,12 +86,27 @@ export function applyInstructionContextToController(
 
   for (const routine of routines) {
     for (const rung of routine.rungs) {
+      // The flat and tree collections can contain distinct instruction objects,
+      // so both public representations must be classified explicitly.
       for (const instruction of rung.instructions) {
         instruction.category = context.instructionRegistry.getCategory(instruction.mnemonic);
       }
       classifyElements(rung.elements, context.instructionRegistry);
     }
   }
+}
+
+/**
+ * Complete normalization by creating controller-scoped instruction metadata
+ * and applying it to every public rung representation before returning data.
+ * Keeping these operations together prevents parsers from exposing provisional
+ * categories produced before the controller's AOI definitions are available.
+ */
+export function finalizeController(controller: NormalizedController): FinalizedController {
+  const context = createInstructionContextFromController(controller);
+  applyInstructionContextToController(controller, context);
+
+  return { controller, context };
 }
 
 /**

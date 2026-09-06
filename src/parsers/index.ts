@@ -6,7 +6,12 @@
 export { parseFile, parseString, parseBuffer } from './parse';
 
 // AOI registration utilities (note: clearAOIs is exported from types/instruction-registry)
-export { createInstructionContextFromController, registerAOIsFromController } from './aoi-registration';
+export {
+  createInstructionContextFromController,
+  finalizeController,
+  registerAOIsFromController,
+} from './aoi-registration';
+export type { FinalizedController } from './aoi-registration';
 
 // Parser interface and base class
 export type { PLCParser, ParseResult, FileFormat } from './parser-interface';

@@ -57,6 +57,9 @@ clears or repopulates `globalInstructionRegistry`, so multiple parsed
 controllers remain isolated. Existing integrations that intentionally use the
 global registry can continue to call `registerAOIsFromController(controller)`;
 that compatibility helper is now an explicit opt-in side effect.
+Low-level `l5xToNormalized()` and `jsonToNormalized()` callers can use
+`finalizeController(controller)` to obtain the matching context and replace
+provisional rung categories before rendering.
 
 ## L5X input safety
 

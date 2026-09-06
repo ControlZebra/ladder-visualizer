@@ -19,10 +19,7 @@ import {
 } from '../parse-error';
 import type { L5XContent } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
-import {
-  applyInstructionContextToController,
-  createInstructionContextFromController,
-} from '../aoi-registration';
+import { finalizeController } from '../aoi-registration';
 import {
   checkParseExecution,
   createSourceSizeError,
@@ -177,10 +174,8 @@ export class L5XParser extends BaseParser {
 
     // Transform to normalized model
     try {
-      const normalized = l5xToNormalized(xml);
-      const context = createInstructionContextFromController(normalized);
-      applyInstructionContextToController(normalized, context);
-      return createSuccessResult(normalized, { context });
+      const { controller, context } = finalizeController(l5xToNormalized(xml));
+      return createSuccessResult(controller, { context });
     } catch (error) {
       return createFailureResult([
         createParseError('Failed to normalize L5X data', {
