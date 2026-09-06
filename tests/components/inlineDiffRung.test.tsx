@@ -15,6 +15,7 @@ import type {
   NormalizedRung,
   RungElement,
 } from '../../src/types';
+import { createInstructionRegistry, registerAOI } from '../../src/types';
 
 function instruction(
   mnemonic: string,
@@ -59,6 +60,23 @@ function rung(number: number, elements: RungElement[], comment?: string): Normal
 }
 
 describe('InlineDiffRung', () => {
+  it('renders AOI labels from an explicit controller context', () => {
+    const instructionRegistry = createInstructionRegistry();
+    registerAOI(instructionRegistry, {
+      name: 'ContextAOI',
+      parameters: [{ name: 'Context-Specific Input', usage: 'Input', visible: true }],
+    });
+    const model = buildInlineDiffModel({
+      newRung: rung(29, [instruction('ContextAOI', 'aoi', ['InputTag'])]),
+    });
+
+    const markup = renderToStaticMarkup(
+      <InlineDiffRung model={model} instructionContext={{ instructionRegistry }} />,
+    );
+
+    expect(markup).toContain('Context-Specific Input');
+  });
+
   it('renders a whole-rung wash for added rungs without invalid SVG coordinates', () => {
     const model = buildInlineDiffModel({
       newRung: rung(30, [

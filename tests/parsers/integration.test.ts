@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { parseString, parserRegistry } from '../../src/parsers';
+import { parseFile, parseString, parserRegistry } from '../../src/parsers';
 import { createTagResolver } from '../../src/parsers/tag-resolver';
+import {
+  clearAOIs,
+  globalInstructionRegistry,
+  registerAOI,
+} from '../../src/types';
 
 const l5xPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
 const l5xContent = readFileSync(l5xPath, 'utf-8');
@@ -25,6 +30,30 @@ const minimalJsonContent = JSON.stringify({
   aois: [],
   map_devices: [],
 });
+
+function createAOIController(parameterName: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="ContextFixture" TargetType="Controller">
+  <Controller Use="Target" Name="ContextFixture">
+    <AddOnInstructionDefinitions>
+      <AddOnInstructionDefinition Name="SharedAOI" Class="Standard" Revision="1.0">
+        <Parameters>
+          <Parameter Name="${parameterName}" TagType="Base" DataType="DINT" Usage="Input" Visible="true" />
+        </Parameters>
+      </AddOnInstructionDefinition>
+    </AddOnInstructionDefinitions>
+    <Programs>
+      <Program Name="MainProgram">
+        <Routines>
+          <Routine Name="MainRoutine" Type="RLL">
+            <RLLContent><Rung Number="0" Type="N"><Text><![CDATA[SharedAOI(Value);]]></Text></Rung></RLLContent>
+          </Routine>
+        </Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>`;
+}
 
 describe('Integration: Real L5X Controller Export', () => {
   it('parses the restored real controller export', () => {
@@ -107,5 +136,75 @@ describe('Integration: Unified parseString API', () => {
     expect(allParsers.length).toBeGreaterThanOrEqual(2);
     expect(parserRegistry.getParser('rockwell-json')).toBeDefined();
     expect(parserRegistry.getParser('rockwell-l5x')).toBeDefined();
+  });
+
+  it('does not mutate the global AOI registry while parsing', () => {
+    const sentinelMnemonic = '__PARSE_ISOLATION_SENTINEL__';
+    clearAOIs(globalInstructionRegistry);
+    registerAOI(globalInstructionRegistry, {
+      name: sentinelMnemonic,
+      parameters: [],
+    });
+
+    try {
+      const result = parseString(createAOIController('ControllerInput'), 'l5x');
+
+      expect(result.success).toBe(true);
+      expect(globalInstructionRegistry.has(sentinelMnemonic)).toBe(true);
+      expect(globalInstructionRegistry.has('SharedAOI')).toBe(false);
+    } finally {
+      clearAOIs(globalInstructionRegistry);
+    }
+  });
+
+  it('keeps AOI metadata isolated across interleaved controller results', () => {
+    const first = parseString(createAOIController('FirstControllerInput'), 'l5x');
+    const second = parseString(createAOIController('SecondControllerInput'), 'l5x');
+
+    expect(first.context?.instructionRegistry).not.toBe(second.context?.instructionRegistry);
+    expect(first.context?.instructionRegistry.getParameterLabels('SharedAOI')).toEqual([
+      'FirstControllerInput',
+    ]);
+    expect(second.context?.instructionRegistry.getParameterLabels('SharedAOI')).toEqual([
+      'SecondControllerInput',
+    ]);
+    expect(first.context?.instructionRegistry.getParameterLabels('SharedAOI')).toEqual([
+      'FirstControllerInput',
+    ]);
+    expect(first.data?.programs[0]?.routines[0]?.rungs[0]?.instructions[0]?.category).toBe('aoi');
+    expect(second.data?.programs[0]?.routines[0]?.rungs[0]?.elements[0]).toMatchObject({
+      mnemonic: 'SharedAOI',
+      category: 'aoi',
+    });
+  });
+
+  it('keeps overlapping asynchronous file parses isolated', async () => {
+    const firstContent = createAOIController('DelayedInput');
+    const secondContent = createAOIController('ImmediateInput');
+    let releaseFirstRead: (() => void) | undefined;
+    const firstFile = {
+      name: 'delayed.L5X',
+      size: new TextEncoder().encode(firstContent).byteLength,
+      text: () => new Promise<string>((resolve) => {
+        releaseFirstRead = () => resolve(firstContent);
+      }),
+    } as File;
+    const secondFile = {
+      name: 'immediate.L5X',
+      size: new TextEncoder().encode(secondContent).byteLength,
+      text: async () => secondContent,
+    } as File;
+
+    const delayedParse = parseFile(firstFile);
+    const immediateResult = await parseFile(secondFile);
+    releaseFirstRead?.();
+    const delayedResult = await delayedParse;
+
+    expect(immediateResult.context?.instructionRegistry.getParameterLabels('SharedAOI')).toEqual([
+      'ImmediateInput',
+    ]);
+    expect(delayedResult.context?.instructionRegistry.getParameterLabels('SharedAOI')).toEqual([
+      'DelayedInput',
+    ]);
   });
 });

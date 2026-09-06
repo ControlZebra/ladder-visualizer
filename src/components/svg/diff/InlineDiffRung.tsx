@@ -3,7 +3,7 @@ import type { InlineDiffRungModel } from '../../../diff';
 import { RUNG_NUMBER_WIDTH } from '../../../layout';
 import { prepareInlineDiffRungRenderLayout } from '../../../layout/diffLayoutAdapters';
 import type { InlineDiffNodeLayout } from '../../../layout';
-import type { LadderDiagramTheme } from '../../../types';
+import type { InstructionContext, LadderDiagramTheme } from '../../../types';
 import { mergeTheme } from '../../../types';
 import { InlineDiffBranch } from './InlineDiffBranch';
 import { InlineDiffInstruction } from './InlineDiffInstruction';
@@ -14,14 +14,35 @@ export interface InlineDiffRungProps {
   width?: number;
   yOffset?: number;
   theme?: LadderDiagramTheme;
+  instructionContext?: InstructionContext;
 }
 
-function InlineDiffNodeRenderer({ layout, theme }: { layout: InlineDiffNodeLayout; theme: Required<LadderDiagramTheme> }) {
+function InlineDiffNodeRenderer({
+  layout,
+  theme,
+  instructionContext,
+}: {
+  layout: InlineDiffNodeLayout;
+  theme: Required<LadderDiagramTheme>;
+  instructionContext?: InstructionContext;
+}) {
   if (layout.kind === 'instruction') {
-    return <InlineDiffInstruction layout={layout} theme={theme} />;
+    return (
+      <InlineDiffInstruction
+        layout={layout}
+        theme={theme}
+        instructionContext={instructionContext}
+      />
+    );
   }
 
-  return <InlineDiffBranch layout={layout} theme={theme} />;
+  return (
+    <InlineDiffBranch
+      layout={layout}
+      theme={theme}
+      instructionContext={instructionContext}
+    />
+  );
 }
 
 function getNodeEndX(layout: InlineDiffNodeLayout): number {
@@ -40,11 +61,17 @@ function getRungWash(rungState: InlineDiffRungModel['rungState'], theme: Require
   return undefined;
 }
 
-export function InlineDiffRung({ model, width, yOffset = 0, theme: themeOverride }: InlineDiffRungProps) {
+export function InlineDiffRung({
+  model,
+  width,
+  yOffset = 0,
+  theme: themeOverride,
+  instructionContext,
+}: InlineDiffRungProps) {
   const theme = useMemo(() => mergeTheme(themeOverride), [themeOverride]);
   const { diagramWidth, layout } = useMemo(
-    () => prepareInlineDiffRungRenderLayout(model, { width, yOffset }),
-    [model, width, yOffset],
+    () => prepareInlineDiffRungRenderLayout(model, { width, yOffset, instructionContext }),
+    [model, width, yOffset, instructionContext],
   );
   const rungWash = getRungWash(model.rungState, theme);
 
@@ -105,7 +132,12 @@ export function InlineDiffRung({ model, width, yOffset = 0, theme: themeOverride
             />
 
             {line.conditions.map((node) => (
-              <InlineDiffNodeRenderer key={node.id} layout={node} theme={theme} />
+              <InlineDiffNodeRenderer
+                key={node.id}
+                layout={node}
+                theme={theme}
+                instructionContext={instructionContext}
+              />
             ))}
 
             {line.operations.length > 0 ? (
@@ -122,7 +154,12 @@ export function InlineDiffRung({ model, width, yOffset = 0, theme: themeOverride
                 )}
 
                 {line.operations.map((node) => (
-                  <InlineDiffNodeRenderer key={node.id} layout={node} theme={theme} />
+                  <InlineDiffNodeRenderer
+                    key={node.id}
+                    layout={node}
+                    theme={theme}
+                    instructionContext={instructionContext}
+                  />
                 ))}
 
                 <line

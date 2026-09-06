@@ -1,18 +1,22 @@
 /**
  * AOI Registration utilities for parsing
  * 
- * Handles automatic registration of AOIs from parsed controllers
- * into the global instruction registry.
+ * Builds controller-scoped instruction contexts and provides legacy opt-in
+ * registration in the global instruction registry.
  */
 
 import type { NormalizedController, NormalizedAOI } from '../types/normalized';
 import { 
+  createInstructionRegistry,
   globalInstructionRegistry, 
   registerAOI as registerAOIToRegistry,
   clearAOIs as clearAOIsFromRegistry,
   type AOIRegistrationInfo,
+  type InstructionContext,
+  type InstructionRegistry,
   type RegistrationOptions,
 } from '../types/instruction-registry';
+import { isBranchGroup, type RungElement } from '../types/instructions';
 
 /**
  * Convert a NormalizedAOI to AOIRegistrationInfo for registry registration
@@ -29,25 +33,76 @@ function normalizedAOIToRegistrationInfo(aoi: NormalizedAOI): AOIRegistrationInf
   };
 }
 
+function registerControllerAOIs(
+  controller: NormalizedController,
+  registry: InstructionRegistry,
+  options: RegistrationOptions,
+): void {
+  for (const aoi of controller.aois ?? []) {
+    registerAOIToRegistry(registry, normalizedAOIToRegistrationInfo(aoi), options);
+  }
+}
+
+function classifyElements(elements: RungElement[], registry: InstructionRegistry): void {
+  for (const element of elements) {
+    if (isBranchGroup(element)) {
+      for (const branch of element.branches) {
+        classifyElements(branch, registry);
+      }
+      continue;
+    }
+
+    element.category = registry.getCategory(element.mnemonic);
+  }
+}
+
+/**
+ * Create isolated instruction metadata for a parsed controller and classify
+ * every rung against that same controller-scoped registry.
+ */
+export function createInstructionContextFromController(
+  controller: NormalizedController,
+): InstructionContext {
+  const instructionRegistry = createInstructionRegistry();
+  registerControllerAOIs(controller, instructionRegistry, { overwrite: true });
+
+  return { instructionRegistry };
+}
+
+/** Classify a newly normalized controller using its isolated metadata. */
+export function applyInstructionContextToController(
+  controller: NormalizedController,
+  context: InstructionContext,
+): void {
+  const routines = [
+    ...controller.programs.flatMap((program) => program.routines),
+    ...controller.aois.flatMap((aoi) => aoi.routines),
+  ];
+
+  for (const routine of routines) {
+    for (const rung of routine.rungs) {
+      for (const instruction of rung.instructions) {
+        instruction.category = context.instructionRegistry.getCategory(instruction.mnemonic);
+      }
+      classifyElements(rung.elements, context.instructionRegistry);
+    }
+  }
+}
+
 /**
  * Register AOIs from a NormalizedController into the global instruction registry.
  * This enables BOX symbols to display proper parameter labels for AOI instructions.
  * 
  * @param controller - The parsed normalized controller
  * @param options - Registration options (e.g., overwrite existing)
+ * @deprecated Prefer the isolated context returned by parse functions. This
+ * helper remains for integrations that intentionally use global state.
  */
 export function registerAOIsFromController(
   controller: NormalizedController,
   options: RegistrationOptions = { overwrite: true }
 ): void {
-  if (!controller.aois || controller.aois.length === 0) {
-    return;
-  }
-
-  for (const aoi of controller.aois) {
-    const registrationInfo = normalizedAOIToRegistrationInfo(aoi);
-    registerAOIToRegistry(globalInstructionRegistry, registrationInfo, options);
-  }
+  registerControllerAOIs(controller, globalInstructionRegistry, options);
 }
 
 /**

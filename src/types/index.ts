@@ -77,6 +77,7 @@ export type {
   RegistrationOptions,
   SymbolType,
   AOIRegistrationInfo,
+  InstructionContext,
 } from './instruction-registry';
 export {
   InstructionRegistry,

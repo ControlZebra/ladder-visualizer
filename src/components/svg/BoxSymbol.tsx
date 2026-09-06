@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
-import { getInstructionDisplayName, getInstructionParameterLabels } from '../../types';
+import {
+  getInstructionDisplayName,
+  getInstructionParameterLabels,
+  globalInstructionRegistry,
+  type InstructionContext,
+} from '../../types';
 import type { BoxThemeProps } from '../../types/theme';
 import { DEFAULT_THEME } from '../../types/theme';
 
@@ -15,12 +20,12 @@ function getTextWidth(text: string): number {
   return text.length * CHAR_WIDTH;
 }
 
-function getInstructionName(mnemonic: string): string {
-  return getInstructionDisplayName(mnemonic);
+function getInstructionName(mnemonic: string, context?: InstructionContext): string {
+  return getInstructionDisplayName(mnemonic, context?.instructionRegistry ?? globalInstructionRegistry);
 }
 
-function getParamLabels(mnemonic: string): string[] {
-  return getInstructionParameterLabels(mnemonic);
+function getParamLabels(mnemonic: string, context?: InstructionContext): string[] {
+  return getInstructionParameterLabels(mnemonic, context?.instructionRegistry ?? globalInstructionRegistry);
 }
 
 export interface BoxDimensions {
@@ -33,9 +38,10 @@ export function calculateBoxDimensions(
   mnemonic: string,
   operands: string[],
   operandRowHeights?: number[],
+  instructionContext?: InstructionContext,
 ): BoxDimensions {
-  const instructionName = getInstructionName(mnemonic);
-  const paramLabels = getParamLabels(mnemonic);
+  const instructionName = getInstructionName(mnemonic, instructionContext);
+  const paramLabels = getParamLabels(mnemonic, instructionContext);
 
   let maxContentWidth = getTextWidth(instructionName);
   maxContentWidth = Math.max(maxContentWidth, getTextWidth(mnemonic) + 20);
@@ -66,6 +72,8 @@ export interface BoxSymbolProps extends BoxThemeProps {
   operands: string[];
   energized?: boolean;
   operandRowHeights?: number[];
+  /** Controller-scoped metadata used to label AOI operands */
+  instructionContext?: InstructionContext;
   renderOperandRow?: (args: {
     index: number;
     label: string;
@@ -99,12 +107,13 @@ export function BoxSymbol({
   textColor,
   energizedColor = DEFAULT_THEME.energizedColor,
   operandRowHeights,
+  instructionContext,
   renderOperandRow,
 }: BoxSymbolProps) {
-  const instructionName = getInstructionName(mnemonic);
-  const paramLabels = getParamLabels(mnemonic);
+  const instructionName = getInstructionName(mnemonic, instructionContext);
+  const paramLabels = getParamLabels(mnemonic, instructionContext);
   const rowHeights = operands.map((_, index) => operandRowHeights?.[index] ?? LINE_HEIGHT);
-  const dims = calculateBoxDimensions(mnemonic, operands, rowHeights);
+  const dims = calculateBoxDimensions(mnemonic, operands, rowHeights, instructionContext);
 
   const boxWidth = dims.width - CONNECTOR_LENGTH * 2;
   const boxHeight = dims.height;

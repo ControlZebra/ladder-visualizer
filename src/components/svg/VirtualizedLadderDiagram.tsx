@@ -1,11 +1,12 @@
 import { useMemo, useCallback, useState, useRef, useEffect, createContext, useContext } from 'react';
 import type { 
   BranchGroup, 
+  InstructionContext,
   NormalizedRung,
   NormalizedRoutine,
   LadderDiagramTheme,
 } from '../../types';
-import { DEFAULT_THEME, mergeTheme } from '../../types';
+import { DEFAULT_THEME, globalInstructionRegistry, mergeTheme } from '../../types';
 import type { BranchGroupLayout, InstructionLayout, RungElementLayout, RungLayout } from '../../layout';
 import {
   BRANCH_CONNECTOR_OFFSET,
@@ -34,12 +35,21 @@ import { RungCommentText } from './RungCommentText';
  * Avoids prop drilling for deeply nested SVG elements.
  */
 const LadderThemeContext = createContext<Required<LadderDiagramTheme>>(DEFAULT_THEME);
+const DEFAULT_INSTRUCTION_CONTEXT: InstructionContext = {
+  instructionRegistry: globalInstructionRegistry,
+};
+const LadderInstructionContext = createContext<InstructionContext>(DEFAULT_INSTRUCTION_CONTEXT);
 
 /**
  * Hook to access the current ladder diagram theme.
  */
 export function useLadderTheme(): Required<LadderDiagramTheme> {
   return useContext(LadderThemeContext);
+}
+
+/** Access the controller-scoped instruction metadata used by the diagram. */
+export function useLadderInstructionContext(): InstructionContext {
+  return useContext(LadderInstructionContext);
 }
 
 // ============================================================================
@@ -51,6 +61,7 @@ export function useLadderTheme(): Required<LadderDiagramTheme> {
  */
 function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
   const theme = useLadderTheme();
+  const instructionContext = useLadderInstructionContext();
   const { instruction, position, dimensions, symbolOffset, label } = layout;
   const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
   const colors = getInstructionVisualColors('unchanged', theme);
@@ -109,6 +120,7 @@ function InstructionLayoutRenderer({ layout }: { layout: InstructionLayout }) {
           <BoxSymbol 
             mnemonic={instruction.mnemonic} 
             operands={instruction.operands}
+            instructionContext={instructionContext}
             borderColor={colors.boxBorderColor}
             bgColor={colors.boxBgColor}
             textColor={colors.boxTextColor}
@@ -207,7 +219,11 @@ interface BranchRendererProps {
  * Exported for use in custom implementations
  */
 export function BranchRenderer({ branch, x, mainWireY }: BranchRendererProps) {
-  const layout = useMemo(() => positionBranch(branch, x, mainWireY), [branch, x, mainWireY]);
+  const instructionContext = useLadderInstructionContext();
+  const layout = useMemo(
+    () => positionBranch(branch, x, mainWireY, instructionContext),
+    [branch, x, mainWireY, instructionContext],
+  );
   return <BranchLayoutRenderer layout={layout} />;
 }
 
@@ -220,13 +236,21 @@ interface RungRendererProps {
 
 function RungRenderer({ rung, rungIndex, yOffset, diagramWidth }: RungRendererProps) {
   const theme = useLadderTheme();
+  const instructionContext = useLadderInstructionContext();
   const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
   const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
 
   // Calculate complete layout using the new algorithm
   const rungLayout = useMemo(
-    () => calculateRungLayoutComplete(rung, rungIndex, yOffset, leftRailX, rightRailX),
-    [rung, rungIndex, yOffset, leftRailX, rightRailX]
+    () => calculateRungLayoutComplete(
+      rung,
+      rungIndex,
+      yOffset,
+      leftRailX,
+      rightRailX,
+      instructionContext,
+    ),
+    [rung, rungIndex, yOffset, leftRailX, rightRailX, instructionContext]
   );
 
   if (rungLayout.lines.length === 0) {
@@ -659,6 +683,8 @@ export interface VirtualizedLadderDiagramProps {
    * If not provided, uses CSS custom properties with DEFAULT_THEME as fallback.
    */
   theme?: LadderDiagramTheme;
+  /** Instruction metadata returned by the parser for controller-specific AOIs */
+  instructionContext?: InstructionContext;
 }
 
 export function VirtualizedLadderDiagram({
@@ -670,9 +696,11 @@ export function VirtualizedLadderDiagram({
   style,
   overscan = 3,
   theme: themeProp,
+  instructionContext: instructionContextProp,
 }: VirtualizedLadderDiagramProps) {
   // Merge provided theme with defaults
   const theme = useMemo(() => mergeTheme(themeProp), [themeProp]);
+  const instructionContext = instructionContextProp ?? DEFAULT_INSTRUCTION_CONTEXT;
   
   const rungs = useMemo<NormalizedRung[]>(() => {
     if (rungsProp) return rungsProp;
@@ -717,7 +745,11 @@ export function VirtualizedLadderDiagram({
   const displayWidth = widthProp || containerWidth;
 
   // Calculate layouts using the max of display width and content width for proper positioning
-  const rungLayouts = useMemo(() => calculateRungLayouts(rungs, Math.max(displayWidth, calculateMinDiagramWidth(rungs))), [rungs, displayWidth]);
+  const rungLayouts = useMemo(() => calculateRungLayouts(
+    rungs,
+    Math.max(displayWidth, calculateMinDiagramWidth(rungs, instructionContext)),
+    instructionContext,
+  ), [rungs, displayWidth, instructionContext]);
   const totalHeight = useMemo(() => {
     if (rungLayouts.length === 0) return MIN_RUNG_HEIGHT;
     const lastLayout = rungLayouts[rungLayouts.length - 1];
@@ -790,62 +822,64 @@ export function VirtualizedLadderDiagram({
   }
 
   return (
-    <LadderThemeContext.Provider value={theme}>
-      <div
-        ref={containerRef}
-        className={`ladder-diagram-container virtualized ${className}`}
-        style={{
-          overflowX: 'hidden',
-          overflowY: 'auto',
-          backgroundColor: theme.bgPrimary,
-          flex: 1,
-          minHeight: 0,
-          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-          ...style,
-        }}
-        onScroll={handleScroll}
-      >
-        {/* Virtualized content wrapper */}
+    <LadderInstructionContext.Provider value={instructionContext}>
+      <LadderThemeContext.Provider value={theme}>
         <div
+          ref={containerRef}
+          className={`ladder-diagram-container virtualized ${className}`}
           style={{
-            position: 'relative',
-            height: totalHeight,
-            width: displayWidth,
+            overflowX: 'hidden',
+            overflowY: 'auto',
+            backgroundColor: theme.bgPrimary,
+            flex: 1,
+            minHeight: 0,
+            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            ...style,
           }}
+          onScroll={handleScroll}
         >
-          {/* Visible rungs */}
-          {rungs.slice(visibleRange.startIndex, visibleRange.endIndex + 1).map((rung, idx) => {
-            const actualIndex = visibleRange.startIndex + idx;
-            const layout = rungLayouts[actualIndex];
-            const rowBg = actualIndex % 2 === 0 ? theme.rowEvenBg : theme.rowOddBg;
+          {/* Virtualized content wrapper */}
+          <div
+            style={{
+              position: 'relative',
+              height: totalHeight,
+              width: displayWidth,
+            }}
+          >
+            {/* Visible rungs */}
+            {rungs.slice(visibleRange.startIndex, visibleRange.endIndex + 1).map((rung, idx) => {
+              const actualIndex = visibleRange.startIndex + idx;
+              const layout = rungLayouts[actualIndex];
+              const rowBg = actualIndex % 2 === 0 ? theme.rowEvenBg : theme.rowOddBg;
 
-            return (
-              <div
-                key={actualIndex}
-                style={{
-                  position: 'absolute',
-                  top: layout.offset,
-                  left: 0,
-                  width: displayWidth,
-                }}
-              >
-                <ScrollableRungRow
-                  rung={rung}
-                  rungIndex={actualIndex}
-                  layout={layout}
-                  containerWidth={displayWidth}
-                  rowBg={rowBg}
-                  powerRailColor={theme.powerRailColor}
-                  rungNumberColor={theme.rungNumberColor}
-                  rungNumberBg={theme.rungNumberBg}
-                  borderColor={theme.borderColor}
-                />
-              </div>
-            );
-          })}
+              return (
+                <div
+                  key={actualIndex}
+                  style={{
+                    position: 'absolute',
+                    top: layout.offset,
+                    left: 0,
+                    width: displayWidth,
+                  }}
+                >
+                  <ScrollableRungRow
+                    rung={rung}
+                    rungIndex={actualIndex}
+                    layout={layout}
+                    containerWidth={displayWidth}
+                    rowBg={rowBg}
+                    powerRailColor={theme.powerRailColor}
+                    rungNumberColor={theme.rungNumberColor}
+                    rungNumberBg={theme.rungNumberBg}
+                    borderColor={theme.borderColor}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </LadderThemeContext.Provider>
+      </LadderThemeContext.Provider>
+    </LadderInstructionContext.Provider>
   );
 }
 

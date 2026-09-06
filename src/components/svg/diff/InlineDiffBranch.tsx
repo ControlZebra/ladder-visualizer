@@ -1,4 +1,4 @@
-import type { LadderDiagramTheme } from '../../../types';
+import type { InstructionContext, LadderDiagramTheme } from '../../../types';
 import type { InlineDiffBranchLayout, InlineDiffNodeLayout } from '../../../layout';
 import { BRANCH_CONNECTOR_OFFSET } from '../../../layout';
 import { InlineDiffInstruction } from './InlineDiffInstruction';
@@ -6,6 +6,7 @@ import { InlineDiffInstruction } from './InlineDiffInstruction';
 export interface InlineDiffBranchProps {
   layout: InlineDiffBranchLayout;
   theme: Required<LadderDiagramTheme>;
+  instructionContext?: InstructionContext;
 }
 
 function getTintColors(state: InlineDiffBranchLayout['state'] | InlineDiffBranchLayout['legs'][number]['state'], theme: Required<LadderDiagramTheme>) {
@@ -34,15 +35,35 @@ function getLegWireStroke(theme: Required<LadderDiagramTheme>) {
   return theme.wireColor;
 }
 
-function InlineDiffNodeRenderer({ layout, theme }: { layout: InlineDiffNodeLayout; theme: Required<LadderDiagramTheme> }) {
+function InlineDiffNodeRenderer({
+  layout,
+  theme,
+  instructionContext,
+}: {
+  layout: InlineDiffNodeLayout;
+  theme: Required<LadderDiagramTheme>;
+  instructionContext?: InstructionContext;
+}) {
   if (layout.kind === 'instruction') {
-    return <InlineDiffInstruction layout={layout} theme={theme} />;
+    return (
+      <InlineDiffInstruction
+        layout={layout}
+        theme={theme}
+        instructionContext={instructionContext}
+      />
+    );
   }
 
-  return <InlineDiffBranch layout={layout} theme={theme} />;
+  return (
+    <InlineDiffBranch
+      layout={layout}
+      theme={theme}
+      instructionContext={instructionContext}
+    />
+  );
 }
 
-export function InlineDiffBranch({ layout, theme }: InlineDiffBranchProps) {
+export function InlineDiffBranch({ layout, theme, instructionContext }: InlineDiffBranchProps) {
   if (layout.legs.length === 0) {
     return null;
   }
@@ -104,7 +125,12 @@ export function InlineDiffBranch({ layout, theme }: InlineDiffBranchProps) {
             />
 
             {leg.nodes.map((node) => (
-              <InlineDiffNodeRenderer key={node.id} layout={node} theme={theme} />
+              <InlineDiffNodeRenderer
+                key={node.id}
+                layout={node}
+                theme={theme}
+                instructionContext={instructionContext}
+              />
             ))}
 
             {leg.contentEndX < layout.connectorRightX - BRANCH_CONNECTOR_OFFSET && (

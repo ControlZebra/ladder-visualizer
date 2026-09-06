@@ -4,7 +4,6 @@ import { createFailureResult } from './parser-interface';
 import { createParseError, ParseErrorCodes } from './parse-error';
 import { parserRegistry } from './parser-registry';
 import { detectFormatFromFilename } from './format-detector';
-import { registerAOIsFromController, clearAOIs } from './aoi-registration';
 import {
   checkParseExecution,
   createSourceSizeError,
@@ -124,15 +123,6 @@ function parseInput(
     }
   } else {
     result = parserRegistry.parse(input, undefined, options);
-  }
-
-  // Register AOIs from the parsed controller into the global instruction registry
-  // This enables BOX symbols to display proper parameter labels for AOI instructions
-  if (result.success && result.data) {
-    // Clear previous AOI registrations to avoid stale definitions
-    clearAOIs();
-    // Register new AOIs from this controller
-    registerAOIsFromController(result.data);
   }
 
   return result;

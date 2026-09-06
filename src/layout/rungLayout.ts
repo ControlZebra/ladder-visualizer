@@ -1,4 +1,4 @@
-import type { BranchGroup, Instruction, NormalizedRung, RungElement } from '../types';
+import type { BranchGroup, Instruction, InstructionContext, NormalizedRung, RungElement } from '../types';
 import { isBranchGroup } from '../types';
 import { calculateBoxDimensions } from '../components/svg/BoxSymbol';
 import type {
@@ -186,11 +186,13 @@ export function getInstructionLabelAndAddress(instruction: Instruction): { label
 
 export function calculateElementVerticalClearance(
   element: RungElement,
-  dimensions: Dimensions = calculateElementDimensions(element)
+  dimensions?: Dimensions,
+  instructionContext?: InstructionContext,
 ): VerticalClearance {
+  const resolvedDimensions = dimensions ?? calculateElementDimensions(element, instructionContext);
   const baseClearance = {
-    aboveWire: dimensions.centerY,
-    belowWire: dimensions.height - dimensions.centerY,
+    aboveWire: resolvedDimensions.centerY,
+    belowWire: resolvedDimensions.height - resolvedDimensions.centerY,
   };
 
   if (isBranchGroup(element) || !hasLabel(element)) {
@@ -205,7 +207,10 @@ export function calculateElementVerticalClearance(
   };
 }
 
-export function calculateInstructionDimensions(instruction: Instruction): Dimensions {
+export function calculateInstructionDimensions(
+  instruction: Instruction,
+  instructionContext?: InstructionContext,
+): Dimensions {
   switch (instruction.category) {
     case 'input':
     case 'output': {
@@ -214,11 +219,14 @@ export function calculateInstructionDimensions(instruction: Instruction): Dimens
       return { width, height: SYMBOL_HEIGHT, centerY: SYMBOL_HEIGHT / 2 };
     }
     default:
-      return calculateBoxDimensions(instruction.mnemonic, instruction.operands);
+      return calculateBoxDimensions(instruction.mnemonic, instruction.operands, undefined, instructionContext);
   }
 }
 
-export function calculateBranchDimensions(branch: BranchGroup): Dimensions {
+export function calculateBranchDimensions(
+  branch: BranchGroup,
+  instructionContext?: InstructionContext,
+): Dimensions {
   if (branch.branches.length === 0) {
     return { width: 0, height: MIN_RUNG_HEIGHT, centerY: MIN_RUNG_HEIGHT / 2 };
   }
@@ -233,10 +241,10 @@ export function calculateBranchDimensions(branch: BranchGroup): Dimensions {
     for (let index = 0; index < leg.length; index += 1) {
       const element = leg[index];
       const dimensions = isBranchGroup(element)
-        ? calculateBranchDimensions(element)
-        : calculateInstructionDimensions(element);
+        ? calculateBranchDimensions(element, instructionContext)
+        : calculateInstructionDimensions(element, instructionContext);
 
-      const clearance = calculateElementVerticalClearance(element, dimensions);
+      const clearance = calculateElementVerticalClearance(element, dimensions, instructionContext);
       const heightAboveWire = clearance.aboveWire;
       const heightBelowWire = clearance.belowWire;
 
@@ -274,11 +282,14 @@ export function calculateBranchDimensions(branch: BranchGroup): Dimensions {
   };
 }
 
-export function calculateElementDimensions(element: RungElement): Dimensions {
+export function calculateElementDimensions(
+  element: RungElement,
+  instructionContext?: InstructionContext,
+): Dimensions {
   if (isBranchGroup(element)) {
-    return calculateBranchDimensions(element);
+    return calculateBranchDimensions(element, instructionContext);
   }
-  return calculateInstructionDimensions(element);
+  return calculateInstructionDimensions(element, instructionContext);
 }
 
 function separateElements(elements: RungElement[]): ElementPartition {
@@ -296,26 +307,30 @@ function separateElements(elements: RungElement[]): ElementPartition {
   return { conditions, operations };
 }
 
-function calculateTotalWidth(elements: RungElement[]): number {
+function calculateTotalWidth(elements: RungElement[], instructionContext?: InstructionContext): number {
   if (elements.length === 0) {
     return 0;
   }
 
   let width = 0;
   for (const element of elements) {
-    width += calculateElementDimensions(element).width;
+    width += calculateElementDimensions(element, instructionContext).width;
   }
 
   return width + (elements.length - 1) * INSTRUCTION_GAP;
 }
 
-function splitIntoLines(conditions: RungElement[], operations: RungElement[]): ElementLine[] {
+function splitIntoLines(
+  conditions: RungElement[],
+  operations: RungElement[],
+  instructionContext?: InstructionContext,
+): ElementLine[] {
   return [
     {
       conditions,
       operations,
-      conditionsWidth: calculateTotalWidth(conditions),
-      operationsWidth: calculateTotalWidth(operations),
+      conditionsWidth: calculateTotalWidth(conditions, instructionContext),
+      operationsWidth: calculateTotalWidth(operations, instructionContext),
       height: 0,
       wireY: 0,
       yOffset: 0,
@@ -324,7 +339,11 @@ function splitIntoLines(conditions: RungElement[], operations: RungElement[]): E
   ];
 }
 
-function calculateLineMetrics(lines: ElementLine[], rungYOffset: number): number {
+function calculateLineMetrics(
+  lines: ElementLine[],
+  rungYOffset: number,
+  instructionContext?: InstructionContext,
+): number {
   let currentY = rungYOffset;
 
   for (const line of lines) {
@@ -332,8 +351,8 @@ function calculateLineMetrics(lines: ElementLine[], rungYOffset: number): number
     let maxHeightBelowWire = MIN_RUNG_HEIGHT / 2;
 
     for (const element of [...line.conditions, ...line.operations]) {
-      const dimensions = calculateElementDimensions(element);
-      const clearance = calculateElementVerticalClearance(element, dimensions);
+      const dimensions = calculateElementDimensions(element, instructionContext);
+      const clearance = calculateElementVerticalClearance(element, dimensions, instructionContext);
       const heightAboveWire = clearance.aboveWire + RUNG_PADDING;
       const heightBelowWire = clearance.belowWire + RUNG_PADDING;
 
@@ -351,8 +370,13 @@ function calculateLineMetrics(lines: ElementLine[], rungYOffset: number): number
   return Math.max(currentY - LINE_SPACING - rungYOffset, MIN_RUNG_HEIGHT);
 }
 
-function positionInstruction(instruction: Instruction, x: number, wireY: number): InstructionLayout {
-  const dimensions = calculateInstructionDimensions(instruction);
+function positionInstruction(
+  instruction: Instruction,
+  x: number,
+  wireY: number,
+  instructionContext?: InstructionContext,
+): InstructionLayout {
+  const dimensions = calculateInstructionDimensions(instruction, instructionContext);
   const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
   const symbolOffset = isContactOrCoil ? (dimensions.width - SYMBOL_WIDTH) / 2 : 0;
   const { label, address } = getInstructionLabelAndAddress(instruction);
@@ -368,8 +392,13 @@ function positionInstruction(instruction: Instruction, x: number, wireY: number)
   };
 }
 
-export function positionBranch(branch: BranchGroup, branchStartX: number, mainWireY: number): BranchGroupLayout {
-  const dimensions = calculateBranchDimensions(branch);
+export function positionBranch(
+  branch: BranchGroup,
+  branchStartX: number,
+  mainWireY: number,
+  instructionContext?: InstructionContext,
+): BranchGroupLayout {
+  const dimensions = calculateBranchDimensions(branch, instructionContext);
   const connectorLeftX = branchStartX;
   const connectorRightX = branchStartX + dimensions.width;
 
@@ -380,9 +409,9 @@ export function positionBranch(branch: BranchGroup, branchStartX: number, mainWi
 
     for (let index = 0; index < leg.length; index += 1) {
       const element = leg[index];
-      const elementDimensions = calculateElementDimensions(element);
+      const elementDimensions = calculateElementDimensions(element, instructionContext);
 
-      const clearance = calculateElementVerticalClearance(element, elementDimensions);
+      const clearance = calculateElementVerticalClearance(element, elementDimensions, instructionContext);
 
       maxHeightAboveWire = Math.max(maxHeightAboveWire, clearance.aboveWire);
       maxHeightBelowWire = Math.max(maxHeightBelowWire, clearance.belowWire);
@@ -422,8 +451,10 @@ export function positionBranch(branch: BranchGroup, branchStartX: number, mainWi
     const elements: RungElementLayout[] = [];
 
     for (const element of leg) {
-      const elementDimensions = calculateElementDimensions(element);
-      elements.push(isBranchGroup(element) ? positionBranch(element, legX, legWireY) : positionInstruction(element, legX, legWireY));
+      const elementDimensions = calculateElementDimensions(element, instructionContext);
+      elements.push(isBranchGroup(element)
+        ? positionBranch(element, legX, legWireY, instructionContext)
+        : positionInstruction(element, legX, legWireY, instructionContext));
       legX += elementDimensions.width + INSTRUCTION_GAP;
     }
 
@@ -449,16 +480,19 @@ export function positionBranch(branch: BranchGroup, branchStartX: number, mainWi
 function positionOperations(
   operations: RungElement[],
   rightRailX: number,
-  wireY: number
+  wireY: number,
+  instructionContext?: InstructionContext,
 ): { layouts: RungElementLayout[]; startX: number } {
   const layouts: RungElementLayout[] = [];
   let currentX = rightRailX - RUNG_START_OFFSET;
 
   for (let index = operations.length - 1; index >= 0; index -= 1) {
     const element = operations[index];
-    const dimensions = calculateElementDimensions(element);
+    const dimensions = calculateElementDimensions(element, instructionContext);
     const elementX = currentX - dimensions.width;
-    layouts.unshift(isBranchGroup(element) ? positionBranch(element, elementX, wireY) : positionInstruction(element, elementX, wireY));
+    layouts.unshift(isBranchGroup(element)
+      ? positionBranch(element, elementX, wireY, instructionContext)
+      : positionInstruction(element, elementX, wireY, instructionContext));
     currentX = elementX - INSTRUCTION_GAP;
   }
 
@@ -468,14 +502,17 @@ function positionOperations(
 function positionConditions(
   conditions: RungElement[],
   leftRailX: number,
-  wireY: number
+  wireY: number,
+  instructionContext?: InstructionContext,
 ): { layouts: RungElementLayout[]; endX: number } {
   const layouts: RungElementLayout[] = [];
   let currentX = leftRailX + RUNG_START_OFFSET;
 
   for (const element of conditions) {
-    const dimensions = calculateElementDimensions(element);
-    layouts.push(isBranchGroup(element) ? positionBranch(element, currentX, wireY) : positionInstruction(element, currentX, wireY));
+    const dimensions = calculateElementDimensions(element, instructionContext);
+    layouts.push(isBranchGroup(element)
+      ? positionBranch(element, currentX, wireY, instructionContext)
+      : positionInstruction(element, currentX, wireY, instructionContext));
     currentX += dimensions.width + INSTRUCTION_GAP;
   }
 
@@ -486,9 +523,15 @@ export function containsBranches(elements: RungElement[]): boolean {
   return elements.some((element) => isBranchGroup(element));
 }
 
-export function calculateRungContentWidth(elements: RungElement[]): number {
+export function calculateRungContentWidth(
+  elements: RungElement[],
+  instructionContext?: InstructionContext,
+): number {
   const { conditions, operations } = separateElements(elements);
-  return calculateTotalWidth(conditions) + MIN_CONDITION_OPERATION_GAP + calculateTotalWidth(operations) + 2 * RUNG_START_OFFSET;
+  return calculateTotalWidth(conditions, instructionContext)
+    + MIN_CONDITION_OPERATION_GAP
+    + calculateTotalWidth(operations, instructionContext)
+    + 2 * RUNG_START_OFFSET;
 }
 
 export function calculateRungLayoutComplete(
@@ -496,23 +539,29 @@ export function calculateRungLayoutComplete(
   rungIndex: number,
   yOffset: number,
   leftRailX: number,
-  rightRailX: number
+  rightRailX: number,
+  instructionContext?: InstructionContext,
 ): RungLayoutResult {
   const elements = getRungElements(rung);
   const { conditions, operations } = separateElements(elements);
-  const lines = splitIntoLines(conditions, operations);
+  const lines = splitIntoLines(conditions, operations, instructionContext);
   const comment = calculateRungCommentLayout(rung.comment, yOffset, leftRailX, rightRailX);
   const commentBlockHeight = comment ? comment.height + COMMENT_BOTTOM_GAP : 0;
   const rungContentYOffset = yOffset + commentBlockHeight;
-  const contentHeight = calculateLineMetrics(lines, rungContentYOffset);
+  const contentHeight = calculateLineMetrics(lines, rungContentYOffset, instructionContext);
   const rungHeight = commentBlockHeight + contentHeight;
 
   const lineLayouts: LineLayout[] = lines.map((line, lineIndex) => {
     const { layouts: operationsLayouts, startX: operationsStartX } = line.isLastLine && line.operations.length > 0
-      ? positionOperations(line.operations, rightRailX, line.wireY)
+      ? positionOperations(line.operations, rightRailX, line.wireY, instructionContext)
       : { layouts: [], startX: rightRailX };
 
-    const { layouts: conditionLayouts } = positionConditions(line.conditions, leftRailX, line.wireY);
+    const { layouts: conditionLayouts } = positionConditions(
+      line.conditions,
+      leftRailX,
+      line.wireY,
+      instructionContext,
+    );
 
     return {
       lineIndex,
@@ -537,17 +586,27 @@ export function calculateRungLayoutComplete(
   };
 }
 
-export function calculateMinDiagramWidth(rungs: NormalizedRung[]): number {
+export function calculateMinDiagramWidth(
+  rungs: NormalizedRung[],
+  instructionContext?: InstructionContext,
+): number {
   let maxContentWidth = 0;
 
   for (const rung of rungs) {
-    maxContentWidth = Math.max(maxContentWidth, calculateRungContentWidth(getRungElements(rung)));
+    maxContentWidth = Math.max(
+      maxContentWidth,
+      calculateRungContentWidth(getRungElements(rung), instructionContext),
+    );
   }
 
   return RUNG_NUMBER_WIDTH + 2 * RAIL_VISUAL_WIDTH + maxContentWidth;
 }
 
-export function calculateRungLayouts(rungs: NormalizedRung[], diagramWidth: number): RungLayout[] {
+export function calculateRungLayouts(
+  rungs: NormalizedRung[],
+  diagramWidth: number,
+  instructionContext?: InstructionContext,
+): RungLayout[] {
   const leftRailX = RUNG_NUMBER_WIDTH + RAIL_VISUAL_WIDTH;
   const rightRailX = diagramWidth - RAIL_VISUAL_WIDTH;
   const layouts: RungLayout[] = [];
@@ -555,8 +614,17 @@ export function calculateRungLayouts(rungs: NormalizedRung[], diagramWidth: numb
 
   for (let index = 0; index < rungs.length; index += 1) {
     const rung = rungs[index];
-    const contentWidth = calculateRungContentWidth(getRungElements(rung)) + RUNG_NUMBER_WIDTH + 2 * RAIL_VISUAL_WIDTH;
-    const rungLayout = calculateRungLayoutComplete(rung, index, currentOffset, leftRailX, rightRailX);
+    const contentWidth = calculateRungContentWidth(getRungElements(rung), instructionContext)
+      + RUNG_NUMBER_WIDTH
+      + 2 * RAIL_VISUAL_WIDTH;
+    const rungLayout = calculateRungLayoutComplete(
+      rung,
+      index,
+      currentOffset,
+      leftRailX,
+      rightRailX,
+      instructionContext,
+    );
     layouts.push({ height: rungLayout.height, offset: currentOffset, contentWidth });
     currentOffset += rungLayout.height;
   }
