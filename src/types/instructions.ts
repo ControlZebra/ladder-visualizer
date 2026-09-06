@@ -74,30 +74,37 @@ export type InstructionMnemonic =
   | TimerInstruction
   | CounterInstruction;
 
-import { globalInstructionRegistry } from './instruction-registry';
+import { globalInstructionRegistry, type InstructionRegistry } from './instruction-registry';
 
 /**
  * Map instruction mnemonic to category.
- * Uses the global instruction registry for extensible lookups.
+ * Uses the supplied registry, or the global compatibility registry by default.
  */
 export function getInstructionCategory(
-  mnemonic: string
+  mnemonic: string,
+  registry: InstructionRegistry = globalInstructionRegistry,
 ): Instruction['category'] {
-  return globalInstructionRegistry.getCategory(mnemonic);
+  return registry.getCategory(mnemonic);
 }
 
 /**
  * Get the display name for an instruction mnemonic.
- * Uses the global instruction registry.
+ * Uses the supplied registry, or the global compatibility registry by default.
  */
-export function getInstructionDisplayName(mnemonic: string): string {
-  return globalInstructionRegistry.getDisplayName(mnemonic);
+export function getInstructionDisplayName(
+  mnemonic: string,
+  registry: InstructionRegistry = globalInstructionRegistry,
+): string {
+  return registry.getDisplayName(mnemonic);
 }
 
 /**
  * Get the parameter labels for an instruction mnemonic.
- * Uses the global instruction registry.
+ * Uses the supplied registry, or the global compatibility registry by default.
  */
-export function getInstructionParameterLabels(mnemonic: string): string[] {
-  return globalInstructionRegistry.getParameterLabels(mnemonic);
+export function getInstructionParameterLabels(
+  mnemonic: string,
+  registry: InstructionRegistry = globalInstructionRegistry,
+): string[] {
+  return registry.getParameterLabels(mnemonic);
 }

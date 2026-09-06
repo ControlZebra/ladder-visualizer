@@ -30,20 +30,36 @@ import 'ladder-visualizer/styles';
 
 const result = parseString(l5xSource);
 
-if (!result.success) {
-  throw new Error(result.errors.map((error) => error.message).join('\n'));
+if (!result.success || !result.data) {
+  throw new Error(result.errors?.map((error) => error.message).join('\n') ?? 'Parse failed');
 }
 
 const routine = result.data.programs[0]?.routines[0];
 
 export function ControllerRoutine() {
-  return routine ? <VirtualizedLadderDiagram routine={routine} /> : null;
+  return routine ? (
+    <VirtualizedLadderDiagram
+      routine={routine}
+      instructionContext={result.context}
+    />
+  ) : null;
 }
 ```
 
 Use `parseFile()` for browser file uploads and `parseBuffer()` for an
 `ArrayBuffer`. Parsers are registered automatically when importing from the
 package root.
+
+Each successful parse returns a controller-scoped `context` containing built-in
+instruction metadata plus that controller's AOI definitions. Pass it to ladder
+renderers so BOX symbols use the correct AOI parameter labels. Parsing never
+clears or repopulates `globalInstructionRegistry`, so multiple parsed
+controllers remain isolated. Existing integrations that intentionally use the
+global registry can continue to call `registerAOIsFromController(controller)`;
+that compatibility helper is now an explicit opt-in side effect.
+Low-level `l5xToNormalized()` and `jsonToNormalized()` callers can use
+`finalizeController(controller)` to obtain the matching context and replace
+provisional rung categories before rendering.
 
 ## L5X input safety
 

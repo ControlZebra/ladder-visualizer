@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { calculateBoxDimensions } from '../../src/components/svg/BoxSymbol';
-import { globalInstructionRegistry } from '../../src/types';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { BoxSymbol, calculateBoxDimensions } from '../../src/components/svg/BoxSymbol';
+import {
+  createInstructionRegistry,
+  globalInstructionRegistry,
+  registerAOI,
+} from '../../src/types';
 
 const CUSTOM_MNEMONIC = '__PHASE0_INLINE_DIFF__';
 
@@ -23,5 +29,22 @@ describe('calculateBoxDimensions', () => {
     const registryBacked = calculateBoxDimensions(CUSTOM_MNEMONIC, ['DestTag']);
 
     expect(registryBacked.width).toBeGreaterThan(fallback.width);
+  });
+
+  it('renders AOI labels from an explicit controller context', () => {
+    const instructionRegistry = createInstructionRegistry();
+    registerAOI(instructionRegistry, {
+      name: CUSTOM_MNEMONIC,
+      parameters: [{ name: 'Controller Input', usage: 'Input', visible: true }],
+    });
+
+    const markup = renderToStaticMarkup(createElement(BoxSymbol, {
+      mnemonic: CUSTOM_MNEMONIC,
+      operands: ['InputTag'],
+      instructionContext: { instructionRegistry },
+    }));
+
+    expect(markup).toContain('Controller Input');
+    expect(globalInstructionRegistry.has(CUSTOM_MNEMONIC)).toBe(false);
   });
 });

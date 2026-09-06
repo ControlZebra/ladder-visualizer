@@ -9,7 +9,11 @@ export type { BoxSymbolProps, BoxDimensions } from './BoxSymbol';
 
 export { RungCommentText } from './RungCommentText';
 
-export { VirtualizedLadderDiagram, useLadderTheme } from './VirtualizedLadderDiagram';
+export {
+  VirtualizedLadderDiagram,
+  useLadderInstructionContext,
+  useLadderTheme,
+} from './VirtualizedLadderDiagram';
 export type { VirtualizedLadderDiagramProps } from './VirtualizedLadderDiagram';
 
 export { InlineDiffInstruction, InlineDiffBranch, InlineDiffRung } from './diff';

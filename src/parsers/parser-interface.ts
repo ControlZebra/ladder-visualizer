@@ -1,4 +1,5 @@
 import type { NormalizedController } from '../types/normalized';
+import type { InstructionContext } from '../types/instruction-registry';
 import type { ParseError, ParseWarning } from './parse-error';
 import type { ParseOptions } from './resource-guards';
 
@@ -21,6 +22,8 @@ export interface ParseResult<T> {
   warnings?: ParseWarning[];
   /** Time taken to parse in milliseconds */
   parseTimeMs?: number;
+  /** Controller-scoped instruction metadata for rendering AOI calls */
+  context?: InstructionContext;
 }
 
 /**
@@ -31,6 +34,7 @@ export function createSuccessResult<T>(
   options?: {
     warnings?: ParseWarning[];
     parseTimeMs?: number;
+    context?: InstructionContext;
   }
 ): ParseResult<T> {
   return {
@@ -38,6 +42,7 @@ export function createSuccessResult<T>(
     data,
     warnings: options?.warnings,
     parseTimeMs: options?.parseTimeMs,
+    ...(options?.context ? { context: options.context } : {}),
   };
 }
 

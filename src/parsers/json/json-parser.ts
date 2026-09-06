@@ -7,6 +7,7 @@ import {
 } from '../parser-interface';
 import { createParseError, ParseErrorCodes } from '../parse-error';
 import { jsonToNormalized, type RawControllerExport } from './json-to-normalized';
+import { finalizeController } from '../aoi-registration';
 
 /**
  * Parser for Rockwell Automation JSON export format.
@@ -79,8 +80,10 @@ export class JSONParser extends BaseParser {
 
     // Transform to normalized model
     try {
-      const normalized = jsonToNormalized(json as RawControllerExport);
-      return createSuccessResult(normalized);
+      const { controller, context } = finalizeController(
+        jsonToNormalized(json as RawControllerExport),
+      );
+      return createSuccessResult(controller, { context });
     } catch (error) {
       return createFailureResult([
         createParseError('Failed to normalize controller data', {

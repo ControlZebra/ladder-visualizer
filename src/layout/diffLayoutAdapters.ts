@@ -11,7 +11,7 @@ import type {
 } from '../diff/inline';
 import { calculateBoxDimensions } from '../components/svg/BoxSymbol';
 import { getInstructionParameterLabels } from '../types';
-import type { Instruction } from '../types';
+import type { Instruction, InstructionContext } from '../types';
 import type { Dimensions, VerticalClearance } from './rungLayoutTypes';
 import {
   CHAR_WIDTH_ESTIMATE,
@@ -135,12 +135,14 @@ export interface BuildInlineDiffRungLayoutOptions {
   yOffset?: number;
   leftRailX?: number;
   rightRailX: number;
+  instructionContext?: InstructionContext;
 }
 
 export interface PrepareInlineDiffRungRenderLayoutOptions {
   width?: number;
   yOffset?: number;
   leftRailX?: number;
+  instructionContext?: InstructionContext;
 }
 
 export interface InlineDiffRungRenderLayout {
@@ -249,10 +251,14 @@ function calculateCompactOperandWidth(
   instruction: Instruction,
   changedOperandIndex: number | undefined,
   change: InlineTextChange,
+  instructionContext?: InstructionContext,
 ): number {
   const prefixLabel = changedOperandIndex === undefined
     ? ''
-    : `${getInstructionParameterLabels(instruction.mnemonic)[changedOperandIndex] ?? `Param ${changedOperandIndex + 1}`}: `;
+    : `${getInstructionParameterLabels(
+        instruction.mnemonic,
+        instructionContext?.instructionRegistry,
+      )[changedOperandIndex] ?? `Param ${changedOperandIndex + 1}`}: `;
   const oldText = change.oldText;
   const newText = change.newText;
 
@@ -288,10 +294,14 @@ function getBoxRowHeights(
 function calculateExpandedOperandWidth(
   instruction: Instruction,
   operandTextChanges: InlineOperandTextChange[],
+  instructionContext?: InstructionContext,
 ): number {
   return operandTextChanges.reduce((maxWidth, { operandIndex, change }) => (
-    Math.max(maxWidth, calculateCompactOperandWidth(instruction, operandIndex, change))
-  ), calculateInstructionDimensions(instruction).width);
+    Math.max(
+      maxWidth,
+      calculateCompactOperandWidth(instruction, operandIndex, change, instructionContext),
+    )
+  ), calculateInstructionDimensions(instruction, instructionContext).width);
 }
 
 function createMeasuredSegment(
@@ -300,8 +310,9 @@ function createMeasuredSegment(
   instruction: Instruction,
   renderMetadata?: InlineInstructionRenderMetadata,
   overrides?: Partial<Pick<MeasuredInstructionSegment, 'dimensions' | 'clearance'>>,
+  instructionContext?: InstructionContext,
 ): MeasuredInstructionSegment {
-  const intrinsicDimensions = calculateInstructionDimensions(instruction);
+  const intrinsicDimensions = calculateInstructionDimensions(instruction, instructionContext);
 
   return {
     role,
@@ -314,13 +325,20 @@ function createMeasuredSegment(
   };
 }
 
-function measureInstructionNode(node: InlineDiffInstructionNode): MeasuredInstructionNode {
+function measureInstructionNode(
+  node: InlineDiffInstructionNode,
+  instructionContext?: InstructionContext,
+): MeasuredInstructionNode {
   const representativeInstruction = node.instruction ?? node.newInstruction ?? node.oldInstruction;
   const segments: MeasuredInstructionSegment[] = [];
 
   if (node.state === 'text-modified' && representativeInstruction) {
-    const intrinsicDimensions = calculateInstructionDimensions(representativeInstruction);
-    const intrinsicClearance = calculateElementVerticalClearance(representativeInstruction, intrinsicDimensions);
+    const intrinsicDimensions = calculateInstructionDimensions(representativeInstruction, instructionContext);
+    const intrinsicClearance = calculateElementVerticalClearance(
+      representativeInstruction,
+      intrinsicDimensions,
+      instructionContext,
+    );
     let dimensions = intrinsicDimensions;
     let clearance = intrinsicClearance;
 
@@ -346,11 +364,16 @@ function measureInstructionNode(node: InlineDiffInstructionNode): MeasuredInstru
         representativeInstruction.mnemonic,
         representativeInstruction.operands,
         operandRowHeights,
+        instructionContext,
       );
       dimensions = {
         width: Math.max(
           expandedDimensions.width,
-          calculateExpandedOperandWidth(representativeInstruction, operandTextChanges),
+          calculateExpandedOperandWidth(
+            representativeInstruction,
+            operandTextChanges,
+            instructionContext,
+          ),
         ),
         height: expandedDimensions.height,
         centerY: expandedDimensions.centerY,
@@ -365,17 +388,38 @@ function measureInstructionNode(node: InlineDiffInstructionNode): MeasuredInstru
       createMeasuredSegment('single', 'text-modified', representativeInstruction, node.renderMetadata, {
         dimensions,
         clearance,
-      }),
+      }, instructionContext),
     );
   } else if (node.state === 'replaced') {
     if (node.oldInstruction) {
-      segments.push(createMeasuredSegment('old', 'removed', node.oldInstruction, node.oldRenderMetadata));
+      segments.push(createMeasuredSegment(
+        'old',
+        'removed',
+        node.oldInstruction,
+        node.oldRenderMetadata,
+        undefined,
+        instructionContext,
+      ));
     }
     if (node.newInstruction) {
-      segments.push(createMeasuredSegment('new', 'added', node.newInstruction, node.newRenderMetadata));
+      segments.push(createMeasuredSegment(
+        'new',
+        'added',
+        node.newInstruction,
+        node.newRenderMetadata,
+        undefined,
+        instructionContext,
+      ));
     }
   } else if (representativeInstruction) {
-    segments.push(createMeasuredSegment('single', node.state, representativeInstruction, node.renderMetadata));
+    segments.push(createMeasuredSegment(
+      'single',
+      node.state,
+      representativeInstruction,
+      node.renderMetadata,
+      undefined,
+      instructionContext,
+    ));
   }
 
   const width = segments.reduce((total, segment) => total + segment.dimensions.width, 0) + Math.max(segments.length - 1, 0) * INSTRUCTION_GAP;
@@ -402,8 +446,11 @@ function measureInstructionNode(node: InlineDiffInstructionNode): MeasuredInstru
   };
 }
 
-function measureBranchLeg(leg: InlineDiffBranchLeg): MeasuredBranchLeg {
-  const nodes = leg.nodes.map((node) => measureInlineDiffNode(node));
+function measureBranchLeg(
+  leg: InlineDiffBranchLeg,
+  instructionContext?: InstructionContext,
+): MeasuredBranchLeg {
+  const nodes = leg.nodes.map((node) => measureInlineDiffNode(node, instructionContext));
   const width = nodes.reduce((total, node) => total + node.dimensions.width, 0) + Math.max(nodes.length - 1, 0) * INSTRUCTION_GAP;
   const aboveWire = nodes.length > 0
     ? Math.max(...nodes.map((node) => node.clearance.aboveWire))
@@ -421,8 +468,11 @@ function measureBranchLeg(leg: InlineDiffBranchLeg): MeasuredBranchLeg {
   };
 }
 
-function measureBranchNode(node: InlineDiffBranchNode): MeasuredBranchNode {
-  const legs = node.legs.map((leg) => measureBranchLeg(leg));
+function measureBranchNode(
+  node: InlineDiffBranchNode,
+  instructionContext?: InstructionContext,
+): MeasuredBranchNode {
+  const legs = node.legs.map((leg) => measureBranchLeg(leg, instructionContext));
   const width = legs.length > 0
     ? Math.max(...legs.map((leg) => leg.width)) + 2 * BRANCH_CONNECTOR_OFFSET
     : 0;
@@ -444,8 +494,13 @@ function measureBranchNode(node: InlineDiffBranchNode): MeasuredBranchNode {
   };
 }
 
-function measureInlineDiffNode(node: InlineDiffNode): MeasuredNode {
-  return node.kind === 'instruction' ? measureInstructionNode(node) : measureBranchNode(node);
+function measureInlineDiffNode(
+  node: InlineDiffNode,
+  instructionContext?: InstructionContext,
+): MeasuredNode {
+  return node.kind === 'instruction'
+    ? measureInstructionNode(node, instructionContext)
+    : measureBranchNode(node, instructionContext);
 }
 
 function calculateMeasuredNodesWidth(nodes: MeasuredNode[]): number {
@@ -456,10 +511,13 @@ function calculateMeasuredNodesWidth(nodes: MeasuredNode[]): number {
   return nodes.reduce((total, node) => total + node.dimensions.width, 0) + (nodes.length - 1) * INSTRUCTION_GAP;
 }
 
-function measureInlineDiffRung(model: InlineDiffRungModel): MeasuredInlineDiffRung {
+function measureInlineDiffRung(
+  model: InlineDiffRungModel,
+  instructionContext?: InstructionContext,
+): MeasuredInlineDiffRung {
   const { conditions, operations } = separateNodes(model.nodes);
-  const measuredConditions = conditions.map((node) => measureInlineDiffNode(node));
-  const measuredOperations = operations.map((node) => measureInlineDiffNode(node));
+  const measuredConditions = conditions.map((node) => measureInlineDiffNode(node, instructionContext));
+  const measuredOperations = operations.map((node) => measureInlineDiffNode(node, instructionContext));
   const contentWidth = calculateMeasuredNodesWidth(measuredConditions)
     + MIN_CONDITION_OPERATION_GAP
     + calculateMeasuredNodesWidth(measuredOperations)
@@ -513,12 +571,20 @@ function buildInlineDiffCommentLayout(
   };
 }
 
-export function calculateInlineDiffRungContentWidth(model: InlineDiffRungModel): number {
-  return measureInlineDiffRung(model).contentWidth;
+export function calculateInlineDiffRungContentWidth(
+  model: InlineDiffRungModel,
+  instructionContext?: InstructionContext,
+): number {
+  return measureInlineDiffRung(model, instructionContext).contentWidth;
 }
 
-export function calculateInlineDiffRungMinWidth(model: InlineDiffRungModel): number {
-  return RUNG_NUMBER_WIDTH + 2 * RAIL_VISUAL_WIDTH + measureInlineDiffRung(model).contentWidth;
+export function calculateInlineDiffRungMinWidth(
+  model: InlineDiffRungModel,
+  instructionContext?: InstructionContext,
+): number {
+  return RUNG_NUMBER_WIDTH
+    + 2 * RAIL_VISUAL_WIDTH
+    + measureInlineDiffRung(model, instructionContext).contentWidth;
 }
 
 function buildInlineDiffRungLayoutFromMeasured(
@@ -578,7 +644,7 @@ export function prepareInlineDiffRungRenderLayout(
   model: InlineDiffRungModel,
   options: PrepareInlineDiffRungRenderLayoutOptions = {},
 ): InlineDiffRungRenderLayout {
-  const measured = measureInlineDiffRung(model);
+  const measured = measureInlineDiffRung(model, options.instructionContext);
   const minWidth = RUNG_NUMBER_WIDTH + 2 * RAIL_VISUAL_WIDTH + measured.contentWidth;
   const diagramWidth = Math.max(options.width ?? minWidth, minWidth);
 
@@ -589,6 +655,7 @@ export function prepareInlineDiffRungRenderLayout(
       yOffset: options.yOffset,
       leftRailX: options.leftRailX,
       rightRailX: diagramWidth - RAIL_VISUAL_WIDTH,
+      instructionContext: options.instructionContext,
     }),
   };
 }
@@ -730,5 +797,9 @@ export function buildInlineDiffRungLayout(
   model: InlineDiffRungModel,
   options: BuildInlineDiffRungLayoutOptions,
 ): InlineDiffRungLayout {
-  return buildInlineDiffRungLayoutFromMeasured(model, measureInlineDiffRung(model), options);
+  return buildInlineDiffRungLayoutFromMeasured(
+    model,
+    measureInlineDiffRung(model, options.instructionContext),
+    options,
+  );
 }

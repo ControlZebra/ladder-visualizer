@@ -203,6 +203,16 @@ export class InstructionRegistry {
   }
 }
 
+/**
+ * Instruction metadata associated with one parsed controller.
+ *
+ * Passing this context to renderers keeps controller-specific AOI definitions
+ * isolated from the opt-in global registry.
+ */
+export interface InstructionContext {
+  readonly instructionRegistry: InstructionRegistry;
+}
+
 // ============================================================================
 // Default Instruction Definitions
 // ============================================================================

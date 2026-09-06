@@ -1,4 +1,4 @@
-import type { LadderDiagramTheme } from '../../../types';
+import type { InstructionContext, LadderDiagramTheme } from '../../../types';
 import {
   SYMBOL_WIDTH,
 } from '../../../layout';
@@ -87,6 +87,7 @@ function renderInstructionLabel(
 export interface InlineDiffInstructionProps {
   layout: InlineDiffInstructionLayout;
   theme: Required<LadderDiagramTheme>;
+  instructionContext?: InstructionContext;
 }
 
 function renderSegment(
@@ -96,6 +97,7 @@ function renderSegment(
   textChange?: InlineDiffInstructionLayout['textChange'],
   changedOperandIndex?: number,
   operandTextChanges?: InlineDiffInstructionLayout['operandTextChanges'],
+  instructionContext?: InstructionContext,
 ) {
   const { instruction, position, dimensions, intrinsicDimensions, symbolOffset, renderMetadata } = layout;
   const isContactOrCoil = instruction.category === 'input' || instruction.category === 'output';
@@ -182,6 +184,7 @@ function renderSegment(
           <BoxSymbol
             mnemonic={instruction.mnemonic}
             operands={instruction.operands}
+            instructionContext={instructionContext}
             borderColor={colors.boxBorderColor}
             bgColor={colors.boxBgColor}
             textColor={colors.boxTextColor}
@@ -250,7 +253,11 @@ function renderSegment(
   );
 }
 
-export function InlineDiffInstruction({ layout, theme }: InlineDiffInstructionProps) {
+export function InlineDiffInstruction({
+  layout,
+  theme,
+  instructionContext,
+}: InlineDiffInstructionProps) {
   return (
     <g data-inline-diff-node="instruction" data-state={layout.state}>
       {layout.segments.map((segment) => renderSegment(
@@ -260,6 +267,7 @@ export function InlineDiffInstruction({ layout, theme }: InlineDiffInstructionPr
         layout.textChange,
         layout.changedOperandIndex,
         layout.operandTextChanges,
+        instructionContext,
       ))}
     </g>
   );
