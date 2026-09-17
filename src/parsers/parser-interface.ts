@@ -1,4 +1,4 @@
-import type { NormalizedController } from '../types/normalized';
+import type { NormalizedController, PlcDocument } from '../types/normalized';
 import type { InstructionContext } from '../types/instruction-registry';
 import type { ParseError, ParseWarning } from './parse-error';
 import type { ParseOptions } from './resource-guards';
@@ -96,6 +96,9 @@ export interface PLCParser {
    * @returns Parse result with normalized controller or errors
    */
   parse(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<NormalizedController>;
+
+  /** Optional document capability; legacy-only plugins remain compatible. */
+  parseDocument?(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<PlcDocument>;
 
   /**
    * Optionally validate input without full parsing.

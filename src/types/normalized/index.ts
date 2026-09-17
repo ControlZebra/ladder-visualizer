@@ -46,3 +46,8 @@ export type {
   DataTypeClass,
   DataTypeUsage,
 } from './data-type';
+
+export type {
+  PlcDocument, PlcResource, PlcResourceData, PlcResourceRole, PlcExportTarget,
+  PlcVendorFragment, PlcSourceMapping, ParsedXmlValue,
+} from './document';
