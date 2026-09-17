@@ -64,6 +64,12 @@ export type {
   CounterInstruction,
   BranchGroup,
   RungElement,
+  ParsedRung,
+  RungSourceSpan,
+  RungParseDiagnostic,
+  RungParseDiagnosticCode,
+  RungToken,
+  RungTokenKind,
 } from './instructions';
 export { getInstructionCategory, getInstructionDisplayName, getInstructionParameterLabels, isBranchGroup } from './instructions';
 

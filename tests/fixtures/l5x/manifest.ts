@@ -306,7 +306,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 1, rungs: 1 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1, rungs: 1 } },
-    coverage: ['rung export', 'branch'],
+    coverage: ['rung export', 'branch', 'nested operand', 'quoted delimiter', 'unknown instruction'],
   },
   {
     id: 'tags-v34',
@@ -587,7 +587,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 1, rungs: 1 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1, rungs: 1 } },
-    coverage: ['rung export', 'branch', 'version matrix'],
+    coverage: ['rung export', 'branch', 'nested operand', 'quoted delimiter', 'unknown instruction', 'version matrix'],
   },
   {
     id: 'rung-rll-v35',
@@ -599,7 +599,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 1, rungs: 1 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1, rungs: 1 } },
-    coverage: ['rung export', 'branch', 'version matrix'],
+    coverage: ['rung export', 'branch', 'nested operand', 'quoted delimiter', 'unknown instruction', 'version matrix'],
   },
   {
     id: 'tags-v33',

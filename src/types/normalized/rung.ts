@@ -1,4 +1,4 @@
-import type { Instruction, RungElement } from '../instructions';
+import type { Instruction, RungElement, RungParseDiagnostic } from '../instructions';
 
 /**
  * Normalized rung - vendor-agnostic representation of a ladder logic rung
@@ -14,6 +14,8 @@ export interface NormalizedRung {
   elements: RungElement[];
   /** Parsed instructions in execution order (flat list) */
   instructions: Instruction[];
+  /** Recoverable RLL grammar problems with source locations. */
+  diagnostics?: RungParseDiagnostic[];
   /** Rung type (Normal, Empty, etc.) */
   type?: 'Normal' | 'Empty' | 'Delete' | 'Insert' | 'InsertDirect' | 'Replace' | 'ReplaceDirect';
 }

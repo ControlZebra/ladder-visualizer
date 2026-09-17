@@ -1,212 +1,366 @@
-import type { Instruction, RungElement, BranchGroup } from '../types';
-import { getInstructionCategory } from '../types';
+import type {
+  BranchGroup,
+  Instruction,
+  ParsedRung,
+  RungElement,
+  RungParseDiagnostic,
+  RungSourceSpan,
+  RungToken,
+  RungTokenKind,
+} from '../types';
+import { getInstructionCategory, isBranchGroup } from '../types';
 
-/**
- * Parse a single instruction match into an Instruction object.
- *
- * @param mnemonic - The instruction mnemonic (e.g., "XIC", "OTE", "GEQ")
- * @param operandsStr - The comma-separated operands string
- * @returns Parsed Instruction object
- */
-function parseInstruction(mnemonic: string, operandsStr: string): Instruction {
-  // Split operands by comma, handling nested expressions if needed
-  const operands = operandsStr
-    .split(',')
-    .map((op) => op.trim())
-    .filter((op) => op.length > 0);
+const SINGLE_CHARACTER_TOKENS: Record<string, RungTokenKind> = {
+  '(': 'open-paren',
+  ')': 'close-paren',
+  '[': 'open-bracket',
+  ']': 'close-bracket',
+  '{': 'open-brace',
+  '}': 'close-brace',
+  ',': 'comma',
+  ';': 'semicolon',
+};
 
-  return {
-    mnemonic,
-    operands,
-    category: getInstructionCategory(mnemonic),
-  };
-}
+const EXPECTED_CLOSER: Partial<Record<RungTokenKind, RungTokenKind>> = {
+  'open-paren': 'close-paren',
+  'open-bracket': 'close-bracket',
+  'open-brace': 'close-brace',
+};
 
-/**
- * Find the matching closing parenthesis, accounting for nesting.
- */
-function findMatchingParen(str: string, startIndex: number): number {
-  let depth = 1;
-  for (let i = startIndex; i < str.length; i++) {
-    if (str[i] === '(') depth++;
-    if (str[i] === ')') depth--;
-    if (depth === 0) return i;
-  }
-  return -1;
-}
+/** Convert rung text into source-located lexical tokens. */
+export function tokenizeRung(source: string): RungToken[] {
+  const tokens: RungToken[] = [];
+  let position = 0;
 
-/**
- * Find the matching closing bracket, accounting for nesting.
- */
-function findMatchingBracket(str: string, startIndex: number): number {
-  let depth = 1;
-  for (let i = startIndex; i < str.length; i++) {
-    if (str[i] === '[') depth++;
-    if (str[i] === ']') depth--;
-    if (depth === 0) return i;
-  }
-  return -1;
-}
-
-/**
- * Split a branch content string by comma at the top level (not inside nested brackets/parens).
- * For example: "XIC(A),[XIC(B),XIC(C)]" -> ["XIC(A)", "[XIC(B),XIC(C)]"]
- */
-function splitBranchLegs(content: string): string[] {
-  const legs: string[] = [];
-  let depth = 0;
-  let currentLeg = '';
-  
-  for (let i = 0; i < content.length; i++) {
-    const char = content[i];
-    if (char === '[' || char === '(') {
-      depth++;
-      currentLeg += char;
-    } else if (char === ']' || char === ')') {
-      depth--;
-      currentLeg += char;
-    } else if (char === ',' && depth === 0) {
-      if (currentLeg.trim()) {
-        legs.push(currentLeg.trim());
-      }
-      currentLeg = '';
-    } else {
-      currentLeg += char;
+  while (position < source.length) {
+    if (/\s/.test(source[position])) {
+      position++;
+      continue;
     }
-  }
-  
-  if (currentLeg.trim()) {
-    legs.push(currentLeg.trim());
-  }
-  
-  return legs;
-}
 
-/**
- * Parse rung elements from a string, supporting branches.
- * This handles both simple instructions and nested branch structures.
- */
-function parseRungElements(rungString: string): RungElement[] {
-  const elements: RungElement[] = [];
-  let i = 0;
-  
-  while (i < rungString.length) {
-    // Skip whitespace
-    while (i < rungString.length && /\s/.test(rungString[i])) {
-      i++;
+    const start = position;
+    const singleKind = SINGLE_CHARACTER_TOKENS[source[position]];
+    if (singleKind) {
+      position++;
+      tokens.push({ kind: singleKind, value: source.slice(start, position), span: { start, end: position } });
+      continue;
     }
-    
-    if (i >= rungString.length) break;
-    
-    // Check for branch start
-    if (rungString[i] === '[') {
-      const closeIndex = findMatchingBracket(rungString, i + 1);
-      if (closeIndex === -1) {
-        // Malformed branch, skip to end
-        break;
-      }
-      
-      const branchContent = rungString.substring(i + 1, closeIndex);
-      const legs = splitBranchLegs(branchContent);
-      
-      const branchGroup: BranchGroup = {
-        type: 'branch',
-        branches: legs.map(leg => parseRungElements(leg)),
-      };
-      
-      elements.push(branchGroup);
-      i = closeIndex + 1;
+
+    if (/[A-Z_]/i.test(source[position])) {
+      position++;
+      while (/[A-Z0-9_]/i.test(source[position] ?? '')) position++;
+      tokens.push({ kind: 'identifier', value: source.slice(start, position), span: { start, end: position } });
+      continue;
     }
-    // Check for instruction (starts with letter)
-    else if (/[A-Z_]/i.test(rungString[i])) {
-      // Find the mnemonic
-      let mnemonicEnd = i;
-      while (mnemonicEnd < rungString.length && /[A-Z0-9_]/i.test(rungString[mnemonicEnd])) {
-        mnemonicEnd++;
-      }
-      
-      const mnemonic = rungString.substring(i, mnemonicEnd);
-      
-      // Check for opening paren
-      if (mnemonicEnd < rungString.length && rungString[mnemonicEnd] === '(') {
-        const closeParenIndex = findMatchingParen(rungString, mnemonicEnd + 1);
-        if (closeParenIndex === -1) {
-          // Malformed instruction, skip
-          i = mnemonicEnd;
+
+    if (source[position] === '"' || source[position] === "'") {
+      const quote = source[position++];
+      let terminated = false;
+      while (position < source.length) {
+        if (source[position] === '\\' || source[position] === '$') {
+          position += Math.min(2, source.length - position);
           continue;
         }
-        
-        const operandsStr = rungString.substring(mnemonicEnd + 1, closeParenIndex);
-        elements.push(parseInstruction(mnemonic, operandsStr));
-        i = closeParenIndex + 1;
-      } else {
-        // Mnemonic without parens (shouldn't happen in valid ladder logic)
-        i = mnemonicEnd;
+        if (source[position] === quote) {
+          position++;
+          terminated = true;
+          break;
+        }
+        position++;
       }
+      tokens.push({
+        kind: 'string',
+        value: source.slice(start, position),
+        span: { start, end: position },
+        terminated,
+      });
+      continue;
     }
-    // Skip other characters
-    else {
-      i++;
+
+    position++;
+    while (
+      position < source.length
+      && !/\s/.test(source[position])
+      && !SINGLE_CHARACTER_TOKENS[source[position]]
+      && !/[A-Z_]/i.test(source[position])
+      && source[position] !== '"'
+      && source[position] !== "'"
+    ) {
+      position++;
     }
+    tokens.push({ kind: 'raw', value: source.slice(start, position), span: { start, end: position } });
   }
-  
-  return elements;
+
+  return tokens;
 }
 
-/**
- * Flatten RungElements to just Instructions (for backward compatibility).
- * This loses branch structure information.
- */
+class RungGrammarParser {
+  private position = 0;
+  private readonly tokens: RungToken[];
+  private readonly diagnostics: RungParseDiagnostic[] = [];
+
+  constructor(private readonly source: string) {
+    this.tokens = tokenizeRung(source);
+  }
+
+  parse(): ParsedRung {
+    const elements = this.parseElements(new Set());
+    return {
+      elements,
+      instructions: flattenElements(elements),
+      diagnostics: this.diagnostics,
+    };
+  }
+
+  private parseElements(stopKinds: ReadonlySet<RungTokenKind>): RungElement[] {
+    const elements: RungElement[] = [];
+
+    while (this.current) {
+      if (stopKinds.has(this.current.kind)) break;
+      if (this.current.kind === 'semicolon') {
+        this.position++;
+        continue;
+      }
+      if (this.current.kind === 'open-bracket') {
+        elements.push(this.parseBranch());
+        continue;
+      }
+      if (this.current.kind === 'identifier') {
+        elements.push(this.parseInstruction());
+        continue;
+      }
+
+      const token = this.current;
+      this.addDiagnostic(
+        'RLL_UNEXPECTED_TOKEN',
+        `Unexpected rung token ${JSON.stringify(token.value)}.`,
+        token.span
+      );
+      this.position++;
+    }
+
+    return elements;
+  }
+
+  private parseBranch(): BranchGroup {
+    const start = this.current!.span.start;
+    this.position++;
+    const branches: RungElement[][] = [];
+    let closed = false;
+
+    while (this.current) {
+      branches.push(this.parseElements(new Set(['comma', 'close-bracket'])));
+      if (this.current?.kind === 'comma') {
+        this.position++;
+        continue;
+      }
+      if (this.current?.kind === 'close-bracket') {
+        this.position++;
+        closed = true;
+      }
+      break;
+    }
+
+    if (!closed) {
+      this.addDiagnostic(
+        'RLL_UNTERMINATED_BRANCH',
+        'Expected "]" before the end of the rung.',
+        { start, end: this.source.length }
+      );
+    }
+
+    const end = this.previous?.span.end ?? start + 1;
+    return {
+      type: 'branch',
+      branches,
+      source: this.source.slice(start, end),
+      sourceSpan: { start, end },
+    };
+  }
+
+  private parseInstruction(): Instruction {
+    const mnemonicToken = this.current!;
+    const mnemonic = mnemonicToken.value;
+    const start = mnemonicToken.span.start;
+    this.position++;
+
+    if (this.current?.kind !== 'open-paren') {
+      const end = mnemonicToken.span.end;
+      this.addDiagnostic(
+        'RLL_EXPECTED_OPEN_PAREN',
+        `Expected "(" after instruction ${JSON.stringify(mnemonic)}.`,
+        { start, end }
+      );
+      return this.instruction(mnemonic, [], [], start, end);
+    }
+
+    const openingParen = this.current;
+    this.position++;
+    let operandStart = openingParen.span.end;
+    const operands: string[] = [];
+    const operandSpans: RungSourceSpan[] = [];
+    const delimiterStack: RungTokenKind[] = [];
+
+    while (this.current) {
+      const token = this.current;
+
+      if (token.kind === 'string' && token.terminated === false) {
+        this.addDiagnostic(
+          'RLL_UNTERMINATED_STRING',
+          `Expected ${JSON.stringify(token.value[0])} before the end of the rung.`,
+          token.span
+        );
+        this.position++;
+        continue;
+      }
+
+      const closer = EXPECTED_CLOSER[token.kind];
+      if (closer) {
+        delimiterStack.push(closer);
+        this.position++;
+        continue;
+      }
+
+      if (delimiterStack.length > 0 && token.kind === delimiterStack[delimiterStack.length - 1]) {
+        delimiterStack.pop();
+        this.position++;
+        continue;
+      }
+
+      if (token.kind === 'comma' && delimiterStack.length === 0) {
+        this.pushOperand(operands, operandSpans, operandStart, token.span.start);
+        this.position++;
+        operandStart = token.span.end;
+        continue;
+      }
+
+      if (token.kind === 'close-paren' && delimiterStack.length === 0) {
+        this.pushOperand(operands, operandSpans, operandStart, token.span.start);
+        this.position++;
+        return this.instruction(mnemonic, operands, operandSpans, start, token.span.end);
+      }
+
+      if (token.kind.startsWith('close-')) {
+        const expectedKind = delimiterStack.at(-1) ?? 'close-paren';
+        const expected = this.tokenValue(expectedKind);
+        this.pushOperand(operands, operandSpans, operandStart, token.span.start);
+        this.addDiagnostic(
+          'RLL_MISMATCHED_DELIMITER',
+          `Expected ${JSON.stringify(expected)} before ${JSON.stringify(token.value)}.`,
+          token.span
+        );
+        this.position++;
+        return this.instruction(mnemonic, operands, operandSpans, start, token.span.end);
+      }
+
+      this.position++;
+    }
+
+    this.pushOperand(operands, operandSpans, operandStart, this.source.length);
+    this.addDiagnostic(
+      'RLL_UNTERMINATED_INSTRUCTION',
+      `Expected ")" before the end of instruction ${JSON.stringify(mnemonic)}.`,
+      { start, end: this.source.length }
+    );
+    return this.instruction(mnemonic, operands, operandSpans, start, this.source.length);
+  }
+
+  private instruction(
+    mnemonic: string,
+    operands: string[],
+    operandSpans: RungSourceSpan[],
+    start: number,
+    end: number
+  ): Instruction {
+    return {
+      mnemonic,
+      operands,
+      category: getInstructionCategory(mnemonic),
+      source: this.source.slice(start, end),
+      sourceSpan: { start, end },
+      operandSpans,
+    };
+  }
+
+  private pushOperand(
+    operands: string[],
+    spans: RungSourceSpan[],
+    untrimmedStart: number,
+    untrimmedEnd: number
+  ): void {
+    let start = untrimmedStart;
+    let end = untrimmedEnd;
+    while (start < end && /\s/.test(this.source[start])) start++;
+    while (end > start && /\s/.test(this.source[end - 1])) end--;
+    if (start === end) return;
+    operands.push(this.source.slice(start, end));
+    spans.push({ start, end });
+  }
+
+  private tokenValue(kind: RungTokenKind): string {
+    return Object.entries(SINGLE_CHARACTER_TOKENS).find(([, candidate]) => candidate === kind)?.[0] ?? kind;
+  }
+
+  private addDiagnostic(
+    code: RungParseDiagnostic['code'],
+    message: string,
+    span: RungSourceSpan
+  ): void {
+    this.diagnostics.push({ code, message, span });
+  }
+
+  private get current(): RungToken | undefined {
+    return this.tokens[this.position];
+  }
+
+  private get previous(): RungToken | undefined {
+    return this.tokens[this.position - 1];
+  }
+}
+
 function flattenElements(elements: RungElement[]): Instruction[] {
   const instructions: Instruction[] = [];
-  
   for (const element of elements) {
-    if ('type' in element && element.type === 'branch') {
-      // Recursively flatten all branches
-      for (const branch of element.branches) {
-        instructions.push(...flattenElements(branch));
-      }
+    if (isBranchGroup(element)) {
+      for (const branch of element.branches) instructions.push(...flattenElements(branch));
     } else {
-      instructions.push(element as Instruction);
+      instructions.push(element);
     }
   }
-  
   return instructions;
 }
 
-/**
- * Parse a raw rung string into an array of Instructions.
- *
- * @param rungString - Raw rung string from the PLC export
- *                     Example: "GEQ(WBGT_Fahreheit,87)XIC(Tag)OTE(Output);"
- * @returns Array of parsed Instructions in execution order
- */
+function compatibilityElements(elements: RungElement[]): RungElement[] {
+  return elements.map((element) => {
+    if (isBranchGroup(element)) {
+      return {
+        type: 'branch',
+        branches: element.branches.map(compatibilityElements),
+      };
+    }
+    return {
+      mnemonic: element.mnemonic,
+      operands: element.operands,
+      category: element.category,
+    };
+  });
+}
+
+/** Parse a rung with source spans and recovery diagnostics. */
+export function parseRungDetailed(rungString: string): ParsedRung {
+  return new RungGrammarParser(rungString).parse();
+}
+
+/** Parse a raw rung into a flat, backward-compatible instruction list. */
 export function parseRung(rungString: string): Instruction[] {
-  // Remove trailing semicolon if present
-  const cleanedRung = rungString.replace(/;$/, '');
-  const elements = parseRungElements(cleanedRung);
-  return flattenElements(elements);
+  return flattenElements(compatibilityElements(parseRungDetailed(rungString).elements));
 }
 
-/**
- * Parse a raw rung string into RungElements (preserving branch structure).
- *
- * @param rungString - Raw rung string from the PLC export
- *                     Example: "[XIC(A),[XIC(B),XIC(C)]]GEQ(X,Y)OTE(Output);"
- * @returns Array of RungElements preserving branch structure
- */
+/** Parse a raw rung while preserving backward-compatible branch structure. */
 export function parseRungWithBranches(rungString: string): RungElement[] {
-  // Remove trailing semicolon if present
-  const cleanedRung = rungString.replace(/;$/, '');
-  return parseRungElements(cleanedRung);
+  return compatibilityElements(parseRungDetailed(rungString).elements);
 }
 
-/**
- * Parse multiple rung strings into an array of Instruction arrays.
- *
- * @param rungs - Array of raw rung strings
- * @returns Array of parsed Instruction arrays
- */
 export function parseRungs(rungs: string[]): Instruction[][] {
   return rungs.map(parseRung);
 }
