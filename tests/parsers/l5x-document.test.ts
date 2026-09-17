@@ -192,7 +192,7 @@ describe('L5X target-aware document contract', () => {
     });
     expect(targets(document(read(`rung-rll-v${major}`)))[0].data).toMatchObject({
       number: 0,
-      raw: '[XIC(A),XIC(B)]OTE(Output);',
+      raw: '[XIC(A),[XIC(B),XIC(C)]]CPT(Destination,MAX(A,B)+1)VendorOp("A,B[0]",Tag)OTE(Output);',
     });
   });
 

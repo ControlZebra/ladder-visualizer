@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { parseRung, parseRungs, parseRungWithBranches } from '../../src/parsers/rung-parser';
+import {
+  parseRung,
+  parseRungDetailed,
+  parseRungs,
+  parseRungWithBranches,
+  tokenizeRung,
+} from '../../src/parsers/rung-parser';
 import { isBranchGroup } from '../../src/types';
 
 describe('parseRung', () => {
@@ -229,5 +235,148 @@ describe('parseRungWithBranches', () => {
     expect(result[1].mnemonic).toBe('XIC');
     expect(result[1].operands[0]).toBe('B');
     expect(result[2].mnemonic).toBe('OTE');
+  });
+});
+
+describe('parseRungDetailed grammar', () => {
+  it('tokenizes identifiers, delimiters, strings, separators, and raw expressions', () => {
+    expect(tokenizeRung('CPT(Dest,MAX(A,B)+1)VendorOp("A,B",Tag);').map((token) => [
+      token.kind,
+      token.value,
+    ])).toEqual([
+      ['identifier', 'CPT'],
+      ['open-paren', '('],
+      ['identifier', 'Dest'],
+      ['comma', ','],
+      ['identifier', 'MAX'],
+      ['open-paren', '('],
+      ['identifier', 'A'],
+      ['comma', ','],
+      ['identifier', 'B'],
+      ['close-paren', ')'],
+      ['raw', '+1'],
+      ['close-paren', ')'],
+      ['identifier', 'VendorOp'],
+      ['open-paren', '('],
+      ['string', '"A,B"'],
+      ['comma', ','],
+      ['identifier', 'Tag'],
+      ['close-paren', ')'],
+      ['semicolon', ';'],
+    ]);
+  });
+
+  it('keeps nested calls and quoted delimiters inside their operands', () => {
+    const rung = 'CPT(Destination,MAX(A,B)+1)VendorOp("A,B[0]",Tag);';
+    const result = parseRungDetailed(rung);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.instructions.map(({ mnemonic, operands, category }) => ({
+      mnemonic,
+      operands,
+      category,
+    }))).toEqual([
+      { mnemonic: 'CPT', operands: ['Destination', 'MAX(A,B)+1'], category: 'math' },
+      { mnemonic: 'VendorOp', operands: ['"A,B[0]"', 'Tag'], category: 'other' },
+    ]);
+    expect(result.instructions[0].source).toBe('CPT(Destination,MAX(A,B)+1)');
+    expect(result.instructions[0].sourceSpan).toEqual({ start: 0, end: 27 });
+    expect(result.instructions[0].operandSpans).toEqual([
+      { start: 4, end: 15 },
+      { start: 16, end: 26 },
+    ]);
+  });
+
+  it('treats backslashes as string content rather than quote escapes', () => {
+    const rung = String.raw`VendorOp('C:\path\',Tag)OTE(Output);`;
+    const result = parseRungDetailed(rung);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.instructions.map(({ mnemonic, operands }) => ({ mnemonic, operands }))).toEqual([
+      { mnemonic: 'VendorOp', operands: [String.raw`'C:\path\'`, 'Tag'] },
+      { mnemonic: 'OTE', operands: ['Output'] },
+    ]);
+  });
+
+  it('preserves deterministic nested branch order', () => {
+    const result = parseRungDetailed('[XIC(A),[XIC(B),XIC(C)]]OTE(Output);');
+    const outer = result.elements[0];
+
+    expect(isBranchGroup(outer)).toBe(true);
+    if (!isBranchGroup(outer)) return;
+    expect(outer.branches).toHaveLength(2);
+    expect((outer.branches[0][0] as { operands: string[] }).operands).toEqual(['A']);
+    const inner = outer.branches[1][0];
+    expect(isBranchGroup(inner)).toBe(true);
+    if (!isBranchGroup(inner)) return;
+    expect(inner.branches.map((leg) => (leg[0] as { operands: string[] }).operands[0])).toEqual([
+      'B',
+      'C',
+    ]);
+    expect(result.instructions.map((instruction) => instruction.operands[0])).toEqual([
+      'A',
+      'B',
+      'C',
+      'Output',
+    ]);
+  });
+
+  it('recovers after a mismatched delimiter with a location-aware diagnostic', () => {
+    const rung = 'XIC(Start]OTE(Output);';
+    const result = parseRungDetailed(rung);
+
+    expect(result.instructions.map((instruction) => instruction.mnemonic)).toEqual(['XIC', 'OTE']);
+    expect(result.instructions[0].operands).toEqual(['Start']);
+    expect(result.diagnostics).toContainEqual({
+      code: 'RLL_MISMATCHED_DELIMITER',
+      message: 'Expected ")" before "]".',
+      span: { start: rung.indexOf(']'), end: rung.indexOf(']') + 1 },
+    });
+  });
+
+  it('reports raw tokens instead of silently skipping them', () => {
+    const rung = 'XIC(A)@OTE(B);';
+    const result = parseRungDetailed(rung);
+
+    expect(result.instructions.map((instruction) => instruction.mnemonic)).toEqual(['XIC', 'OTE']);
+    expect(result.diagnostics).toContainEqual({
+      code: 'RLL_UNEXPECTED_TOKEN',
+      message: 'Unexpected rung token "@".',
+      span: { start: rung.indexOf('@'), end: rung.indexOf('@') + 1 },
+    });
+  });
+
+  it('preserves unterminated strings and branches with explicit diagnostics', () => {
+    const stringResult = parseRungDetailed('VendorOp("A,B);');
+    expect(stringResult.instructions[0].source).toBe('VendorOp("A,B);');
+    expect(stringResult.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+      'RLL_UNTERMINATED_STRING',
+      'RLL_UNTERMINATED_INSTRUCTION',
+    ]);
+
+    const branchResult = parseRungDetailed('[XIC(A),XIC(B)');
+    expect(branchResult.instructions.map((instruction) => instruction.operands[0])).toEqual([
+      'A',
+      'B',
+    ]);
+    expect(branchResult.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'RLL_UNTERMINATED_BRANCH',
+      span: { start: 0, end: 14 },
+    }));
+  });
+
+  it('includes trailing whitespace in recovered unterminated branch source spans', () => {
+    const rung = '[XIC(A)   ';
+    const result = parseRungDetailed(rung);
+    const branch = result.elements[0];
+
+    expect(isBranchGroup(branch)).toBe(true);
+    if (!isBranchGroup(branch)) return;
+    expect(branch.source).toBe(rung);
+    expect(branch.sourceSpan).toEqual({ start: 0, end: rung.length });
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'RLL_UNTERMINATED_BRANCH',
+      span: { start: 0, end: rung.length },
+    }));
   });
 });

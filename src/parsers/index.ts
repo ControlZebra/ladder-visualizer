@@ -71,7 +71,13 @@ registerDefaultParsers();
 // ============================================
 
 // Rung Parser
-export { parseRung, parseRungs, parseRungWithBranches } from './rung-parser';
+export {
+  parseRung,
+  parseRungDetailed,
+  parseRungs,
+  parseRungWithBranches,
+  tokenizeRung,
+} from './rung-parser';
 
 // Routine Parser
 export { parseRoutine, parseRoutines } from './routine-parser';

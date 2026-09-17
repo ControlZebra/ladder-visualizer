@@ -1,5 +1,5 @@
 import type { NormalizedRoutine, NormalizedRung, NormalizedRoutineType } from '../types';
-import { parseRung, parseRungWithBranches } from './rung-parser';
+import { parseRungDetailed } from './rung-parser';
 
 /**
  * A routine with raw rung strings (for parsing)
@@ -17,13 +17,17 @@ interface RawRoutine {
  * @returns NormalizedRoutine with parsed instructions
  */
 export function parseRoutine(routine: RawRoutine): NormalizedRoutine {
-  const rungs: NormalizedRung[] = routine.rungs.map((rawRung, index) => ({
-    number: index,
-    raw: rawRung,
-    instructions: parseRung(rawRung),
-    elements: parseRungWithBranches(rawRung),
-    comment: undefined,
-  }));
+  const rungs: NormalizedRung[] = routine.rungs.map((rawRung, index) => {
+    const parsed = parseRungDetailed(rawRung);
+    return {
+      number: index,
+      raw: rawRung,
+      instructions: parsed.instructions,
+      elements: parsed.elements,
+      diagnostics: parsed.diagnostics,
+      comment: undefined,
+    };
+  });
 
   return {
     name: routine.name,

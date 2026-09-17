@@ -13,6 +13,7 @@ import { join } from 'path';
 
 const exampleL5XPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
 const exampleL5XContent = readFileSync(exampleL5XPath, 'utf-8');
+const fixtureDirectory = join(__dirname, '../fixtures/l5x');
 
 describe('L5XParser', () => {
   let parser: L5XParser;
@@ -52,6 +53,43 @@ describe('L5XParser', () => {
   });
 
   describe('parse', () => {
+    it.each(['33', '34', '35'])('parses grammar-complete standalone rungs for v%s', (version) => {
+      const source = readFileSync(join(fixtureDirectory, `rung-rll-v${version}.L5X`), 'utf-8');
+      const result = parser.parse(source);
+      const rung = result.data?.programs[0]?.routines[0]?.rungs[0];
+
+      expect(result.success).toBe(true);
+      expect(rung?.diagnostics).toEqual([]);
+      expect(rung?.instructions.map((instruction) => [instruction.mnemonic, instruction.operands])).toEqual([
+        ['XIC', ['A']],
+        ['XIC', ['B']],
+        ['XIC', ['C']],
+        ['CPT', ['Destination', 'MAX(A,B)+1']],
+        ['VendorOp', ['"A,B[0]"', 'Tag']],
+        ['OTE', ['Output']],
+      ]);
+      expect(rung?.instructions[4].category).toBe('other');
+      expect(rung?.instructions[4].source).toBe('VendorOp("A,B[0]",Tag)');
+    });
+
+    it('returns rung recovery diagnostics through the public L5X parser', () => {
+      const source = `<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="Recovery" TargetType="Controller">
+  <Controller Use="Target" Name="Recovery"><Programs><Program Name="Main"><Routines><Routine Name="Main" Type="RLL"><RLLContent>
+    <Rung Number="0" Type="N"><Text><![CDATA[XIC(Start]OTE(Output);]]></Text></Rung>
+  </RLLContent></Routine></Routines></Program></Programs></Controller>
+</RSLogix5000Content>`;
+      const result = parser.parse(source);
+      const rung = result.data?.programs[0]?.routines[0]?.rungs[0];
+
+      expect(result.success).toBe(true);
+      expect(rung?.instructions.map((instruction) => instruction.mnemonic)).toEqual(['XIC', 'OTE']);
+      expect(rung?.diagnostics).toContainEqual(expect.objectContaining({
+        code: 'RLL_MISMATCHED_DELIMITER',
+        span: { start: 9, end: 10 },
+      }));
+    });
+
     it('should parse minimal controller L5X content', () => {
       const l5xContent = `<?xml version="1.0" encoding="UTF-8"?>
 <RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="TestController" TargetType="Controller">

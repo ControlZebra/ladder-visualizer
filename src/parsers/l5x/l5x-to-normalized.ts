@@ -49,7 +49,7 @@ import type {
   AOIParameterUsage,
   STLine,
 } from '../../types/normalized';
-import { parseRung, parseRungWithBranches } from '../rung-parser';
+import { parseRungDetailed } from '../rung-parser';
 
 /**
  * Convert L5X content to NormalizedController
@@ -332,13 +332,14 @@ function normalizeRung(rung: L5XRung): NormalizedRung {
   // The rung text format is identical between JSON and L5X exports
   let elements: NormalizedRung['elements'] = [];
   let instructions: NormalizedRung['instructions'] = [];
+  let diagnostics: NonNullable<NormalizedRung['diagnostics']> = [];
 
   if (rawText && rawText.trim()) {
     try {
-      // parseRungWithBranches returns RungElement[] which preserves branch structure
-      elements = parseRungWithBranches(rawText);
-      // parseRung returns a flat array of Instructions
-      instructions = parseRung(rawText);
+      const parsed = parseRungDetailed(rawText);
+      elements = parsed.elements;
+      instructions = parsed.instructions;
+      diagnostics = parsed.diagnostics;
     } catch {
       // If parsing fails, keep empty arrays
       // This can happen with malformed rung text
@@ -351,6 +352,7 @@ function normalizeRung(rung: L5XRung): NormalizedRung {
     raw: rawText,
     elements,
     instructions,
+    diagnostics,
     type: rungType,
   };
 }

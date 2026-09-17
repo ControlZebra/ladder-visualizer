@@ -14,7 +14,7 @@ import type {
   TagScope,
   ExternalAccess,
 } from '../../types/normalized';
-import { parseRung, parseRungWithBranches } from '../rung-parser';
+import { parseRungDetailed } from '../rung-parser';
 
 /**
  * Raw JSON format from Rockwell controller exports
@@ -279,14 +279,14 @@ function normalizeRoutine(routine: {
  * Normalize a rung
  */
 function normalizeRung(raw: string, number: number): NormalizedRung {
-  const elements = parseRungWithBranches(raw);
-  const instructions = parseRung(raw);
+  const parsed = parseRungDetailed(raw);
   
   return {
     number,
     raw,
-    elements,
-    instructions,
+    elements: parsed.elements,
+    instructions: parsed.instructions,
+    diagnostics: parsed.diagnostics,
     type: 'Normal',
   };
 }
