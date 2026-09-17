@@ -57,7 +57,7 @@ export function tokenizeRung(source: string): RungToken[] {
       const quote = source[position++];
       let terminated = false;
       while (position < source.length) {
-        if (source[position] === '\\' || source[position] === '$') {
+        if (source[position] === '$') {
           position += Math.min(2, source.length - position);
           continue;
         }
@@ -169,7 +169,7 @@ class RungGrammarParser {
       );
     }
 
-    const end = this.previous?.span.end ?? start + 1;
+    const end = closed ? (this.previous?.span.end ?? start + 1) : this.source.length;
     return {
       type: 'branch',
       branches,

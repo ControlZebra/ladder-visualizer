@@ -287,6 +287,17 @@ describe('parseRungDetailed grammar', () => {
     ]);
   });
 
+  it('treats backslashes as string content rather than quote escapes', () => {
+    const rung = String.raw`VendorOp('C:\path\',Tag)OTE(Output);`;
+    const result = parseRungDetailed(rung);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.instructions.map(({ mnemonic, operands }) => ({ mnemonic, operands }))).toEqual([
+      { mnemonic: 'VendorOp', operands: [String.raw`'C:\path\'`, 'Tag'] },
+      { mnemonic: 'OTE', operands: ['Output'] },
+    ]);
+  });
+
   it('preserves deterministic nested branch order', () => {
     const result = parseRungDetailed('[XIC(A),[XIC(B),XIC(C)]]OTE(Output);');
     const outer = result.elements[0];
@@ -351,6 +362,21 @@ describe('parseRungDetailed grammar', () => {
     expect(branchResult.diagnostics).toContainEqual(expect.objectContaining({
       code: 'RLL_UNTERMINATED_BRANCH',
       span: { start: 0, end: 14 },
+    }));
+  });
+
+  it('includes trailing whitespace in recovered unterminated branch source spans', () => {
+    const rung = '[XIC(A)   ';
+    const result = parseRungDetailed(rung);
+    const branch = result.elements[0];
+
+    expect(isBranchGroup(branch)).toBe(true);
+    if (!isBranchGroup(branch)) return;
+    expect(branch.source).toBe(rung);
+    expect(branch.sourceSpan).toEqual({ start: 0, end: rung.length });
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'RLL_UNTERMINATED_BRANCH',
+      span: { start: 0, end: rung.length },
     }));
   });
 });
