@@ -45,7 +45,7 @@ Deliver a target-aware L5X parser for the existing Studio 5000 v33-v35 compatibi
 
 Defer issue #5 resource/cancellation hardening, issue #7 complete/partial/failed diagnostics, issue #10 package splitting, issue #12 stable query indexes, issue #17 vendor adapter SDK, and issue #18 service integration. Defer only the formal Studio-version support policy from issue #16. Keep issue #20 as the roadmap umbrella.
 
-## Current slice brief: issue #6
+## Completed slice brief: issue #6
 
 - **Capability:** Parsing an L5X or JSON controller returns controller-scoped AOI instruction metadata without mutating global state, and ladder/diff renderers can use that context for correct AOI labels.
 - **Public entry points:** `parseString`, `parseBuffer`, and `parseFile`; `VirtualizedLadderDiagram`, `InlineDiffRung`, and BOX symbol rendering.
@@ -55,7 +55,12 @@ Defer issue #5 resource/cancellation hardening, issue #7 complete/partial/failed
 - **Non-goals:** No canonical document model, new L5X construct, query index, service isolation, or removal of legacy global APIs.
 - **Completion commands:** Focused parser and component tests, followed by typecheck, lint, conformance, schema validation, full suite, and build.
 
+## Completed slice: issues #11 and #8
+
+See [the document slice contract](l5x-document-slice.md). Target/context/reference resources, document entry points, parsed-fragment preservation, and strict missing-target behavior are implemented. Controller-shaped and document APIs return `MISSING_L5X_TARGET` for a Program envelope without an actual Program.
+
 ## Progress
 
 - **2026-09-04 — Issue #6 implementation:** Parser-owned instruction contexts and explicit renderer injection are implemented in Ladder Visualizer. ControlZebra's file and diff viewers cache and forward those contexts without clearing or repopulating the global registry. Ladder Visualizer and ControlZebra verification gates pass.
 - **2026-09-06 — Issue #6 review follow-up:** Context creation and category application are encapsulated behind one controller finalizer. Public parser results are fully classified before success is returned, regardless of global-registry contents. This follow-up does not change the v33-v35 XML contract, normalized fields, export envelopes, validation behavior, resource guards, or compatibility fixtures. Tests cover public parser isolation plus distinct flat/tree instruction objects; the standard parser, schema, conformance, typecheck, lint, full-suite, and build gates pass.
+- **2026-09-16 — Issues #11 and #8 completion:** The target-aware `PlcDocument` API covers all eight declared export targets across v33-v35, retains context/reference resources and unmodeled parsed fragments, and shares strict target validation with controller-shaped APIs. Program envelopes without a Program now return `MISSING_L5X_TARGET`; no synthetic Program is created.

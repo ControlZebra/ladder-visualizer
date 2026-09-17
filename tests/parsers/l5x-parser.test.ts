@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { L5XParser, l5xParser } from '../../src/parsers/l5x';
-import { parseBuffer, parseString } from '../../src/parsers';
+import {
+  parseBuffer,
+  parseDocumentBuffer,
+  parseDocumentFile,
+  parseDocumentString,
+  parseFile,
+  parseString,
+} from '../../src/parsers';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -45,10 +52,10 @@ describe('L5XParser', () => {
   });
 
   describe('parse', () => {
-    it('should parse minimal L5X content', () => {
+    it('should parse minimal controller L5X content', () => {
       const l5xContent = `<?xml version="1.0" encoding="UTF-8"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="TestProgram" TargetType="Program">
-<Controller Use="Context" Name="TestController">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="TestController" TargetType="Controller">
+<Controller Use="Target" Name="TestController">
 </Controller>
 </RSLogix5000Content>`;
 
@@ -169,10 +176,10 @@ And Path OK]]></Comment>
 
     it('should parse data types', () => {
       const l5xContent = `<?xml version="1.0" encoding="UTF-8"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="Test" TargetType="Program">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="MyUDT" TargetType="DataType">
 <Controller Use="Context" Name="TestController">
 <DataTypes>
-<DataType Name="MyUDT" Family="NoFamily" Class="User">
+<DataType Use="Target" Name="MyUDT" Family="NoFamily" Class="User">
 <Members>
 <Member Name="Value1" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write">
 <Description><![CDATA[First value]]></Description>
@@ -188,7 +195,7 @@ And Path OK]]></Comment>
 
       expect(result.success).toBe(true);
       expect(result.data?.dataTypes).toHaveLength(1);
-      
+
       const dataType = result.data?.dataTypes[0];
       expect(dataType?.name).toBe('MyUDT');
       expect(dataType?.class).toBe('User');
@@ -199,6 +206,42 @@ And Path OK]]></Comment>
       expect(dataType?.members[0].externalAccess).toBe('ReadWrite');
       expect(dataType?.members[1].externalAccess).toBe('ReadOnly');
     });
+
+    it.each(['33.00', '34.01', '35.01'])(
+      'rejects a v%s Program export whose declared target is absent through every public entry point',
+      async (softwareRevision) => {
+        const source = `<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${softwareRevision}" TargetName="MissingProgram" TargetType="Program">
+  <Controller Use="Context" Name="ContextController" />
+</RSLogix5000Content>`;
+        const encoded = new TextEncoder().encode(source);
+        const file = {
+          name: 'missing-program.L5X',
+          size: encoded.byteLength,
+          text: async () => source,
+        } as File;
+
+        const results = [
+          parser.parse(source),
+          parser.parseDocument(source),
+          parseString(source, 'l5x'),
+          parseBuffer(encoded.buffer, 'l5x'),
+          parseDocumentString(source, 'l5x'),
+          parseDocumentBuffer(encoded.buffer, 'l5x'),
+          await parseFile(file),
+          await parseDocumentFile(file),
+        ];
+
+        for (const result of results) {
+          expect(result.success).toBe(false);
+          expect(result.data).toBeUndefined();
+          expect(result.errors?.[0]).toMatchObject({
+            code: 'MISSING_L5X_TARGET',
+            location: { path: '/RSLogix5000Content/@TargetName' },
+          });
+        }
+      }
+    );
 
     it('should parse tags', () => {
       const l5xContent = `<?xml version="1.0" encoding="UTF-8"?>
@@ -223,7 +266,7 @@ And Path OK]]></Comment>
       const result = parser.parse(l5xContent);
 
       expect(result.success).toBe(true);
-      
+
       // Controller tags
       expect(result.data?.tags).toHaveLength(2);
       expect(result.data?.tags[0].name).toBe('GlobalTag1');
@@ -232,7 +275,7 @@ And Path OK]]></Comment>
       expect(result.data?.tags[0].description).toBe('A global tag');
       expect(result.data?.tags[1].tagType).toBe('Alias');
       expect(result.data?.tags[1].aliasFor).toBe('GlobalTag1.0');
-      
+
       // Program tags
       expect(result.data?.programs[0].tags).toHaveLength(1);
       expect(result.data?.programs[0].tags[0].name).toBe('ProgramTag1');
@@ -438,7 +481,9 @@ And Path OK]]></Comment>
     });
 
     it('supports built-in XML entities without enabling HTML entities', () => {
-      const result = parser.parse(`<RSLogix5000Content TargetName="Test" TargetType="Controller"><Controller Name="Fish &amp; Chips"/></RSLogix5000Content>`);
+      const result = parser.parse(
+        `<RSLogix5000Content TargetName="Test" TargetType="Controller"><Controller Name="Fish &amp; Chips"/></RSLogix5000Content>`
+      );
 
       expect(result.success).toBe(true);
       expect(result.data?.name).toBe('Fish & Chips');
@@ -501,25 +546,25 @@ describe('L5XParser with real L5X file', () => {
 
     // Should have data types
     expect(result.data?.dataTypes.length).toBeGreaterThan(0);
-    
+
     // Find specific data type from the file
-    const analogValveUDT = result.data?.dataTypes.find(dt => dt.name === 'Analog_Valve_UDT');
+    const analogValveUDT = result.data?.dataTypes.find((dt) => dt.name === 'Analog_Valve_UDT');
     expect(analogValveUDT).toBeDefined();
     expect(analogValveUDT?.class).toBe('User');
     expect(analogValveUDT?.members.length).toBeGreaterThan(0);
 
     // Should have programs
     expect(result.data?.programs.length).toBeGreaterThan(0);
-    
+
     // Find the Cooker_1_AutoLogic program
-    const cookerProgram = result.data?.programs.find(p => p.name === 'Cooker_1_AutoLogic');
+    const cookerProgram = result.data?.programs.find((p) => p.name === 'Cooker_1_AutoLogic');
     expect(cookerProgram).toBeDefined();
     expect(cookerProgram?.routines.length).toBeGreaterThan(0);
-    
+
     // Check for RLL routines with rungs
-    const rllRoutine = cookerProgram?.routines.find(r => r.type === 'RLL' && r.rungs.length > 0);
+    const rllRoutine = cookerProgram?.routines.find((r) => r.type === 'RLL' && r.rungs.length > 0);
     expect(rllRoutine).toBeDefined();
-    
+
     // Verify rungs are parsed
     const firstRung = rllRoutine?.rungs[0];
     expect(firstRung).toBeDefined();
@@ -537,44 +582,44 @@ describe('L5XParser with real L5X file', () => {
     expect(result.data?.aois.length).toBeGreaterThan(0);
 
     // Find the Analog_Input AOI
-    const analogInputAOI = result.data?.aois.find(aoi => aoi.name === 'Analog_Input');
+    const analogInputAOI = result.data?.aois.find((aoi) => aoi.name === 'Analog_Input');
     expect(analogInputAOI).toBeDefined();
-    
+
     // Check basic metadata
     expect(analogInputAOI?.class).toBe('Standard');
     expect(analogInputAOI?.revision).toBe('1.1');
-    
+
     // Check execution options
     expect(analogInputAOI?.executePrescan).toBe(false);
     expect(analogInputAOI?.executePostscan).toBe(false);
     expect(analogInputAOI?.executeEnableInFalse).toBe(false);
-    
+
     // Check parameters
     expect(analogInputAOI?.parameters.length).toBeGreaterThan(0);
-    
+
     // Find EnableIn parameter (standard AOI parameter)
-    const enableInParam = analogInputAOI?.parameters.find(p => p.name === 'EnableIn');
+    const enableInParam = analogInputAOI?.parameters.find((p) => p.name === 'EnableIn');
     expect(enableInParam).toBeDefined();
     expect(enableInParam?.usage).toBe('Input');
     expect(enableInParam?.dataType).toBe('BOOL');
     expect(enableInParam?.visible).toBe(false);
     expect(enableInParam?.required).toBe(false);
-    
+
     // Find a visible input parameter
-    const inRawParam = analogInputAOI?.parameters.find(p => p.name === 'In_Raw');
+    const inRawParam = analogInputAOI?.parameters.find((p) => p.name === 'In_Raw');
     expect(inRawParam).toBeDefined();
     expect(inRawParam?.usage).toBe('Input');
     expect(inRawParam?.visible).toBe(true);
     expect(inRawParam?.required).toBe(true);
-    
+
     // Check local tags
     expect(analogInputAOI?.localTags.length).toBeGreaterThan(0);
-    
+
     // Check that AOI has routines (internal logic)
     expect(analogInputAOI?.routines.length).toBeGreaterThan(0);
-    
+
     // Find the Logic routine
-    const logicRoutine = analogInputAOI?.routines.find(r => r.name === 'Logic');
+    const logicRoutine = analogInputAOI?.routines.find((r) => r.name === 'Logic');
     expect(logicRoutine).toBeDefined();
     expect(logicRoutine?.type).toBe('RLL');
     expect(logicRoutine?.rungs.length).toBeGreaterThan(0);
@@ -586,18 +631,18 @@ describe('L5XParser with real L5X file', () => {
     expect(result.success).toBe(true);
 
     // Find the PF525_VFD_E_ENET AOI
-    const vfdAOI = result.data?.aois.find(aoi => aoi.name === 'PF525_VFD_E_ENET');
+    const vfdAOI = result.data?.aois.find((aoi) => aoi.name === 'PF525_VFD_E_ENET');
     expect(vfdAOI).toBeDefined();
-    
+
     // Check revision extension
     expect(vfdAOI?.revisionExtension).toBe('Deluxe Edition');
-    
+
     // Check for InOut parameters
-    const pf525InParam = vfdAOI?.parameters.find(p => p.name === 'PF525_In');
+    const pf525InParam = vfdAOI?.parameters.find((p) => p.name === 'PF525_In');
     expect(pf525InParam).toBeDefined();
     expect(pf525InParam?.usage).toBe('InOut');
-    
-    const pf525OutParam = vfdAOI?.parameters.find(p => p.name === 'PF525_Out');
+
+    const pf525OutParam = vfdAOI?.parameters.find((p) => p.name === 'PF525_Out');
     expect(pf525OutParam).toBeDefined();
     expect(pf525OutParam?.usage).toBe('InOut');
   });
@@ -608,11 +653,11 @@ describe('L5XParser with real L5X file', () => {
     expect(result.success).toBe(true);
 
     // Find the Analog_Input AOI
-    const analogInputAOI = result.data?.aois.find(aoi => aoi.name === 'Analog_Input');
+    const analogInputAOI = result.data?.aois.find((aoi) => aoi.name === 'Analog_Input');
     expect(analogInputAOI).toBeDefined();
-    
+
     // Find the L_ONS local tag which is an array
-    const onsTag = analogInputAOI?.localTags.find(t => t.name === 'L_ONS');
+    const onsTag = analogInputAOI?.localTags.find((t) => t.name === 'L_ONS');
     expect(onsTag).toBeDefined();
     expect(onsTag?.dataType).toBe('BOOL');
     expect(onsTag?.dimensions).toBe(32);
@@ -626,7 +671,7 @@ describe('L5XParser with real L5X file', () => {
 
     // Controller name should be extracted from Controller element
     expect(result.data?.name).toBe('PLC100_Mashing');
-    
+
     // Vendor metadata should include both controller name and target name
     expect(result.data?.vendorMetadata?.controllerName).toBe('PLC100_Mashing');
     expect(result.data?.vendorMetadata?.targetName).toBe('Cooker_1_AutoLogic');
@@ -640,7 +685,7 @@ describe('L5XParser with real L5X file', () => {
     expect(result.data).toBeDefined();
 
     // Data types from context should have usage set to 'Context'
-    const analogValveUDT = result.data?.dataTypes.find(dt => dt.name === 'Analog_Valve_UDT');
+    const analogValveUDT = result.data?.dataTypes.find((dt) => dt.name === 'Analog_Valve_UDT');
     expect(analogValveUDT).toBeDefined();
     expect(analogValveUDT?.class).toBe('User');
     expect(analogValveUDT?.usage).toBe('Context');
@@ -654,12 +699,12 @@ describe('L5XParser with real L5X file', () => {
 
     // Should have modules
     expect(result.data?.modules.length).toBeGreaterThan(0);
-    
+
     // Find a specific module by name
-    const aiModule = result.data?.modules.find(m => m.name === 'AI_ECP100_C_2');
+    const aiModule = result.data?.modules.find((m) => m.name === 'AI_ECP100_C_2');
     expect(aiModule).toBeDefined();
     expect(aiModule?.usage).toBe('Reference');
-    
+
     // Check that all modules have names
     for (const module of result.data?.modules || []) {
       expect(module.name).toBeDefined();

@@ -5,7 +5,7 @@
  */
 
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
-import type { NormalizedController } from '../../types/normalized';
+import type { NormalizedController, PlcDocument } from '../../types/normalized';
 import {
   BaseParser,
   type ParseResult,
@@ -19,6 +19,7 @@ import {
 } from '../parse-error';
 import type { L5XContent } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
+import { l5xToDocument, L5XDocumentError, L5X_TARGET_TYPES } from './l5x-document';
 import { finalizeController } from '../aoi-registration';
 import {
   checkParseExecution,
@@ -124,10 +125,19 @@ export class L5XParser extends BaseParser {
    * Parse L5X input into normalized controller model
    */
   parse(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<NormalizedController> {
-    return this.withTiming(() => this.doParse(input, withParseDeadline(options)));
+    const result = this.parseDocument(input, options);
+    if (!result.success || !result.data) return createFailureResult(result.errors ?? [], result);
+    const controller = result.data.resources.find(resource => resource.kind === 'controller');
+    if (!controller || controller.kind !== 'controller') return createFailureResult([createParseError('Missing controller resource', { code: ParseErrorCodes.INTERNAL_ERROR })]);
+    return createSuccessResult(controller.data, result);
   }
 
-  private doParse(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<NormalizedController> {
+  /** Parse all declared targets and retain unnormalized source fragments. */
+  parseDocument(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<PlcDocument> {
+    return this.withTiming(() => this.doParseDocument(input, withParseDeadline(options)));
+  }
+
+  private doParseDocument(input: string | ArrayBuffer, options?: ParseOptions): ParseResult<PlcDocument> {
     const limits = resolveResourceLimits(options);
     const executionError = checkParseExecution(options);
     if (executionError) {
@@ -169,14 +179,21 @@ export class L5XParser extends BaseParser {
     // Validate structure
     const validationResult = this.validateL5XStructure(xml);
     if (!validationResult.success) {
-      return validationResult;
+      return createFailureResult(validationResult.errors ?? []);
     }
 
     // Transform to normalized model
     try {
       const { controller, context } = finalizeController(l5xToNormalized(xml));
-      return createSuccessResult(controller, { context });
+      const document = l5xToDocument(xml, controller);
+      const completionError = checkParseExecution(options);
+      if (completionError) return createFailureResult([completionError]);
+      return createSuccessResult(document, { context, warnings: document.fragments.length ? [{
+        code: 'PRESERVED_L5X_CONTENT',
+        message: 'Source content is retained in document fragments; successful parsing does not imply full normalization.',
+      }] : undefined });
     } catch (error) {
+      if (error instanceof L5XDocumentError) return createFailureResult([error.issue]);
       return createFailureResult([
         createParseError('Failed to normalize L5X data', {
           code: ParseErrorCodes.INTERNAL_ERROR,
@@ -259,7 +276,7 @@ export class L5XParser extends BaseParser {
     }
 
     // Validate target type
-    const validTargetTypes = ['Controller', 'Program', 'Routine', 'AddOnInstructionDefinition'];
+    const validTargetTypes = L5X_TARGET_TYPES;
     if (!validTargetTypes.includes(root['@_TargetType'])) {
       return createFailureResult([
         createParseError(`Invalid TargetType: ${root['@_TargetType']}. Expected one of: ${validTargetTypes.join(', ')}`, {

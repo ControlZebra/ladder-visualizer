@@ -24,6 +24,7 @@ export interface RSLogix5000Content {
   '@_SoftwareRevision': string;
   '@_TargetName': string;
   '@_TargetType': L5XTargetType;
+  '@_TargetCount'?: string;
   '@_TargetClass'?: string;
   '@_ContainsContext'?: string;
   '@_ExportDate'?: string;
@@ -34,7 +35,7 @@ export interface RSLogix5000Content {
 /**
  * Target type - what is being exported
  */
-export type L5XTargetType = 'Controller' | 'Program' | 'Routine' | 'AddOnInstructionDefinition';
+export type L5XTargetType = import('../../types/normalized').PlcExportTarget;
 
 // ============================================
 // Controller Types
@@ -409,19 +410,29 @@ export interface L5XProgram {
 
 export interface L5XRoutines {
   Routine?: L5XRoutine | L5XRoutine[];
+  EncodedData?: L5XEncodedRoutine | L5XEncodedRoutine[];
+}
+
+export interface L5XEncodedRoutine {
+  '@_Name': string;
+  '@_Type'?: L5XRoutineType;
+  '@_EncodedType'?: string;
+  Description?: L5XDescription;
+  '#text'?: string;
+  '#cdata'?: string;
 }
 
 export interface L5XRoutine {
   '@_Name': string;
   '@_Type': L5XRoutineType;
   Description?: L5XDescription;
-  RLLContent?: L5XRLLContent;
-  STContent?: L5XSTContent;
+  RLLContent?: L5XRLLContent | L5XRLLContent[];
+  STContent?: L5XSTContent | L5XSTContent[];
   FBDContent?: L5XFBDContent;
   SFCContent?: L5XSFCContent;
 }
 
-export type L5XRoutineType = 'RLL' | 'ST' | 'FBD' | 'SFC';
+export type L5XRoutineType = 'RLL' | 'ST' | 'FBD' | 'SFC' | 'Typeless' | 'External' | 'Encrypted';
 
 // ============================================
 // Routine Content Types

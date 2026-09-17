@@ -78,3 +78,5 @@ export { parseRoutine, parseRoutines } from './routine-parser';
 
 // Tag Resolver
 export { TagResolver, createTagResolver, type TagUsage } from './tag-resolver';
+
+export { parseDocumentString, parseDocumentBuffer, parseDocumentFile } from './parse-document';

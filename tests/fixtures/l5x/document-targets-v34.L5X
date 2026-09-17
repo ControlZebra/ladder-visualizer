@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="Types" TargetType="DataType" TargetCount="2" ContainsContext="true">
+  <Controller Use="Context" Name="DocumentFixture">
+    <DataTypes>
+      <DataType Use="Target" Name="First" Family="NoFamily" Class="User" />
+      <DataType Use="Reference" Name="Dependency" Family="NoFamily" Class="User" />
+      <DataType Use="Target" Name="Second" Family="NoFamily" Class="User" />
+    </DataTypes>
+  </Controller>
+</RSLogix5000Content>
+

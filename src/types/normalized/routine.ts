@@ -3,7 +3,7 @@ import type { NormalizedRung } from './rung';
 /**
  * Routine type
  */
-export type NormalizedRoutineType = 'RLL' | 'FBD' | 'ST' | 'SFC';
+export type NormalizedRoutineType = 'RLL' | 'FBD' | 'ST' | 'SFC' | 'Typeless' | 'External' | 'Encrypted';
 
 /**
  * Structured Text line
