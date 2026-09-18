@@ -491,6 +491,9 @@ function normalizeProgram(program: L5XProgram, index: number): NormalizedProgram
 
   return {
     name: programName,
+    uid: program['@_UId'],
+    parentUid: program['@_ParentUId'],
+    useAsFolder: parseOptionalBoolean(program['@_UseAsFolder']),
     tags: normalizeProgramTags(program.Tags?.Tag, programName),
     routines: normalizeRoutines(program.Routines),
     parameters: normalizeProgramParameters(program.Parameters?.Parameter, programName),
@@ -509,6 +512,8 @@ function normalizeProgram(program: L5XProgram, index: number): NormalizedProgram
     completeStateIfNotImplemented: program['@_CompleteStateIfNotImpl'],
     lossOfCommunicationCommand: program['@_LossOfCommCmd'],
     externalRequestAction: program['@_ExternalRequestAction'],
+    equipmentId: parseOptionalSafeInteger(program['@_EquipmentId']),
+    recipePhaseNames: program['@_RecipePhaseNames'],
     lastScanTime: parseOptionalSafeInteger(program['@_LastScanTime']),
     maxScanTime: parseOptionalSafeInteger(program['@_MaxScanTime']),
     synchronizeRedundancyDataAfterExecution: parseOptionalBoolean(

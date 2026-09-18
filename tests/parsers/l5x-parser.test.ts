@@ -53,6 +53,121 @@ describe('L5XParser', () => {
   });
 
   describe('parse', () => {
+    it.each(['33', '34', '35'] as const)(
+      'retains hierarchy attributes without rejecting an omitted parent in a standalone v%s program export',
+      (version) => {
+        const source = readFileSync(join(fixtureDirectory, `program-rll-v${version}.L5X`), 'utf-8');
+        const result = parseString(source, 'l5x');
+
+        expect(result.status).toBe('complete');
+        expect(result.data?.programs[0]).toMatchObject({
+          uid: `${version}01`,
+          parentUid: `${version}00`,
+          useAsFolder: false,
+        });
+        expect(result.warnings).not.toContainEqual(expect.objectContaining({
+          code: 'MISSING_PROGRAM_PARENT',
+        }));
+      }
+    );
+
+    it.each([
+      ['33', 33, 0, 'Idle'],
+      ['34', 34, 1, 'Aborted'],
+      ['35', 35, 2, 'Stopped'],
+    ] as const)(
+      'retains deterministic program hierarchy and EquipmentPhase metadata for v%s',
+      (version, equipmentId, initialStepIndex, initialState) => {
+        const source = readFileSync(
+          join(fixtureDirectory, `program-hierarchy-v${version}.L5X`),
+          'utf-8'
+        );
+        const result = parseString(source, 'l5x');
+
+        expect(result.success).toBe(true);
+        expect(result.status).toBe('complete');
+        expect(result.data?.programs.map((program) => ({
+          name: program.name,
+          uid: program.uid,
+          parentUid: program.parentUid,
+          useAsFolder: program.useAsFolder,
+        }))).toEqual([
+          { name: 'Area', uid: '100', parentUid: undefined, useAsFolder: true },
+          { name: 'DirectChild', uid: '101', parentUid: '100', useAsFolder: false },
+          { name: 'Cell', uid: '102', parentUid: '100', useAsFolder: true },
+          { name: 'FillPhase', uid: '103', parentUid: '102', useAsFolder: false },
+          { name: 'Independent', uid: undefined, parentUid: undefined, useAsFolder: undefined },
+        ]);
+        expect(result.data?.programs[3]).toMatchObject({
+          programType: 'EquipmentPhase',
+          equipmentId,
+          recipePhaseNames: 'Fill,Mix',
+          initialStepIndex,
+          initialState,
+        });
+      }
+    );
+
+    it('returns stable diagnostics and a partial result for invalid program hierarchy', () => {
+      const source = readFileSync(
+        join(fixtureDirectory, 'program-hierarchy-invalid-v35.L5X'),
+        'utf-8'
+      );
+      const result = parseString(source, 'l5x');
+
+      expect(result.success).toBe(true);
+      expect(result.status).toBe('partial');
+      expect(result.data?.programs.map(({ name, uid, parentUid }) => ({ name, uid, parentUid })))
+        .toEqual([
+          { name: 'DuplicateA', uid: '10', parentUid: undefined },
+          { name: 'DuplicateB', uid: '10', parentUid: undefined },
+          { name: 'MissingParent', uid: '11', parentUid: '999' },
+          { name: 'CycleA', uid: '20', parentUid: '21' },
+          { name: 'CycleB', uid: '21', parentUid: '20' },
+          { name: 'FlatParent', uid: '30', parentUid: undefined },
+          { name: 'ContradictoryChild', uid: '31', parentUid: '30' },
+        ]);
+      expect(result.warnings
+        ?.filter((warning) => warning.code?.includes('PROGRAM'))
+        .map(({ code, location }) => [code, location?.path])).toEqual([
+          ['DUPLICATE_PROGRAM_UID', '/RSLogix5000Content/Controller[1]/Programs[1]/Program[2]/@UId'],
+          ['MISSING_PROGRAM_PARENT', '/RSLogix5000Content/Controller[1]/Programs[1]/Program[3]/@ParentUId'],
+          ['CYCLIC_PROGRAM_HIERARCHY', '/RSLogix5000Content/Controller[1]/Programs[1]/Program[4]/@ParentUId'],
+          ['CONTRADICTORY_PROGRAM_HIERARCHY', '/RSLogix5000Content/Controller[1]/Programs[1]/Program[7]/@ParentUId'],
+        ]);
+    });
+
+    it('preserves SFC-based equipment sequencing with an explicit source-path diagnostic', () => {
+      const source = readFileSync(
+        join(fixtureDirectory, 'equipment-phase-sequence-v35.L5X'),
+        'utf-8'
+      );
+      const result = parseDocumentString(source, 'l5x');
+      const sequencePath = '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/Routines[1]/Routine[1]/SFCContent[1]';
+
+      expect(result.success).toBe(true);
+      expect(result.status).toBe('partial');
+      expect(result.warnings).toContainEqual(expect.objectContaining({
+        code: 'UNSUPPORTED_L5X_EQUIPMENT_SEQUENCE',
+        location: { path: sequencePath },
+      }));
+      expect(result.data?.fragments).toContainEqual(expect.objectContaining({
+        path: sequencePath,
+        reason: 'unmodeled',
+      }));
+      const programs = result.data?.resources
+        .filter((resource) => resource.kind === 'program')
+        .map((resource) => resource.kind === 'program' ? resource.data : undefined);
+      expect(programs?.[1]).toMatchObject({
+        name: 'FillPhase',
+        uid: '201',
+        parentUid: '200',
+        programType: 'EquipmentPhase',
+        equipmentId: 7,
+        recipePhaseNames: 'FillPhase',
+      });
+    });
+
     it.each([
       ['33', 1],
       ['34', 2],
@@ -235,10 +350,12 @@ describe('L5XParser', () => {
       expect(program?.initialStepIndex).toBeUndefined();
       expect(program?.lastScanTime).toBeUndefined();
       expect(program?.maxScanTime).toBeUndefined();
+      expect(program?.equipmentId).toBeUndefined();
       expect(result.warnings?.filter(
         (warning) => warning.code === 'UNSUPPORTED_L5X_PROGRAM_NUMERIC_VALUE'
       ).map((warning) => warning.location?.path)).toEqual([
         '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@InitialStepIndex',
+        '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@EquipmentId',
         '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@LastScanTime',
         '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@MaxScanTime',
       ]);

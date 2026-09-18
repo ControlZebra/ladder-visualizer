@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="HierarchyV33" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="HierarchyV33">
+    <Programs>
+      <Program Name="Area" UId="100" Type="Normal" UseAsFolder="true" />
+      <Program Name="DirectChild" UId="101" ParentUId="100" Type="Normal" UseAsFolder="false" />
+      <Program Name="Cell" UId="102" ParentUId="100" Type="Normal" UseAsFolder="true" />
+      <Program Name="FillPhase" UId="103" ParentUId="102" Type="EquipmentPhase" UseAsFolder="false" InitialStepIndex="0" InitialState="Idle" CompleteStateIfNotImpl="StateComplete" LossOfCommCmd="None" ExternalRequestAction="None" EquipmentId="33" RecipePhaseNames="Fill,Mix" />
+      <Program Name="Independent" />
+    </Programs>
+  </Controller>
+</RSLogix5000Content>
