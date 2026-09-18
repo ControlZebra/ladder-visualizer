@@ -289,7 +289,16 @@ function accountSource(doc: PlcDocument, root: Node): void {
   };
   const children: Record<string, string[]> = {
     RSLogix5000Content: ['Controller'],
-    Controller: ['DataTypes', 'Modules', 'AddOnInstructionDefinitions', 'Tags', 'Programs', 'Tasks'],
+    Controller: [
+      'DataTypes',
+      'Modules',
+      'AddOnInstructionDefinitions',
+      'Tags',
+      'Programs',
+      'Tasks',
+      'Trends',
+      'QuickWatchLists',
+    ],
     DataTypes: ['DataType'],
     Modules: ['Module'],
     AddOnInstructionDefinitions: ['AddOnInstructionDefinition'],
@@ -299,6 +308,12 @@ function accountSource(doc: PlcDocument, root: Node): void {
     Tasks: ['Task'],
     Task: ['EventInfo', 'ScheduledPrograms'],
     ScheduledPrograms: ['ScheduledProgram'],
+    Trends: ['Trend'],
+    Trend: ['Description', 'Template', 'Pens'],
+    Pens: ['Pen'],
+    Pen: ['Description'],
+    QuickWatchLists: ['QuickWatchList'],
+    QuickWatchList: ['WatchTag'],
     AddOnInstructionDefinition: ['Routines'],
     Routines: ['Routine'],
     Routine: ['RLLContent', 'STContent'],
@@ -422,6 +437,88 @@ function accountSource(doc: PlcDocument, root: Node): void {
     const task = path.match(/\/Tasks\[1\]\/Task\[(\d+)\]$/);
     return task ? `tasks.${Number(task[1]) - 1}.description` : undefined;
   }
+  function controllerCollectionField(path: string, attribute: string): string | undefined {
+    const trend = path.match(/\/Trends\[1\]\/Trend\[(\d+)\]$/);
+    if (trend) {
+      const prefix = `trends.${Number(trend[1]) - 1}`;
+      const fields: Record<string, string> = {
+        Name: 'name',
+        UId: 'uid',
+        SamplePeriod: 'samplePeriod',
+        NumberOfCaptures: 'numberOfCaptures',
+        CaptureSizeType: 'captureSizeType',
+        CaptureSize: 'captureSize',
+        StartTriggerType: 'startTriggerType',
+        StartTriggerTag1: 'startTriggerTag1',
+        StartTriggerOperation1: 'startTriggerOperation1',
+        StartTriggerTargetType1: 'startTriggerTargetType1',
+        StartTriggerTargetValue1: 'startTriggerTargetValue1',
+        StartTriggerTargetTag1: 'startTriggerTargetTag1',
+        StartTriggerLogicalOperation: 'startTriggerLogicalOperation',
+        StartTriggerTag2: 'startTriggerTag2',
+        StartTriggerOperation2: 'startTriggerOperation2',
+        StartTriggerTargetType2: 'startTriggerTargetType2',
+        StartTriggerTargetValue2: 'startTriggerTargetValue2',
+        StartTriggerTargetTag2: 'startTriggerTargetTag2',
+        PreSampleType: 'preSampleType',
+        PreSamples: 'preSamples',
+        StopTriggerType: 'stopTriggerType',
+        StopTriggerTag1: 'stopTriggerTag1',
+        StopTriggerOperation1: 'stopTriggerOperation1',
+        StopTriggerTargetType1: 'stopTriggerTargetType1',
+        StopTriggerTargetValue1: 'stopTriggerTargetValue1',
+        StopTriggerTargetTag1: 'stopTriggerTargetTag1',
+        StopTriggerLogicalOperation: 'stopTriggerLogicalOperation',
+        StopTriggerTag2: 'stopTriggerTag2',
+        StopTriggerOperation2: 'stopTriggerOperation2',
+        StopTriggerTargetType2: 'stopTriggerTargetType2',
+        StopTriggerTargetValue2: 'stopTriggerTargetValue2',
+        StopTriggerTargetTag2: 'stopTriggerTargetTag2',
+        PostSampleType: 'postSampleType',
+        PostSamples: 'postSamples',
+        TrendxVersion: 'trendxVersion',
+      };
+      return fields[attribute] ? `${prefix}.${fields[attribute]}` : undefined;
+    }
+    const pen = path.match(/\/Trends\[1\]\/Trend\[(\d+)\]\/Pens\[1\]\/Pen\[(\d+)\]$/);
+    if (pen) {
+      const prefix = `trends.${Number(pen[1]) - 1}.pens.${Number(pen[2]) - 1}`;
+      const fields: Record<string, string> = {
+        Name: 'name',
+        Color: 'color',
+        Visible: 'visible',
+        Width: 'width',
+        Type: 'type',
+        Style: 'style',
+        Marker: 'marker',
+        Min: 'min',
+        Max: 'max',
+        EngUnits: 'engineeringUnits',
+      };
+      return fields[attribute] ? `${prefix}.${fields[attribute]}` : undefined;
+    }
+    const list = path.match(/\/QuickWatchLists\[1\]\/QuickWatchList\[(\d+)\]$/);
+    if (list && attribute === 'Name') {
+      return `quickWatchLists.${Number(list[1]) - 1}.name`;
+    }
+    const tag = path.match(
+      /\/QuickWatchLists\[1\]\/QuickWatchList\[(\d+)\]\/WatchTag\[(\d+)\]$/
+    );
+    if (tag) {
+      const prefix = `quickWatchLists.${Number(tag[1]) - 1}.watchTags.${Number(tag[2]) - 1}`;
+      if (attribute === 'Specifier') return `${prefix}.specifier`;
+      if (attribute === 'Scope') return `${prefix}.scope`;
+    }
+    return undefined;
+  }
+  function controllerCollectionDescriptionField(path: string): string | undefined {
+    const trend = path.match(/\/Trends\[1\]\/Trend\[(\d+)\]$/);
+    if (trend) return `trends.${Number(trend[1]) - 1}.description`;
+    const pen = path.match(/\/Trends\[1\]\/Trend\[(\d+)\]\/Pens\[1\]\/Pen\[(\d+)\]$/);
+    return pen
+      ? `trends.${Number(pen[1]) - 1}.pens.${Number(pen[2]) - 1}.description`
+      : undefined;
+  }
   function walk(value: unknown, path: string, element: string, owner?: PlcResource) {
     const resource = byPath.get(path);
     const currentOwner = resource ?? owner;
@@ -441,7 +538,7 @@ function accountSource(doc: PlcDocument, root: Node): void {
             : resource
               ? attributes[resource.kind]?.[name]
               : currentOwner?.kind === 'controller'
-                ? taskField(path, name)
+                ? taskField(path, name) ?? controllerCollectionField(path, name)
                 : undefined;
         if (!mapping(child, attrPath, field, resource ?? currentOwner))
           preserve(child, attrPath, 'source-representation');
@@ -470,6 +567,19 @@ function accountSource(doc: PlcDocument, root: Node): void {
             const field = taskDescriptionField(path);
             if (field) text(item, childPath, field, currentOwner);
             else preserve(item, childPath, 'source-representation');
+          } else if (
+            key === 'Description' &&
+            currentOwner?.kind === 'controller'
+          ) {
+            const field = controllerCollectionDescriptionField(path);
+            if (field) text(item, childPath, field, currentOwner);
+            else preserve(item, childPath, 'source-representation');
+          } else if (
+            element === 'Trend' &&
+            key === 'Template' &&
+            currentOwner?.kind === 'controller'
+          ) {
+            preserve(item, childPath, 'source-representation');
           } else if (
             element === 'STContent' &&
             key === 'Line' &&

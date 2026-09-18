@@ -53,6 +53,16 @@ export type {
   NormalizedTaskType,
   NormalizedTaskClass,
   NormalizedTaskEvent,
+  NormalizedTrend,
+  NormalizedTrendPen,
+  NormalizedTrendCaptureSizeType,
+  NormalizedTrendTriggerType,
+  NormalizedTrendTriggerTargetType,
+  NormalizedTrendSampleType,
+  NormalizedTrendLogicalOperation,
+  NormalizedTrendPenType,
+  NormalizedQuickWatchList,
+  NormalizedWatchTag,
 } from './normalized';
 
 // ============================================================================

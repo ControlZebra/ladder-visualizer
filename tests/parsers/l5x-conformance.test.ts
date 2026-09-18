@@ -35,6 +35,10 @@ const sourceElements: Record<keyof L5XSourceCounts, string> = {
   externalContents: 'ExternalContent',
   wallClockTimes: 'WallClockTime',
   scheduledPrograms: 'ScheduledProgram',
+  trends: 'Trend',
+  pens: 'Pen',
+  quickWatchLists: 'QuickWatchList',
+  watchTags: 'WatchTag',
 };
 
 function countSourceEntities(source: string): L5XSourceCounts {
@@ -75,6 +79,13 @@ function countNormalizedEntities(controller: NormalizedController): L5XNormalize
     tasks: controller.tasks.length,
     scheduledPrograms: controller.tasks.reduce(
       (count, task) => count + task.scheduledProgramNames.length,
+      0
+    ),
+    trends: controller.trends.length,
+    pens: controller.trends.reduce((count, trend) => count + trend.pens.length, 0),
+    quickWatchLists: controller.quickWatchLists.length,
+    watchTags: controller.quickWatchLists.reduce(
+      (count, list) => count + list.watchTags.length,
       0
     ),
   };
@@ -183,6 +194,8 @@ describe('L5X compatibility contract', () => {
       'equipment phase',
       'equipment id',
       'equipment sequence diagnostic',
+      'trend',
+      'quick watch list',
       'v33 integer network delay',
       'v34 float network delay',
       'v35 float network delay',
@@ -226,12 +239,12 @@ describe('L5X compatibility contract', () => {
 
   it('reports status counts per profile without manufacturing an overall percentage', () => {
     expect(buildProfileStatusReport()).toEqual({
-      'rockwell-controller-rll': { complete: 15, partial: 0, failed: 0 },
+      'rockwell-controller-rll': { complete: 18, partial: 0, failed: 0 },
       'rockwell-program-rll': { complete: 6, partial: 2, failed: 0 },
       'rockwell-routine-rll': { complete: 6, partial: 0, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 6, failed: 0 },
-      'rockwell-full-project': { complete: 3, partial: 15, failed: 3 },
+      'rockwell-full-project': { complete: 3, partial: 16, failed: 3 },
     });
   });
 });

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="TrendWatchV34" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="TrendWatchV34">
+    <Trends>
+      <Trend Name="Motion" SamplePeriod="20" CaptureSizeType="No Limit" StartTriggerType="No Trigger" StopTriggerType="No Trigger">
+        <Pens>
+          <Pen Name="Axis.ActualPosition" Color="blue" Visible="false" Type="Digital" Min="-100" Max="100" />
+          <Pen Name="Axis.CommandPosition" Type="Full-Width" EngUnits="mm" />
+        </Pens>
+      </Trend>
+      <Trend Name="EmptyPens" CaptureSizeType="Time Period" PreSampleType="Time Period" PostSampleType="Samples" />
+    </Trends>
+    <QuickWatchLists>
+      <QuickWatchList Name="MotionValues">
+        <WatchTag Specifier="Axis.ActualPosition" Scope="MotionProgram" />
+        <WatchTag Specifier="Axis.CommandPosition" Scope="MotionProgram" />
+      </QuickWatchList>
+      <QuickWatchList Name="ControllerValues">
+        <WatchTag Specifier="MachineState" Scope="" />
+      </QuickWatchList>
+    </QuickWatchLists>
+  </Controller>
+</RSLogix5000Content>
