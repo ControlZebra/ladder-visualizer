@@ -74,6 +74,12 @@ export interface NormalizedProgramParameter {
 export interface NormalizedProgram {
   /** Program name */
   name: string;
+  /** Schema-declared program identity. Kept as a string to preserve unsigned-long precision. */
+  uid?: string;
+  /** Schema-declared parent program identity. */
+  parentUid?: string;
+  /** Whether Studio presents this program as a hierarchy folder. */
+  useAsFolder?: boolean;
   /** Program-scoped tags */
   tags: NormalizedTag[];
   /** Routines within this program */
@@ -110,6 +116,10 @@ export interface NormalizedProgram {
   lossOfCommunicationCommand?: NormalizedProgramLossOfCommunicationCommand;
   /** Action taken for an external request. */
   externalRequestAction?: NormalizedProgramExternalRequestAction;
+  /** Equipment Phase identifier, when representable as a safe integer. */
+  equipmentId?: number;
+  /** Opaque schema-declared recipe phase names; no sequence relationship is inferred. */
+  recipePhaseNames?: string;
   /** Last recorded program scan time in source units. */
   lastScanTime?: number;
   /** Maximum recorded program scan time in source units. */

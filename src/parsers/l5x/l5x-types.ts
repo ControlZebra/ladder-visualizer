@@ -462,6 +462,8 @@ export interface L5XPrograms {
 export interface L5XProgram {
   '@_Use'?: 'Target' | 'Context';
   '@_Name': string;
+  '@_UId'?: string;
+  '@_ParentUId'?: string;
   '@_Type'?: 'Typeless' | 'Normal' | 'EquipmentPhase' | 'LastProgramType';
   '@_TestEdits'?: string;
   '@_MainRoutineName'?: string;
@@ -480,6 +482,8 @@ export interface L5XProgram {
     | 'LastNotImplAction';
   '@_LossOfCommCmd'?: 'None' | 'Abort' | 'Hold' | 'Stop' | 'LastCommLossAction';
   '@_ExternalRequestAction'?: 'None' | 'Clear' | 'LastExternalRequestAction';
+  '@_EquipmentId'?: string;
+  '@_RecipePhaseNames'?: string;
   '@_LastScanTime'?: string;
   '@_MaxScanTime'?: string;
   '@_SynchronizeRedundancyDataAfterExecution'?: string;

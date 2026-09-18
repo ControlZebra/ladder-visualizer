@@ -179,6 +179,10 @@ describe('L5X compatibility contract', () => {
       'module connection',
       'task',
       'wall clock',
+      'program hierarchy',
+      'equipment phase',
+      'equipment id',
+      'equipment sequence diagnostic',
       'v33 integer network delay',
       'v34 float network delay',
       'v35 float network delay',
@@ -222,12 +226,12 @@ describe('L5X compatibility contract', () => {
 
   it('reports status counts per profile without manufacturing an overall percentage', () => {
     expect(buildProfileStatusReport()).toEqual({
-      'rockwell-controller-rll': { complete: 12, partial: 0, failed: 0 },
+      'rockwell-controller-rll': { complete: 15, partial: 0, failed: 0 },
       'rockwell-program-rll': { complete: 6, partial: 2, failed: 0 },
       'rockwell-routine-rll': { complete: 6, partial: 0, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 6, failed: 0 },
-      'rockwell-full-project': { complete: 3, partial: 13, failed: 3 },
+      'rockwell-full-project': { complete: 3, partial: 15, failed: 3 },
     });
   });
 });

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="PhaseSequence" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="PhaseSequence">
+    <Programs>
+      <Program Name="RecipeOps" UId="200" Type="Normal" UseAsFolder="true">
+        <Routines>
+          <Routine Name="RecipeSequence" Type="SFC">
+            <SFCContent SheetOrientation="Portrait">
+              <Step ID="1" X="20" Y="20" Operand="StartPhase" InitialStep="true">
+                <Action ID="2" Operand="StartFill" Qualifier="PulseRisingEdge" IsBoolean="false">
+                  <Body>
+                    <STContent>
+                      <Line Number="0"><![CDATA[PCMD(FillPhase, Start, Result);]]></Line>
+                    </STContent>
+                  </Body>
+                </Action>
+              </Step>
+            </SFCContent>
+          </Routine>
+        </Routines>
+      </Program>
+      <Program Name="FillPhase" UId="201" ParentUId="200" Type="EquipmentPhase" InitialStepIndex="0" InitialState="Idle" CompleteStateIfNotImpl="StateComplete" LossOfCommCmd="None" ExternalRequestAction="None" EquipmentId="7" RecipePhaseNames="FillPhase" />
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

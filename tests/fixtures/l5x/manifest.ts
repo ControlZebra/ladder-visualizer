@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.3.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.4.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -22,6 +22,7 @@ export type L5XArtifactKind =
   | 'add-on-instruction'
   | 'module'
   | 'task-scheduling'
+  | 'program-hierarchy'
   | 'unsupported-language'
   | 'protected-content'
   | 'malformed-input'
@@ -137,6 +138,93 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
 
 export const L5X_FIXTURES: readonly L5XFixture[] = [
   {
+    id: 'program-hierarchy-v33',
+    file: 'program-hierarchy-v33.L5X',
+    studio5000Version: '33.00',
+    targetType: 'Controller',
+    artifactKind: 'program-hierarchy',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 5 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 5 },
+    },
+    coverage: ['program hierarchy', 'equipment phase', 'version matrix'],
+  },
+  {
+    id: 'program-hierarchy-v34',
+    file: 'program-hierarchy-v34.L5X',
+    studio5000Version: '34.01',
+    targetType: 'Controller',
+    artifactKind: 'program-hierarchy',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 5 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 5 },
+    },
+    coverage: ['program hierarchy', 'equipment phase', 'version matrix'],
+  },
+  {
+    id: 'program-hierarchy-v35',
+    file: 'program-hierarchy-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'program-hierarchy',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 5 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 5 },
+    },
+    coverage: ['program hierarchy', 'equipment phase', 'version matrix'],
+  },
+  {
+    id: 'program-hierarchy-invalid-v35',
+    file: 'program-hierarchy-invalid-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'program-hierarchy',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 7 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 7 },
+    },
+    coverage: ['program hierarchy', 'invalid program hierarchy', 'partial diagnostic'],
+  },
+  {
+    id: 'equipment-phase-sequence-v35',
+    file: 'equipment-phase-sequence-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'program-hierarchy',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      programs: 2,
+      routines: 1,
+      sfcSteps: 1,
+      stLines: 1,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 2, routines: 1 },
+    },
+    coverage: [
+      'equipment phase',
+      'equipment sequence diagnostic',
+      'unsupported SFC body',
+      'AB-Samples equipment phase regression',
+    ],
+  },
+  {
     id: 'program-state-numeric-overflow-v35',
     file: 'program-state-numeric-overflow-v35.L5X',
     studio5000Version: '35.01',
@@ -149,7 +237,12 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       success: true,
       normalizedCounts: { ...emptyNormalizedCounts, programs: 1 },
     },
-    coverage: ['program state', 'signed/unsigned-long boundary', 'partial diagnostic'],
+    coverage: [
+      'program state',
+      'equipment id',
+      'signed/unsigned-long boundary',
+      'partial diagnostic',
+    ],
   },
   {
     id: 'program-parameters-v33',

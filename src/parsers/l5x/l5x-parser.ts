@@ -212,6 +212,8 @@ export class L5XParser extends BaseParser {
       const taskWarnings = collectTaskWarnings(xml, controller);
       const programNumericWarnings = collectUnsupportedProgramNumericWarnings(xml);
       const programParameterWarnings = collectUnsupportedProgramParameterWarnings(xml);
+      const programHierarchyWarnings = collectProgramHierarchyWarnings(xml, controller);
+      const equipmentSequenceWarnings = collectUnsupportedEquipmentSequenceWarnings(xml);
       const hasRungDiagnostics = controller.programs.some((program) =>
         program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       ) || controller.aois.some((aoi) =>
@@ -223,6 +225,8 @@ export class L5XParser extends BaseParser {
         taskWarnings.length ||
         programNumericWarnings.length ||
         programParameterWarnings.length ||
+        programHierarchyWarnings.length ||
+        equipmentSequenceWarnings.length ||
         document.fragments.some(
           (fragment) =>
             fragment.reason === 'unmodeled' ||
@@ -240,6 +244,8 @@ export class L5XParser extends BaseParser {
         ...taskWarnings,
         ...programNumericWarnings,
         ...programParameterWarnings,
+        ...programHierarchyWarnings,
+        ...equipmentSequenceWarnings,
       ];
       const completionError = checkParseExecution(options);
       if (completionError) return createFailureResult([completionError]);
@@ -574,6 +580,7 @@ function collectUnsupportedProgramNumericWarnings(xml: L5XContent): ParseWarning
       const programPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]`;
       const numericAttributes = [
         ['InitialStepIndex', program['@_InitialStepIndex']],
+        ['EquipmentId', program['@_EquipmentId']],
         ['LastScanTime', program['@_LastScanTime']],
         ['MaxScanTime', program['@_MaxScanTime']],
       ] as const;
@@ -590,6 +597,147 @@ function collectUnsupportedProgramNumericWarnings(xml: L5XContent): ParseWarning
       });
     }
   );
+  return warnings;
+}
+
+function collectProgramHierarchyWarnings(
+  xml: L5XContent,
+  controller: NormalizedController
+): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  const root = xml.RSLogix5000Content;
+  const rawPrograms = ensureArray(root.Controller.Programs?.Program);
+  const hasCompleteProgramSet =
+    root['@_TargetType'] === 'Controller' && root['@_ContainsContext'] !== 'true';
+  const entries = rawPrograms.map((source, index) => ({
+    source,
+    normalized: controller.programs[index],
+    index,
+    path: `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${index + 1}]`,
+  }));
+  const byUid = new Map<string, typeof entries>();
+
+  for (const entry of entries) {
+    const uid = entry.source['@_UId'];
+    if (uid === undefined) continue;
+    const matches = byUid.get(uid) ?? [];
+    matches.push(entry);
+    byUid.set(uid, matches);
+  }
+
+  for (const [uid, matches] of byUid) {
+    for (const duplicate of matches.slice(1)) {
+      warnings.push(createParseWarning(
+        `Program ${duplicate.normalized?.name ?? duplicate.source['@_Name']} duplicates program UId ${uid}.`,
+        {
+          code: 'DUPLICATE_PROGRAM_UID',
+          location: { path: `${duplicate.path}/@UId` },
+        }
+      ));
+    }
+  }
+
+  for (const entry of entries) {
+    const parentUid = entry.source['@_ParentUId'];
+    if (hasCompleteProgramSet && parentUid !== undefined && !byUid.has(parentUid)) {
+      warnings.push(createParseWarning(
+        `Program ${entry.normalized?.name ?? entry.source['@_Name']} references missing parent UId ${parentUid}.`,
+        {
+          code: 'MISSING_PROGRAM_PARENT',
+          location: { path: `${entry.path}/@ParentUId` },
+        }
+      ));
+    }
+  }
+
+  const uniqueByUid = new Map(
+    [...byUid].flatMap(([uid, matches]) => matches.length === 1 ? [[uid, matches[0]] as const] : [])
+  );
+  const state = new Map<number, 'visiting' | 'visited'>();
+  const stack: typeof entries = [];
+  const reportedCycles = new Set<string>();
+
+  function visit(entry: (typeof entries)[number]): void {
+    state.set(entry.index, 'visiting');
+    stack.push(entry);
+    const parentUid = entry.source['@_ParentUId'];
+    const parent = parentUid === undefined ? undefined : uniqueByUid.get(parentUid);
+    if (parent) {
+      const parentState = state.get(parent.index);
+      if (parentState === undefined) {
+        visit(parent);
+      } else if (parentState === 'visiting') {
+        const cycleStart = stack.findIndex((candidate) => candidate.index === parent.index);
+        const cycle = stack.slice(cycleStart);
+        const cycleKey = cycle.map((candidate) => candidate.index).sort((a, b) => a - b).join(',');
+        if (!reportedCycles.has(cycleKey)) {
+          reportedCycles.add(cycleKey);
+          const canonical = [...cycle].sort((a, b) => a.index - b.index)[0];
+          warnings.push(createParseWarning(
+            `Program hierarchy contains a cycle involving ${cycle.map((candidate) => candidate.normalized?.name ?? candidate.source['@_Name']).join(', ')}.`,
+            {
+              code: 'CYCLIC_PROGRAM_HIERARCHY',
+              location: { path: `${canonical.path}/@ParentUId` },
+            }
+          ));
+        }
+      }
+    }
+    stack.pop();
+    state.set(entry.index, 'visited');
+  }
+
+  for (const entry of uniqueByUid.values()) {
+    if (state.get(entry.index) === undefined) visit(entry);
+  }
+
+  for (const entry of entries) {
+    const parentUid = entry.source['@_ParentUId'];
+    if (parentUid === undefined) continue;
+    const parents = byUid.get(parentUid);
+    if (parents?.length === 1 && parents[0].normalized?.useAsFolder === false) {
+      warnings.push(createParseWarning(
+        `Program ${entry.normalized?.name ?? entry.source['@_Name']} declares ${parents[0].normalized.name} as its parent, but that program has UseAsFolder=false.`,
+        {
+          code: 'CONTRADICTORY_PROGRAM_HIERARCHY',
+          location: { path: `${entry.path}/@ParentUId` },
+        }
+      ));
+    }
+  }
+
+  return warnings;
+}
+
+function collectUnsupportedEquipmentSequenceWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+
+  function containsPhaseCommand(value: unknown): boolean {
+    if (typeof value === 'string') return /\bPCMD\s*\(/i.test(value);
+    if (Array.isArray(value)) return value.some(containsPhaseCommand);
+    if (typeof value !== 'object' || value === null) return false;
+    return Object.values(value).some(containsPhaseCommand);
+  }
+
+  ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program).forEach(
+    (program, programIndex) => {
+      ensureArray(program.Routines?.Routine).forEach((routine, routineIndex) => {
+        ensureArray(routine.SFCContent).forEach((content, contentIndex) => {
+          if (!containsPhaseCommand(content)) return;
+          warnings.push(createParseWarning(
+            `Routine ${routine['@_Name']} contains SFC-based PCMD equipment sequencing. The source was preserved without inventing a canonical equipment-sequence entity.`,
+            {
+              code: 'UNSUPPORTED_L5X_EQUIPMENT_SEQUENCE',
+              location: {
+                path: `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/Routines[1]/Routine[${routineIndex + 1}]/SFCContent[${contentIndex + 1}]`,
+              },
+            }
+          ));
+        });
+      });
+    }
+  );
+
   return warnings;
 }
 
