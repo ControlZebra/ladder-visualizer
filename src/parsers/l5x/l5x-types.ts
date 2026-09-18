@@ -74,7 +74,7 @@ export interface L5XController {
   AddOnInstructionDefinitions?: L5XAddOnInstructionDefinitions;
   Tags?: L5XTags;
   Programs?: L5XPrograms;
-  Tasks?: unknown;
+  Tasks?: L5XTasks;
   CST?: unknown;
   WallClockTime?: unknown;
   Trends?: unknown;
@@ -489,6 +489,55 @@ export interface L5XProgram {
   Tags?: L5XTags;
   Parameters?: L5XParameters;
   Routines?: L5XRoutines;
+}
+
+// ============================================
+// Tasks
+// ============================================
+
+export interface L5XTasks {
+  '@_UId'?: string;
+  '@_ParentUId'?: string;
+  Task?: L5XTask | L5XTask[];
+}
+
+export type L5XTaskType = 'CONTINUOUS' | 'PERIODIC' | 'EVENT';
+
+export interface L5XTask {
+  '@_Name': string;
+  '@_UId'?: string;
+  '@_ParentUId'?: string;
+  '@_Type': L5XTaskType;
+  '@_Watchdog'?: string;
+  '@_Priority'?: string;
+  '@_Rate'?: string;
+  '@_DisableUpdateOutputs'?: string;
+  '@_InhibitTask'?: string;
+  '@_Verified'?: string;
+  '@_LastScanTime'?: string;
+  '@_MaxScanTime'?: string;
+  '@_MaxInterval'?: string;
+  '@_MinInterval'?: string;
+  '@_StartTime'?: string;
+  '@_Class'?: string;
+  Description?: L5XDescription;
+  EventInfo?: L5XTaskEventInfo;
+  ScheduledPrograms?: L5XScheduledPrograms;
+}
+
+export interface L5XTaskEventInfo {
+  '@_EventTrigger'?: string;
+  '@_EventTag'?: string;
+  '@_EnableTimeout'?: string;
+}
+
+export interface L5XScheduledPrograms {
+  ScheduledProgram?: L5XScheduledProgram | L5XScheduledProgram[];
+}
+
+export interface L5XScheduledProgram {
+  '@_Name': string;
+  '@_UId'?: string;
 }
 
 // ============================================

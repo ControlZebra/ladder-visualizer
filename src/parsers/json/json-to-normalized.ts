@@ -92,6 +92,7 @@ export function jsonToNormalized(data: RawControllerExport): NormalizedControlle
     programs: data.programs.map(normalizeProgram),
     aois: data.aois.map(normalizeAOI),
     modules: data.map_devices.map(normalizeModule),
+    tasks: [],
 
     // Source information
     vendor: 'rockwell',

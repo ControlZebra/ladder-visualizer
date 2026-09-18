@@ -21,6 +21,7 @@ export type L5XArtifactKind =
   | 'data-type'
   | 'add-on-instruction'
   | 'module'
+  | 'task-scheduling'
   | 'unsupported-language'
   | 'protected-content'
   | 'malformed-input'
@@ -46,6 +47,7 @@ export interface L5XSourceCounts {
   arrays: number;
   externalContents: number;
   wallClockTimes: number;
+  scheduledPrograms: number;
 }
 
 export interface L5XNormalizedCounts {
@@ -63,6 +65,8 @@ export interface L5XNormalizedCounts {
   aoiLocalTags: number;
   modulePorts: number;
   moduleConnections: number;
+  tasks: number;
+  scheduledPrograms: number;
 }
 
 interface L5XCurrentParserSuccess {
@@ -109,6 +113,7 @@ const emptySourceCounts: L5XSourceCounts = {
   arrays: 0,
   externalContents: 0,
   wallClockTimes: 0,
+  scheduledPrograms: 0,
 };
 
 const emptyNormalizedCounts: L5XNormalizedCounts = {
@@ -126,6 +131,8 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
   aoiLocalTags: 0,
   modulePorts: 0,
   moduleConnections: 0,
+  tasks: 0,
+  scheduledPrograms: 0,
 };
 
 export const L5X_FIXTURES: readonly L5XFixture[] = [
@@ -259,9 +266,9 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Routine',
     artifactKind: 'routine',
     profiles: ['rockwell-routine-rll'],
-    expectedParseStatus: 'partial',
-    sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1 },
-    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2 } },
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 } },
     coverage: ['document resources', 'resource roles', 'repeated routine bodies', 'preserved metadata'],
   },
   {
@@ -271,9 +278,9 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Routine',
     artifactKind: 'routine',
     profiles: ['rockwell-routine-rll'],
-    expectedParseStatus: 'partial',
-    sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1 },
-    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2 } },
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 } },
     coverage: ['document resources', 'resource roles', 'repeated routine bodies', 'preserved metadata'],
   },
   {
@@ -283,9 +290,9 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Routine',
     artifactKind: 'routine',
     profiles: ['rockwell-routine-rll'],
-    expectedParseStatus: 'partial',
-    sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1 },
-    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2 } },
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 } },
     coverage: ['document resources', 'resource roles', 'repeated routine bodies', 'preserved metadata'],
   },
   {
@@ -327,6 +334,8 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         aoiLocalTags: 1,
         modulePorts: 1,
         moduleConnections: 0,
+        tasks: 0,
+        scheduledPrograms: 0,
       },
     },
     coverage: ['controller', 'RLL', 'tag', 'UDT', 'AOI', 'module'],
@@ -1034,6 +1043,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       arrays: 1,
       externalContents: 1,
       wallClockTimes: 1,
+      scheduledPrograms: 1,
     },
     currentParser: {
       success: true,
@@ -1052,6 +1062,8 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         aoiLocalTags: 1,
         modulePorts: 1,
         moduleConnections: 1,
+        tasks: 1,
+        scheduledPrograms: 1,
       },
     },
     coverage: [
@@ -1099,6 +1111,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       arrays: 1,
       externalContents: 1,
       wallClockTimes: 1,
+      scheduledPrograms: 1,
     },
     currentParser: {
       success: true,
@@ -1117,6 +1130,8 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         aoiLocalTags: 1,
         modulePorts: 1,
         moduleConnections: 1,
+        tasks: 1,
+        scheduledPrograms: 1,
       },
     },
     coverage: [
@@ -1164,6 +1179,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       arrays: 1,
       externalContents: 1,
       wallClockTimes: 1,
+      scheduledPrograms: 1,
     },
     currentParser: {
       success: true,
@@ -1182,6 +1198,8 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         aoiLocalTags: 1,
         modulePorts: 1,
         moduleConnections: 1,
+        tasks: 1,
+        scheduledPrograms: 1,
       },
     },
     coverage: [
@@ -1200,5 +1218,139 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       'wall clock',
       'v35 float network delay',
     ],
+  },
+  {
+    id: 'task-scheduling-v33',
+    file: 'task-scheduling-v33.L5X',
+    studio5000Version: '33.00',
+    targetType: 'Controller',
+    artifactKind: 'task-scheduling',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      programs: 3,
+      tasks: 3,
+      scheduledPrograms: 3,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 3,
+        tasks: 3,
+        scheduledPrograms: 3,
+      },
+    },
+    coverage: ['task scheduling', 'continuous task', 'periodic task', 'event task', 'version matrix'],
+  },
+  {
+    id: 'task-scheduling-v34',
+    file: 'task-scheduling-v34.L5X',
+    studio5000Version: '34.01',
+    targetType: 'Controller',
+    artifactKind: 'task-scheduling',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      programs: 3,
+      tasks: 3,
+      scheduledPrograms: 3,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 3,
+        tasks: 3,
+        scheduledPrograms: 3,
+      },
+    },
+    coverage: ['task scheduling', 'continuous task', 'periodic task', 'event task', 'version matrix'],
+  },
+  {
+    id: 'task-scheduling-v35',
+    file: 'task-scheduling-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'task-scheduling',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      programs: 3,
+      tasks: 3,
+      scheduledPrograms: 3,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 3,
+        tasks: 3,
+        scheduledPrograms: 3,
+      },
+    },
+    coverage: [
+      'task scheduling',
+      'continuous task',
+      'periodic task',
+      'event task',
+      'preserved task metadata',
+      'AB-Samples event task regression',
+      'version matrix',
+    ],
+  },
+  {
+    id: 'task-numeric-overflow-v35',
+    file: 'task-numeric-overflow-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'task-scheduling',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      tasks: 1,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        tasks: 1,
+      },
+    },
+    coverage: ['task scheduling', 'unsigned-long boundary', 'partial diagnostic'],
+  },
+  {
+    id: 'task-relationships-invalid-v35',
+    file: 'task-relationships-invalid-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'task-scheduling',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      programs: 5,
+      tasks: 2,
+      scheduledPrograms: 6,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 5,
+        tasks: 2,
+        scheduledPrograms: 6,
+      },
+    },
+    coverage: ['task scheduling', 'invalid task relationship', 'partial diagnostic'],
   },
 ];

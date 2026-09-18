@@ -34,6 +34,14 @@ export type {
   NormalizedProgramExternalRequestAction,
 } from './program';
 
+// Task
+export type {
+  NormalizedTask,
+  NormalizedTaskType,
+  NormalizedTaskClass,
+  NormalizedTaskEvent,
+} from './task';
+
 // Routine
 export type { NormalizedRoutine, NormalizedRoutineType, STLine } from './routine';
 

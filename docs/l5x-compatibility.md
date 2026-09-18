@@ -10,12 +10,12 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 | Profile                   | Version 1.3.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
 | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `rockwell-controller-rll` | Supported            | Controller metadata, UDT headers, controller and program tags, AOIs, modules, RLL routines, and rungs | Does not promise complete controller configuration or decorated values                                            |
+| `rockwell-controller-rll` | Supported            | Controller metadata, UDT headers, controller and program tags, tasks and schedules, AOIs, modules, RLL routines, and rungs | Does not promise complete controller configuration                                            |
 | `rockwell-program-rll`    | Supported            | Program target exports with parameters, program state, program tags, and RLL routines                 | Program local tags and child-program hierarchy are preserved but not normalized; resource IDs are document-local                    |
 | `rockwell-routine-rll`    | Supported            | RLL routine target exports represented in the controller-shaped result                                | Document-local resource identity is available; stable cross-export identity and source spans are not modeled                                                        |
 | `rockwell-rung-rll`       | Supported          | Standalone `TargetType="Rung"` exports are present in the corpus                                      | Rungs have typed resources and owner routine IDs                                                                    |
 | `rockwell-tags`           | Partial              | Controller/program tags, aliases, dimensions, comments, forces, decorated arrays/structures, and alarms | Standard tag attributes outside the normalized contract are preserved and explicitly reported as partial |
-| `rockwell-full-project`   | Unsupported          | Corpus coverage tracks RLL, FBD, SFC, protected content, and malformed/adversarial input              | Unsupported and encoded bodies are preserved with diagnostics; typed body normalization remains incomplete                                            |
+| `rockwell-full-project`   | Unsupported          | Corpus coverage tracks tasks, RLL, FBD, SFC, protected content, and malformed/adversarial input              | Unsupported and encoded bodies are preserved with diagnostics; typed body and remaining controller-family normalization remain incomplete                                            |
 
 “Supported” applies only to the declared fixture shapes and versions. “Partial” means useful content is returned but at least one declared construct is lost or rejected. “Unsupported” means the profile must not be advertised as a successful parse contract.
 
@@ -47,6 +47,8 @@ Focused v35 FBD, SFC, and protected-routine fixtures retain small loss-regressio
 
 Public parser results expose both the legacy `success` boolean and a `status` of `complete`, `partial`, or `failed`. Built-in parsers and result helpers always provide `status`. The field remains optional on the `PLCParser` implementation contract so custom parsers compiled against the earlier boolean-only result remain source-compatible; registry and document orchestration fill a missing status deterministically.
 
+Controller results expose tasks in source order. Task types, descriptions, scheduling attributes, event metadata, and ordered scheduled-program names normalize across v33-v35. Programs retain their declared executing-task name. Missing, duplicate, or contradictory relationships produce stable warnings and a `partial` result while preserving the usable controller. Stable cross-document task and program IDs remain outside this profile.
+
 ## Target-aware document API
 
 `parseDocumentString`, `parseDocumentBuffer`, `parseDocumentFile`, and `L5XParser.parseDocument` return a `PlcDocument`. All eight target families appear in `resources`, including context and reference dependencies. Each discriminated resource has a `kind`, typed `data`, a `role`, a one-based XML `sourcePath` used as its document-local `id`, and an `ownerId` where applicable. `targetIds` identifies only the declared export family; owned descendants inherit target roles unless explicitly overridden. IDs are not stable across exports.
@@ -74,7 +76,7 @@ Every fixture declares both `sourceCounts` and `normalizedCounts`:
 - Source counts are lexical counts of the entity elements present in the L5X input. This remains deterministic even for intentionally malformed files.
 - Normalized counts describe the current `NormalizedController` result. They are `null` when parsing fails.
 - AOI routines and rungs are included in the aggregate routine and rung totals.
-- Counts include ST lines, program parameters, AOI parameters/local tags, module ports/connections, tasks, decorated arrays, protected-content containers, and wall-clock objects where applicable.
+- Counts include ST lines, program parameters, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, decorated arrays, protected-content containers, and wall-clock objects where applicable.
 - A count change requires an intentional manifest update and review; tests must not silently regenerate baselines.
 
 ## Schema validation

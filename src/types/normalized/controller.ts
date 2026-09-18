@@ -2,6 +2,7 @@ import type { NormalizedDataType } from './data-type';
 import type { NormalizedTag, ExternalAccess } from './tag';
 import type { NormalizedProgram } from './program';
 import type { NormalizedRoutine } from './routine';
+import type { NormalizedTask } from './task';
 
 /**
  * Supported PLC vendors
@@ -278,6 +279,8 @@ export interface NormalizedController {
   aois: NormalizedAOI[];
   /** Modules and devices */
   modules: NormalizedModule[];
+  /** Controller execution tasks and their ordered program schedules */
+  tasks: NormalizedTask[];
 
   // ---- Source Information ----
   /** Original vendor */

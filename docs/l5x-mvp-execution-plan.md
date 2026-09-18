@@ -6,7 +6,7 @@ Deliver a target-aware L5X parser for the existing Studio 5000 v33-v35 compatibi
 
 ## Execution sequence
 
-1. Complete issue #14: normalize tasks, program parameters/connections, child-program/equipment hierarchy, and remaining top-level families against the stable document contract.
+1. Complete the remaining issue #14 slices: program parameters/connections, child-program/equipment hierarchy, trends/watch lists, and remaining top-level families against the stable document contract. Task scheduling (#30) is complete.
 2. Complete issue #15: add typed FBD and SFC bodies, with protected or encoded bodies represented explicitly.
 3. Complete the issue #16 MVP parsing scope: module hierarchy, ports, communications, and complete configuration data.
 4. Integrate all extractors, update exact fixture baselines, enforce the no-silent-loss invariant, and run all verification gates.
@@ -70,3 +70,4 @@ Tag parsing now covers decorated scalar, array, and structure values; aliases an
 - **2026-09-16 — Issues #11 and #8 completion:** The target-aware `PlcDocument` API covers all eight declared export targets across v33-v35, retains context/reference resources and unmodeled parsed fragments, and shares strict target validation with controller-shaped APIs. Program envelopes without a Program now return `MISSING_L5X_TARGET`; no synthetic Program is created.
 - **2026-09-17 — Issue #9 completion:** Source-aware RLL grammar support landed through PR #28, including nested calls, quoted delimiters, nested branches, unknown instructions, and recovery diagnostics.
 - **2026-09-18 — Issues #1 and #13 completion:** Complete tag parsing across the supported schema versions landed through PR #29, with exact semantic fixtures, partial-status handling, renderer coverage, and conformance updates.
+- **2026-09-18 — Issue #30 implementation:** Controller tasks, event metadata, ordered scheduled-program names, inverse program task names, relationship diagnostics, and exact task counts are implemented across v33-v35. Sanitized fixtures cover continuous, periodic, event, absent, repeated, preserved, and invalid relationship cases.
