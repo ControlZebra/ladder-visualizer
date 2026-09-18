@@ -36,6 +36,7 @@ export interface RSLogix5000Content {
  * Target type - what is being exported
  */
 export type L5XTargetType = import('../../types/normalized').PlcExportTarget;
+export type L5XBoolean = 'false' | 'true' | 'No' | 'Yes' | '0' | '1';
 
 // ============================================
 // Controller Types
@@ -52,37 +53,192 @@ export interface L5XController {
   '@_MinorRev'?: string;
   '@_TimeSlice'?: string;
   '@_ShareUnusedTimeSlice'?: string;
+  '@_PowerLossProgram'?: string;
+  '@_PowerLossProgramUId'?: string;
+  '@_MajorFaultProgram'?: string;
+  '@_MajorFaultProgramUId'?: string;
   '@_ProjectCreationDate'?: string;
   '@_LastModifiedDate'?: string;
   '@_SFCExecutionControl'?: string;
   '@_SFCRestartPosition'?: string;
   '@_SFCLastScan'?: string;
+  '@_CommDriver'?: string;
+  '@_CommPath'?: string;
   '@_ProjectSN'?: string;
-  '@_MatchProjectToController'?: string;
-  '@_CanUseRPIFromProducer'?: string;
+  '@_OnlineSN'?: string;
+  '@_MatchProjectToController'?: L5XBoolean;
+  '@_CanUseRPIFromProducer'?: L5XBoolean;
   '@_InhibitAutomaticFirmwareUpdate'?: string;
   '@_PassThroughConfiguration'?: string;
   '@_DownloadProjectDocumentationAndExtendedProperties'?: string;
-  '@_DownloadProjectCustomProperties'?: string;
-  '@_ReportMinorOverflow'?: string;
+  '@_DownloadProjectCustomProperties'?: L5XBoolean;
+  '@_ReportMinorOverflow'?: L5XBoolean;
+  '@_CurrentProjectLanguage'?: string;
+  '@_DefaultProjectLanguage'?: string;
+  '@_ControllerLanguage'?: string;
+  '@_IOForcesEnabled'?: L5XBoolean;
+  '@_SFCForcesEnabled'?: L5XBoolean;
+  '@_RedundancyUId'?: string;
+  '@_SafetyUId'?: string;
+  '@_DataTypesUId'?: string;
+  '@_ModulesUId'?: string;
+  '@_AddOnInstructionDefinitionsUId'?: string;
+  '@_TagsUId'?: string;
+  '@_ProgramsUId'?: string;
+  '@_TasksUId'?: string;
+  '@_AxesUId'?: string;
+  '@_CoordinateSystemsUId'?: string;
+  '@_MotionGroupsUId'?: string;
+  '@_CSTUId'?: string;
+  '@_WallClockTimeUId'?: string;
+  '@_TimeSynchronizeUId'?: string;
+  '@_TrendGroupCollectionUId'?: string;
+  '@_FilePath'?: string;
+  '@_ProductCode'?: string;
+  '@_Verified'?: L5XBoolean;
+  '@_ControllerEditsExist'?: L5XBoolean;
+  '@_PendingEditsExist'?: L5XBoolean;
+  '@_ForcesExist'?: L5XBoolean;
+  '@_EditResource'?: string;
+  '@_Faulted'?: string;
+  '@_GeneralStatus'?: string;
+  '@_IOMapLEDStatus'?: string;
+  '@_KeySwitchPosition'?: string;
+  '@_Mode'?: string;
+  '@_ConnectedState'?: string;
+  '@_IsProjectDirty'?: L5XBoolean;
+  '@_IsProjectDirtyFromAnotherWorkstation'?: L5XBoolean;
+  '@_EtherNetIPMode'?: string;
   Description?: L5XDescription;
-  RedundancyInfo?: unknown;
-  Security?: unknown;
-  SafetyInfo?: unknown;
+  RedundancyInfo?: L5XRedundancyInfo;
+  Security?: L5XSecurityInfo;
+  SafetyInfo?: L5XSafetyInfo;
   DataTypes?: L5XDataTypes;
   Modules?: L5XModules;
   AddOnInstructionDefinitions?: L5XAddOnInstructionDefinitions;
   Tags?: L5XTags;
   Programs?: L5XPrograms;
   Tasks?: L5XTasks;
-  CST?: unknown;
-  WallClockTime?: unknown;
+  CommPorts?: L5XCommPorts;
+  CST?: L5XCST;
+  WallClockTime?: L5XWallClockTime;
   Trends?: L5XTrends;
-  DataLogs?: unknown;
+  DataLogs?: L5XDataLogs;
   QuickWatchLists?: L5XQuickWatchLists;
-  TimeSynchronize?: unknown;
-  EthernetPorts?: unknown;
-  EthernetNetwork?: unknown;
+  TimeSynchronize?: L5XTimeSynchronize;
+  InternetProtocol?: L5XInternetProtocol;
+  EthernetPorts?: L5XEthernetPorts;
+  EthernetNetwork?: L5XEthernetNetwork;
+}
+
+export interface L5XRedundancyInfo {
+  '@_UId'?: string;
+  '@_Enabled'?: L5XBoolean;
+  '@_KeepTestEditsOnSwitchOver'?: L5XBoolean;
+  '@_IOMemoryPadPercentage'?: string;
+  '@_DataTablePadPercentage'?: string;
+}
+
+export interface L5XSecurityInfo {
+  '@_Code'?: string;
+  '@_SecurityAuthorityID'?: string;
+  '@_SecurityAuthorityURI'?: string;
+  '@_ChangesToDetect'?: string;
+  '@_TrustedSlots'?: string;
+}
+
+export interface L5XSafetyInfo {
+  '@_UId'?: string;
+  '@_SafetySignature'?: string;
+  '@_SafetyLocked'?: L5XBoolean;
+  '@_SafetyLockPassword'?: string;
+  '@_SafetyUnlockPassword'?: string;
+  '@_ConfigureSafetyIOAlways'?: L5XBoolean;
+  '@_SignatureRunModeProtect'?: L5XBoolean;
+  '@_SafetySigned'?: L5XBoolean;
+  '@_SafetyLevel'?: string;
+  SafetyTaskFaultString?: string;
+  SafetyTagMap?: string;
+}
+
+export interface L5XCommPorts {
+  SerialPort?: L5XSerialPort | L5XSerialPort[];
+}
+
+export interface L5XSerialPort {
+  '@_Channel'?: string;
+  '@_BaudRate'?: string;
+  '@_Parity'?: string;
+  '@_DataBits'?: string;
+  '@_StopBits'?: string;
+  '@_ComDriverId'?: 'DF1' | 'ASCII';
+  '@_RTSOffDelay'?: string;
+  '@_RTSSendDelay'?: string;
+  '@_ControlLine'?: string;
+  '@_RemoteModeChangeFlag'?: L5XBoolean;
+  '@_ModeChangeAttentionChar'?: string;
+  '@_SystemModeCharacter'?: string;
+  '@_UserModeCharacter'?: string;
+  '@_DCDWaitDelay'?: string;
+  '@_Verified'?: L5XBoolean;
+  ASCII?: Record<string, string>;
+  DF1?: Record<string, string>;
+}
+
+export interface L5XCST {
+  '@_MasterID': string;
+  '@_UId'?: string;
+  '@_Verified'?: L5XBoolean;
+  '@_Status'?: string;
+  '@_Master'?: string;
+}
+
+export interface L5XWallClockTime {
+  '@_UId'?: string;
+  '@_LocalTimeAdjustment'?: string;
+  '@_TimeZone'?: string;
+  '@_Verified'?: L5XBoolean;
+}
+
+/** DataLogs is xs:anyType in the supported schemas. */
+export type L5XDataLogs = Record<string, unknown>;
+
+export interface L5XTimeSynchronize {
+  '@_UId'?: string;
+  '@_Priority1'?: string;
+  '@_Priority2'?: string;
+  '@_PTPEnable'?: L5XBoolean;
+}
+
+export interface L5XInternetProtocol {
+  '@_ConfigType'?: 'Manual' | 'BOOTP' | 'DHCP';
+  '@_IPAddress'?: string;
+  '@_SubnetMask'?: string;
+  '@_Gateway'?: string;
+  '@_PrimaryDNS'?: string;
+  '@_SecondaryDNS'?: string;
+  '@_DomainName'?: string;
+  '@_HostName'?: string;
+}
+
+export interface L5XEthernetPorts {
+  EthernetPort?: L5XEthernetPort | L5XEthernetPort[];
+}
+
+export interface L5XEthernetPort {
+  '@_Port'?: string;
+  '@_PortEnabled'?: L5XBoolean;
+  '@_AutoNegotiateEnabled'?: L5XBoolean;
+  '@_InterfaceSpeed'?: string;
+  '@_DuplexMode'?: 'Half' | 'Full';
+}
+
+export interface L5XEthernetNetwork {
+  '@_SupervisorModeEnabled'?: L5XBoolean;
+  '@_SupervisorPrecedence'?: string;
+  '@_BeaconInterval'?: string;
+  '@_BeaconTimeout'?: string;
+  '@_VLANID'?: string;
 }
 
 // ============================================

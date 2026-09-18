@@ -215,6 +215,7 @@ export class L5XParser extends BaseParser {
       const programHierarchyWarnings = collectProgramHierarchyWarnings(xml, controller);
       const equipmentSequenceWarnings = collectUnsupportedEquipmentSequenceWarnings(xml);
       const trendNumericWarnings = collectUnsupportedTrendNumericWarnings(xml);
+      const controllerConfigurationWarnings = collectPreservedControllerConfigurationWarnings(xml);
       const hasRungDiagnostics = controller.programs.some((program) =>
         program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       ) || controller.aois.some((aoi) =>
@@ -229,6 +230,7 @@ export class L5XParser extends BaseParser {
         programHierarchyWarnings.length ||
         equipmentSequenceWarnings.length ||
         trendNumericWarnings.length ||
+        controllerConfigurationWarnings.length ||
         document.fragments.some(
           (fragment) =>
             fragment.reason === 'unmodeled' ||
@@ -249,6 +251,7 @@ export class L5XParser extends BaseParser {
         ...programHierarchyWarnings,
         ...equipmentSequenceWarnings,
         ...trendNumericWarnings,
+        ...controllerConfigurationWarnings,
       ];
       const completionError = checkParseExecution(options);
       if (completionError) return createFailureResult([completionError]);
@@ -401,6 +404,73 @@ export class L5XParser extends BaseParser {
 
     return createSuccessResult(undefined);
   }
+}
+
+const ACCOUNTED_CONTROLLER_ATTRIBUTES = new Set([
+  'Use',
+  'Name',
+  'ProcessorType',
+  'MajorRev',
+  'MinorRev',
+  'ProjectCreationDate',
+  'LastModifiedDate',
+  'SFCExecutionControl',
+  'SFCRestartPosition',
+  'SFCLastScan',
+  'CommPath',
+  'ProjectSN',
+]);
+
+const PRESERVED_CONTROLLER_FAMILIES = [
+  ['RedundancyInfo', 'PRESERVED_L5X_REDUNDANCY_CONFIGURATION', 'redundancy'],
+  ['Security', 'PRESERVED_L5X_SECURITY_CONFIGURATION', 'security'],
+  ['SafetyInfo', 'PRESERVED_L5X_SAFETY_CONFIGURATION', 'safety'],
+  ['CommPorts', 'PRESERVED_L5X_COMM_PORT_CONFIGURATION', 'communication-port'],
+  ['CST', 'PRESERVED_L5X_CST_CONFIGURATION', 'coordinated-system-time'],
+  ['WallClockTime', 'PRESERVED_L5X_WALL_CLOCK_CONFIGURATION', 'wall-clock'],
+  ['DataLogs', 'PRESERVED_L5X_DATA_LOG_CONFIGURATION', 'data-log'],
+  [
+    'TimeSynchronize',
+    'PRESERVED_L5X_TIME_SYNCHRONIZATION_CONFIGURATION',
+    'time-synchronization',
+  ],
+  [
+    'InternetProtocol',
+    'PRESERVED_L5X_INTERNET_PROTOCOL_CONFIGURATION',
+    'Internet Protocol',
+  ],
+  ['EthernetPorts', 'PRESERVED_L5X_ETHERNET_PORT_CONFIGURATION', 'Ethernet-port'],
+  ['EthernetNetwork', 'PRESERVED_L5X_ETHERNET_NETWORK_CONFIGURATION', 'Ethernet-network'],
+] as const;
+
+function collectPreservedControllerConfigurationWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  const controller = xml.RSLogix5000Content.Controller;
+  const controllerPath = '/RSLogix5000Content/Controller[1]';
+  const preservedAttributes = Object.keys(controller)
+    .filter((key) => key.startsWith('@_'))
+    .map((key) => key.slice(2))
+    .filter((attribute) => !ACCOUNTED_CONTROLLER_ATTRIBUTES.has(attribute));
+
+  if (preservedAttributes.length) {
+    warnings.push(createParseWarning(
+      `Rockwell controller attributes ${preservedAttributes.join(', ')} are preserved without inventing portable controller semantics.`,
+      {
+        code: 'PRESERVED_L5X_CONTROLLER_ATTRIBUTES',
+        location: { path: controllerPath },
+      }
+    ));
+  }
+
+  const source = controller as unknown as Record<string, unknown>;
+  PRESERVED_CONTROLLER_FAMILIES.forEach(([element, code, label]) => {
+    if (source[element] === undefined) return;
+    warnings.push(createParseWarning(
+      `Rockwell ${label} configuration is preserved as a complete document fragment.`,
+      { code, location: { path: `${controllerPath}/${element}[1]` } }
+    ));
+  });
+  return warnings;
 }
 
 const SUPPORTED_TAG_FORMATS = new Set(['L5K', 'String', 'Decorated', 'Alarm']);

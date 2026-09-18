@@ -39,6 +39,16 @@ const sourceElements: Record<keyof L5XSourceCounts, string> = {
   pens: 'Pen',
   quickWatchLists: 'QuickWatchList',
   watchTags: 'WatchTag',
+  redundancyConfigurations: 'RedundancyInfo',
+  securityConfigurations: 'Security',
+  safetyConfigurations: 'SafetyInfo',
+  serialPorts: 'SerialPort',
+  csts: 'CST',
+  dataLogs: 'DataLogs',
+  timeSynchronizations: 'TimeSynchronize',
+  internetProtocols: 'InternetProtocol',
+  ethernetPorts: 'EthernetPort',
+  ethernetNetworks: 'EthernetNetwork',
 };
 
 function countSourceEntities(source: string): L5XSourceCounts {
@@ -199,6 +209,17 @@ describe('L5X compatibility contract', () => {
       'v33 integer network delay',
       'v34 float network delay',
       'v35 float network delay',
+      'controller configuration',
+      'redundancy configuration',
+      'security configuration',
+      'safety configuration',
+      'communication port configuration',
+      'CST configuration',
+      'data log configuration',
+      'time synchronization configuration',
+      'Internet Protocol configuration',
+      'Ethernet configuration',
+      'preserved controller configuration diagnostic',
     ]) {
       expect(coverage).toContain(requiredCoverage);
     }
@@ -241,10 +262,10 @@ describe('L5X compatibility contract', () => {
     expect(buildProfileStatusReport()).toEqual({
       'rockwell-controller-rll': { complete: 18, partial: 0, failed: 0 },
       'rockwell-program-rll': { complete: 6, partial: 2, failed: 0 },
-      'rockwell-routine-rll': { complete: 6, partial: 0, failed: 0 },
+      'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 6, failed: 0 },
-      'rockwell-full-project': { complete: 3, partial: 16, failed: 3 },
+      'rockwell-full-project': { complete: 3, partial: 19, failed: 3 },
     });
   });
 });

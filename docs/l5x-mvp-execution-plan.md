@@ -6,7 +6,7 @@ Deliver a target-aware L5X parser for the existing Studio 5000 v33-v35 compatibi
 
 ## Execution sequence
 
-1. Complete the remaining issue #14 top-level controller families against the stable document contract. Task scheduling (#30), program parameters/state (#31), child-program/equipment hierarchy (#32), and trends/watch lists (#33) are complete.
+1. Complete the issue #14 top-level controller families against the stable document contract. Task scheduling (#30), program parameters/state (#31), child-program/equipment hierarchy (#32), trends/watch lists (#33), and explicit remaining-controller-configuration accounting (#34) are complete.
 2. Complete issue #15: add typed FBD and SFC bodies, with protected or encoded bodies represented explicitly.
 3. Complete the issue #16 MVP parsing scope: module hierarchy, ports, communications, and complete configuration data.
 4. Integrate all extractors, update exact fixture baselines, enforce the no-silent-loss invariant, and run all verification gates.
@@ -73,3 +73,4 @@ Tag parsing now covers decorated scalar, array, and structure values; aliases an
 - **2026-09-18 — Issue #30 implementation:** Controller tasks, event metadata, ordered scheduled-program names, inverse program task names, relationship diagnostics, and exact task counts are implemented across v33-v35. Sanitized fixtures cover continuous, periodic, event, absent, repeated, preserved, and invalid relationship cases.
 - **2026-09-18 — Issue #32 completion:** Program identities, parent relationships, folder metadata, Equipment Phase identifiers, recipe phase names, hierarchy diagnostics, and preserved SFC-based equipment sequencing are implemented across v33-v35.
 - **2026-09-18 — Issue #33 implementation:** Controller trends, pens, quick-watch lists, and watch tags normalize in source order across v33-v35. Omitted and empty collections, schema-declared optionals, opaque trend templates, and unsafe integer diagnostics are covered by sanitized fixtures.
+- **2026-09-18 — Issue #34 implementation:** Processor type and communication path use canonical controller fields. Every remaining v33-v35 controller attribute and top-level configuration family is mapped or preserved, with stable family-level diagnostics, exact source counts, repeated-port coverage, and partial status for preserved configuration.

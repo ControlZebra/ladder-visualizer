@@ -233,7 +233,12 @@ function accountSource(doc: PlcDocument, root: Node): void {
     ContainsContext: 'containsContext',
   };
   const attributes: Partial<Record<PlcResource['kind'], Record<string, string>>> = {
-    controller: { Name: 'name', ProjectSN: 'serialNumber' },
+    controller: {
+      Name: 'name',
+      ProjectSN: 'serialNumber',
+      CommPath: 'commPath',
+      ProcessorType: 'processorType',
+    },
     program: {
       Name: 'name',
       UId: 'uid',

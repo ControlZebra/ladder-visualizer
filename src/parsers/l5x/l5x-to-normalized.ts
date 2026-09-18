@@ -101,7 +101,8 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
     name: extractControllerName(root),
     description: extractText(controller.Description),
     serialNumber: controller['@_ProjectSN'],
-    commPath: undefined, // Not available in L5X
+    commPath: controller['@_CommPath'],
+    processorType: controller['@_ProcessorType'],
     createdDate: parseDate(controller['@_ProjectCreationDate']),
     modifiedDate: parseDate(controller['@_LastModifiedDate']),
 
