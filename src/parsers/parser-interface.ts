@@ -7,6 +7,7 @@ import type { ParseOptions } from './resource-guards';
  * Supported file formats
  */
 export type FileFormat = 'json' | 'l5x' | 'l5k' | 'xml';
+export type ParseStatus = 'complete' | 'partial' | 'failed';
 
 /**
  * Result of a parse operation
@@ -14,6 +15,12 @@ export type FileFormat = 'json' | 'l5x' | 'l5k' | 'xml';
 export interface ParseResult<T> {
   /** Whether parsing was successful */
   success: boolean;
+  /**
+   * Whether the supported source content was fully normalized.
+   * Optional only for custom parsers compiled against the legacy contract;
+   * public parser orchestration supplies a deterministic default.
+   */
+  status?: ParseStatus;
   /** Parsed data (only present if success is true) */
   data?: T;
   /** Errors that occurred during parsing */
@@ -35,10 +42,12 @@ export function createSuccessResult<T>(
     warnings?: ParseWarning[];
     parseTimeMs?: number;
     context?: InstructionContext;
+    status?: Exclude<ParseStatus, 'failed'>;
   }
 ): ParseResult<T> {
   return {
     success: true,
+    status: options?.status ?? 'complete',
     data,
     warnings: options?.warnings,
     parseTimeMs: options?.parseTimeMs,
@@ -58,9 +67,19 @@ export function createFailureResult<T>(
 ): ParseResult<T> {
   return {
     success: false,
+    status: 'failed',
     errors,
     warnings: options?.warnings,
     parseTimeMs: options?.parseTimeMs,
+  };
+}
+
+/** Fill the status omitted by parsers implementing the legacy result contract. */
+export function withDefaultParseStatus<T>(result: ParseResult<T>): ParseResult<T> {
+  if (result.status !== undefined) return result;
+  return {
+    ...result,
+    status: result.success ? 'complete' : 'failed',
   };
 }
 

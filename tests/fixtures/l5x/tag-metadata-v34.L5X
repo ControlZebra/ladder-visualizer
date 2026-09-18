@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="MetadataTag" TargetType="Tag" TargetCount="1" ContainsContext="false">
+  <Controller Use="Target" Name="TagMetadataV34">
+    <Tags><Tag Name="MetadataTag" TagType="Base" DataType="DINT" Class="Standard"><Data Format="L5K"><![CDATA[1]]></Data></Tag></Tags>
+  </Controller>
+</RSLogix5000Content>

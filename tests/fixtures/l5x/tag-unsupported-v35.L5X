@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="UnsupportedTag" TargetType="Tag" TargetCount="1" ContainsContext="false">
+  <Controller Use="Target" Name="UnsupportedV35"><Tags><Tag Name="UnsupportedTag" TagType="Base" DataType="DINT"><Data Format="VendorBinary"><![CDATA[AQIDBA==]]></Data></Tag></Tags></Controller>
+</RSLogix5000Content>

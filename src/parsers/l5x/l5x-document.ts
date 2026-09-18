@@ -247,6 +247,9 @@ function accountSource(doc: PlcDocument, root: Node): void {
       TagType: 'tagType',
       DataType: 'dataType',
       Radix: 'radix',
+      Dimensions: 'dimensions',
+      Constant: 'constant',
+      CanForce: 'canForce',
       AliasFor: 'aliasFor',
       ExternalAccess: 'externalAccess',
     },
@@ -419,12 +422,14 @@ function accountSource(doc: PlcDocument, root: Node): void {
             const protectedContent = ['ExternalContent', 'EncodedData', 'EncryptedData'].includes(
               key
             );
+            const normalizedTagRepresentation =
+              currentOwner?.kind === 'tag' && ['Comments', 'Data', 'ForceData'].includes(key);
             preserve(
               item,
               childPath,
               protectedContent
                 ? 'protected'
-                : representationElements.has(key)
+                : normalizedTagRepresentation || representationElements.has(key)
                   ? 'source-representation'
                   : 'unmodeled'
             );

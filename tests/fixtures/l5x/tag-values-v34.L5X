@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="TagValuesV34" TargetType="Controller" TargetCount="1" ContainsContext="false" ExportOptions="NoRawData L5KData DecoratedData">
+  <Controller Use="Target" Name="TagValuesV34">
+    <Tags>
+      <Tag Name="ConstantCounter" TagType="Base" DataType="DINT" Radix="Decimal" Constant="true" CanForce="true" ExternalAccess="Read Only">
+        <Description><![CDATA[Constant counter]]></Description>
+        <Comments>
+          <Comment Operand=".PRE"><![CDATA[Preset & comment]]></Comment>
+          <Comment Operand=".ACC" Unused="false"><LocalizedComment Lang="en-US"><Value>Accumulated value</Value></LocalizedComment></Comment>
+          <Comment Operand=".Description"><Value>First line</Value><Value>Second line</Value></Comment>
+        </Comments>
+        <Data Format="L5K"><![CDATA[10]]></Data>
+        <Data Format="Decorated"><DataValue DataType="DINT" Radix="Decimal" Value="10" ForceValue="11" /></Data>
+        <ForceData Format="L5K"><![CDATA[11]]></ForceData>
+      </Tag>
+      <Tag Name="StringValue" TagType="Base" DataType="STRING" ExternalAccess="Read/Write">
+        <Data Format="L5K"><![CDATA[[4,'0042']]]></Data>
+        <Data Format="String" Length="4"><![CDATA['0042']]></Data>
+      </Tag>
+      <Tag Name="Matrix" TagType="Base" DataType="DINT" Dimensions="2,2" Radix="Decimal" ExternalAccess="Read/Write">
+        <Data Format="Decorated"><Array DataType="DINT" Dimensions="2,2" Radix="Decimal"><Element Index="[0,0]" Value="1" /><Element Index="[0,1]" Value="2" /><Element Index="[1,0]" Value="3" ForceValue="30" /><Element Index="[1,1]" Value="4" /></Array></Data>
+      </Tag>
+      <Tag Name="Recipe" TagType="Base" DataType="RecipeType" ExternalAccess="None">
+        <Comments>
+          <Comment Operand=".Count"><![CDATA[Recipe count]]></Comment>
+          <Comment Operand=".Nested.Enabled"><![CDATA[Nested enabled flag]]></Comment>
+          <Comment Operand=".Nested.Steps[1]"><![CDATA[Second recipe step]]></Comment>
+        </Comments>
+        <Data Format="Decorated">
+          <Structure DataType="RecipeType">
+            <StructureMember Name="Nested" DataType="NestedType">
+              <ArrayMember Name="Steps" DataType="DINT" Dimensions="2" Radix="Decimal"><Element Index="[0]" Value="3" /><Element Index="[1]" Value="4" ForceValue="5" /></ArrayMember>
+              <DataValueMember Name="Enabled" DataType="BOOL" Radix="Decimal" Value="1" />
+            </StructureMember>
+            <DataValueMember Name="Count" DataType="DINT" Radix="Decimal" Value="2" />
+          </Structure>
+        </Data>
+      </Tag>
+      <Tag Name="DigitalAlarm" TagType="Base" DataType="ALARM_DIGITAL" ExternalAccess="Read/Write">
+        <Data Format="Alarm">
+          <AlarmDigitalParameters EnableIn="1" In="0" Condition="1" AckRequired="1" Latched="0" Severity="750" />
+          <AlarmConfig><Messages><Message Type="Condition" ID="1"><Text Lang="en-US"><![CDATA[Motor & trip]]></Text></Message></Messages><AlarmClass>Process</AlarmClass><HMICmd>ShowAlarm</HMICmd></AlarmConfig>
+        </Data>
+      </Tag>
+      <Tag Name="AnalogAlarm" TagType="Base" DataType="ALARM_ANALOG" ExternalAccess="Read/Write">
+        <Data Format="Alarm"><AlarmAnalogParameters EnableIn="true" In="12.5" HHEnabled="1" HHLimit="100" HHSeverity="900" /></Data>
+      </Tag>
+    </Tags>
+    <Programs><Program Name="TagProgram"><Tags><Tag Name="ProgramFlag" TagType="Base" DataType="BOOL" ExternalAccess="None"><Data Format="Decorated"><DataValue DataType="BOOL" Radix="Decimal" Value="1" /></Data></Tag></Tags></Program></Programs>
+  </Controller>
+</RSLogix5000Content>

@@ -141,64 +141,87 @@ export interface L5XTag {
   '@_TagType': 'Base' | 'Alias' | 'Produced' | 'Consumed';
   '@_DataType': string;
   '@_Constant'?: string;
+  '@_CanForce'?: string;
+  '@_Dimensions'?: string;
   '@_ExternalAccess'?: 'Read/Write' | 'Read Only' | 'None';
   '@_Radix'?: string;
   '@_AliasFor'?: string;
   Description?: L5XDescription;
   Data?: L5XTagData | L5XTagData[];
   Comments?: L5XComments;
+  ForceData?: L5XForceData | L5XForceData[];
 }
 
 export interface L5XTagData {
-  '@_Format': 'L5K' | 'Decorated' | 'String';
+  '@_Format'?: string;
+  '@_Length'?: string;
   '#text'?: string;
+  '#cdata'?: string;
   Structure?: L5XTagStructure;
   DataValue?: L5XDataValue;
   Array?: L5XArray;
+  AlarmAnalogParameters?: L5XAlarmParameters;
+  AlarmDigitalParameters?: L5XAlarmParameters;
+  AlarmConfig?: L5XAlarmConfig;
 }
 
 export interface L5XTagStructure {
-  '@_DataType': string;
+  '@_Name'?: string;
+  '@_DataType'?: string;
   DataValueMember?: L5XDataValueMember | L5XDataValueMember[];
   StructureMember?: L5XStructureMember | L5XStructureMember[];
   ArrayMember?: L5XArrayMember | L5XArrayMember[];
+  [L5X_STRUCTURE_MEMBER_ORDER]?: L5XOrderedStructureMember[];
 }
+
+/**
+ * Non-enumerable parser metadata used to retain the interleaving of unlike
+ * structure member elements. fast-xml-parser otherwise groups them by name.
+ */
+export const L5X_STRUCTURE_MEMBER_ORDER = Symbol('l5xStructureMemberOrder');
+
+export type L5XOrderedStructureMember =
+  | { kind: 'atomic'; value: L5XDataValueMember }
+  | { kind: 'structure'; value: L5XStructureMember }
+  | { kind: 'array'; value: L5XArrayMember };
 
 export interface L5XDataValueMember {
-  '@_Name': string;
-  '@_DataType': string;
-  '@_Value': string;
+  '@_Name'?: string;
+  '@_DataType'?: string;
+  '@_Value'?: string;
   '@_Radix'?: string;
+  '@_ForceValue'?: string;
 }
 
-export interface L5XStructureMember {
-  '@_Name': string;
-  '@_DataType': string;
-  DataValueMember?: L5XDataValueMember | L5XDataValueMember[];
-}
+export interface L5XStructureMember extends L5XTagStructure {}
 
 export interface L5XArrayMember {
   '@_Name': string;
-  '@_DataType': string;
-  '@_Dimensions': string;
+  '@_DataType'?: string;
+  '@_Dimensions'?: string;
+  '@_Radix'?: string;
   Element?: L5XElement | L5XElement[];
 }
 
 export interface L5XElement {
   '@_Index': string;
   '@_Value'?: string;
-  Structure?: L5XTagStructure;
+  '@_ForceValue'?: string;
+  Structure?: L5XTagStructure | L5XTagStructure[];
 }
 
 export interface L5XDataValue {
-  '@_DataType': string;
-  '@_Radix': string;
-  '@_Value': string;
+  '@_Name'?: string;
+  '@_DataType'?: string;
+  '@_Radix'?: string;
+  '@_Value'?: string;
+  '@_ForceValue'?: string;
 }
 
 export interface L5XArray {
-  '@_DataType': string;
-  '@_Dimensions': string;
+  '@_Name'?: string;
+  '@_DataType'?: string;
+  '@_Dimensions'?: string;
   '@_Radix'?: string;
   Element?: L5XElement | L5XElement[];
 }
@@ -208,8 +231,47 @@ export interface L5XComments {
 }
 
 export interface L5XComment {
-  '@_Operand': string;
-  '#text': string;
+  '@_Operand'?: string;
+  '@_Unused'?: string;
+  '#text'?: string;
+  '#cdata'?: string;
+  Value?: string | string[];
+  LocalizedComment?: L5XLocalizedComment | L5XLocalizedComment[];
+}
+
+export interface L5XLocalizedComment {
+  '@_Lang'?: string;
+  '#text'?: string;
+  '#cdata'?: string;
+  Value?: string | string[];
+}
+
+export interface L5XForceData {
+  '@_Format'?: string;
+  '#text'?: string;
+  '#cdata'?: string;
+}
+
+export type L5XAlarmParameters = Record<`@_${string}`, string>;
+
+export interface L5XAlarmConfig {
+  Messages?: {
+    Message?: L5XAlarmMessage | L5XAlarmMessage[];
+  };
+  AlarmClass?: L5XDescription;
+  HMICmd?: L5XDescription;
+}
+
+export interface L5XAlarmMessage {
+  '@_Type'?: string;
+  '@_ID'?: string;
+  Text?: L5XAlarmMessageText;
+}
+
+export interface L5XAlarmMessageText {
+  '@_Lang'?: string;
+  '#text'?: string;
+  '#cdata'?: string;
 }
 
 // ============================================

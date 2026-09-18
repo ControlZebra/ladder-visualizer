@@ -116,7 +116,7 @@ function parseInput(
   if (formatHint) {
     const parser = parserRegistry.getParserByFormat(formatHint);
     if (parser) {
-      result = parser.parse(input, options);
+      result = parserRegistry.parse(input, parser.id, options);
     } else {
       // Fall back to auto-detection if hint didn't match
       result = parserRegistry.parse(input, undefined, options);

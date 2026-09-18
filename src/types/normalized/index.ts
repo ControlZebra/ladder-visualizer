@@ -37,6 +37,17 @@ export type {
   NormalizedTagType,
   TagScope,
   ExternalAccess,
+  NormalizedLocalizedText,
+  NormalizedTagComment,
+  NormalizedTagForceData,
+  NormalizedAtomicTagValue,
+  NormalizedArrayElement,
+  NormalizedArrayTagValue,
+  NormalizedStructureTagValue,
+  NormalizedAlarmMessage,
+  NormalizedAlarmTagValue,
+  NormalizedDecoratedTagValue,
+  NormalizedTagData,
 } from './tag';
 
 // Data Type

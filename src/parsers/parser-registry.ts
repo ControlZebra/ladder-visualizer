@@ -1,6 +1,6 @@
 import type { NormalizedController } from '../types/normalized';
 import type { PLCParser, ParseResult, FileFormat } from './parser-interface';
-import { createFailureResult } from './parser-interface';
+import { createFailureResult, withDefaultParseStatus } from './parser-interface';
 import { detectFormat, detectFormatFromFilename } from './format-detector';
 import { createParseError, ParseErrorCodes } from './parse-error';
 import type { ParseOptions } from './resource-guards';
@@ -171,7 +171,7 @@ export class ParserRegistry {
       }
     }
 
-    return parser.parse(input, options);
+    return withDefaultParseStatus(parser.parse(input, options));
   }
 
   /**
