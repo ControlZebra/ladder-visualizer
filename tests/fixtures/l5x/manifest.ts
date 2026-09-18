@@ -130,6 +130,21 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
 
 export const L5X_FIXTURES: readonly L5XFixture[] = [
   {
+    id: 'program-state-numeric-overflow-v35',
+    file: 'program-state-numeric-overflow-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Program',
+    artifactKind: 'program',
+    profiles: ['rockwell-program-rll', 'rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 1 },
+    },
+    coverage: ['program state', 'signed/unsigned-long boundary', 'partial diagnostic'],
+  },
+  {
     id: 'program-parameters-v33',
     file: 'program-parameters-v33.L5X',
     studio5000Version: '33.00',

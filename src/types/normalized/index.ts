@@ -27,6 +27,11 @@ export type {
   NormalizedProgram,
   NormalizedProgramParameter,
   ProgramParameterUsage,
+  NormalizedProgramType,
+  NormalizedProgramInitialState,
+  NormalizedProgramNotImplementedAction,
+  NormalizedProgramLossOfCommunicationCommand,
+  NormalizedProgramExternalRequestAction,
 } from './program';
 
 // Routine

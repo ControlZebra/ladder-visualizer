@@ -217,11 +217,11 @@ describe('L5X compatibility contract', () => {
   it('reports status counts per profile without manufacturing an overall percentage', () => {
     expect(buildProfileStatusReport()).toEqual({
       'rockwell-controller-rll': { complete: 9, partial: 0, failed: 0 },
-      'rockwell-program-rll': { complete: 6, partial: 1, failed: 0 },
+      'rockwell-program-rll': { complete: 6, partial: 2, failed: 0 },
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 6, failed: 0 },
-      'rockwell-full-project': { complete: 3, partial: 10, failed: 3 },
+      'rockwell-full-project': { complete: 3, partial: 11, failed: 3 },
     });
   });
 });

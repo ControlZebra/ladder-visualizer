@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="ProgramStateNumericOverflow" TargetType="Program" ContainsContext="true">
+  <Controller Use="Context" Name="FixtureController">
+    <Programs>
+      <Program Name="ProgramStateNumericOverflow" Type="EquipmentPhase" InitialStepIndex="9223372036854775807" LastScanTime="18446744073709551615" MaxScanTime="18446744073709551615" />
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

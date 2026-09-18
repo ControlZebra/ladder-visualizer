@@ -461,6 +461,12 @@ function parseOptionalBoolean(value: string | undefined): boolean | undefined {
   return value === '1' || ['true', 'yes'].includes(value.toLowerCase());
 }
 
+function parseOptionalSafeInteger(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
 function isString(value: string | undefined): value is string {
   return value !== undefined;
 }
@@ -482,6 +488,7 @@ function normalizeProgram(program: L5XProgram, index: number): NormalizedProgram
     tags: normalizeProgramTags(program.Tags?.Tag, programName),
     routines: normalizeRoutines(program.Routines),
     parameters: normalizeProgramParameters(program.Parameters?.Parameter, programName),
+    programType: program['@_Type'],
     description: extractText(program.Description),
     mainRoutineName: program['@_MainRoutineName'],
     preStateRoutineName: program['@_PreStateRoutineName'],
@@ -491,6 +498,16 @@ function normalizeProgram(program: L5XProgram, index: number): NormalizedProgram
     verified: parseOptionalBoolean(program['@_Verified']),
     editsExist: parseOptionalBoolean(program['@_EditsExist']),
     disabled: parseOptionalBoolean(program['@_Disabled']),
+    initialStepIndex: parseOptionalSafeInteger(program['@_InitialStepIndex']),
+    initialState: program['@_InitialState'],
+    completeStateIfNotImplemented: program['@_CompleteStateIfNotImpl'],
+    lossOfCommunicationCommand: program['@_LossOfCommCmd'],
+    externalRequestAction: program['@_ExternalRequestAction'],
+    lastScanTime: parseOptionalSafeInteger(program['@_LastScanTime']),
+    maxScanTime: parseOptionalSafeInteger(program['@_MaxScanTime']),
+    synchronizeRedundancyDataAfterExecution: parseOptionalBoolean(
+      program['@_SynchronizeRedundancyDataAfterExecution']
+    ),
   };
 }
 

@@ -141,6 +141,7 @@ describe('L5XParser', () => {
       const result = parser.parse(source);
 
       expect(result.data?.programs[0]).toMatchObject({
+        programType: 'EquipmentPhase',
         testEdits: false,
         mainRoutineName: 'Main',
         preStateRoutineName: 'Prepare',
@@ -149,6 +150,14 @@ describe('L5XParser', () => {
         verified: true,
         editsExist: false,
         disabled: false,
+        initialStepIndex: 0,
+        initialState: 'Idle',
+        completeStateIfNotImplemented: 'StateComplete',
+        lossOfCommunicationCommand: 'None',
+        externalRequestAction: 'None',
+        lastScanTime: 12,
+        maxScanTime: 20,
+        synchronizeRedundancyDataAfterExecution: true,
       });
       expect(result.data?.programs[0].parameters?.[0].defaultData).toEqual({
         format: 'Decorated',
@@ -162,6 +171,77 @@ describe('L5XParser', () => {
         externalAccess: 'ReadWrite',
         verified: true,
       });
+    });
+
+    it.each([
+      ['33', {
+        initialStepIndex: 0,
+        initialState: 'Idle',
+        completeStateIfNotImplemented: 'StateComplete',
+        lossOfCommunicationCommand: 'None',
+        externalRequestAction: 'None',
+        lastScanTime: 12,
+        maxScanTime: 20,
+        synchronizeRedundancyDataAfterExecution: true,
+      }],
+      ['34', {
+        initialStepIndex: 3,
+        initialState: 'Aborted',
+        completeStateIfNotImplemented: 'NoAction',
+        lossOfCommunicationCommand: 'Hold',
+        externalRequestAction: 'Clear',
+        lastScanTime: 30,
+        maxScanTime: 40,
+        synchronizeRedundancyDataAfterExecution: false,
+      }],
+      ['35', {
+        initialStepIndex: 7,
+        initialState: 'Stopped',
+        completeStateIfNotImplemented: 'NotImplPhaseFailure',
+        lossOfCommunicationCommand: 'Stop',
+        externalRequestAction: 'LastExternalRequestAction',
+        lastScanTime: 50,
+        maxScanTime: 60,
+        synchronizeRedundancyDataAfterExecution: true,
+      }],
+    ] as const)('retains schema-backed program state for v%s', (version, expectedState) => {
+      const source = readFileSync(
+        join(fixtureDirectory, `program-parameters-v${version}.L5X`),
+        'utf-8'
+      );
+      const result = parseString(source, 'l5x');
+
+      expect(result.status).toBe('complete');
+      expect(result.data?.programs[0]).toMatchObject({
+        programType: 'EquipmentPhase',
+        ...expectedState,
+      });
+    });
+
+    it('reports schema-valid program integers outside the normalized safe range as partial', () => {
+      const source = readFileSync(
+        join(fixtureDirectory, 'program-state-numeric-overflow-v35.L5X'),
+        'utf-8'
+      );
+      const result = parseString(source, 'l5x');
+      const program = result.data?.programs[0];
+
+      expect(result.success).toBe(true);
+      expect(result.status).toBe('partial');
+      expect(program).toMatchObject({
+        name: 'ProgramStateNumericOverflow',
+        programType: 'EquipmentPhase',
+      });
+      expect(program?.initialStepIndex).toBeUndefined();
+      expect(program?.lastScanTime).toBeUndefined();
+      expect(program?.maxScanTime).toBeUndefined();
+      expect(result.warnings?.filter(
+        (warning) => warning.code === 'UNSUPPORTED_L5X_PROGRAM_NUMERIC_VALUE'
+      ).map((warning) => warning.location?.path)).toEqual([
+        '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@InitialStepIndex',
+        '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@LastScanTime',
+        '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@MaxScanTime',
+      ]);
     });
 
     it('retains repeated parameter order, L5K defaults, and explicit false values', () => {
@@ -209,6 +289,15 @@ describe('L5XParser', () => {
       expect(program?.disabled).toBeUndefined();
       expect(program?.preStateRoutineName).toBeUndefined();
       expect(program?.executingTaskName).toBeUndefined();
+      expect(program?.programType).toBeUndefined();
+      expect(program?.initialStepIndex).toBeUndefined();
+      expect(program?.initialState).toBeUndefined();
+      expect(program?.completeStateIfNotImplemented).toBeUndefined();
+      expect(program?.lossOfCommunicationCommand).toBeUndefined();
+      expect(program?.externalRequestAction).toBeUndefined();
+      expect(program?.lastScanTime).toBeUndefined();
+      expect(program?.maxScanTime).toBeUndefined();
+      expect(program?.synchronizeRedundancyDataAfterExecution).toBeUndefined();
     });
 
     it('preserves unsupported program parameter defaults with a stable partial diagnostic', () => {

@@ -462,6 +462,7 @@ export interface L5XPrograms {
 export interface L5XProgram {
   '@_Use'?: 'Target' | 'Context';
   '@_Name': string;
+  '@_Type'?: 'Typeless' | 'Normal' | 'EquipmentPhase' | 'LastProgramType';
   '@_TestEdits'?: string;
   '@_MainRoutineName'?: string;
   '@_PreStateRoutineName'?: string;
@@ -470,6 +471,18 @@ export interface L5XProgram {
   '@_Verified'?: string;
   '@_EditsExist'?: string;
   '@_Disabled'?: string;
+  '@_InitialStepIndex'?: string;
+  '@_InitialState'?: 'NullState' | 'Idle' | 'Aborted' | 'Stopped' | 'Complete' | 'LastState';
+  '@_CompleteStateIfNotImpl'?:
+    | 'NoAction'
+    | 'StateComplete'
+    | 'NotImplPhaseFailure'
+    | 'LastNotImplAction';
+  '@_LossOfCommCmd'?: 'None' | 'Abort' | 'Hold' | 'Stop' | 'LastCommLossAction';
+  '@_ExternalRequestAction'?: 'None' | 'Clear' | 'LastExternalRequestAction';
+  '@_LastScanTime'?: string;
+  '@_MaxScanTime'?: string;
+  '@_SynchronizeRedundancyDataAfterExecution'?: string;
   '@_Class'?: string;
   '@_UseAsFolder'?: string;
   Description?: L5XDescription;

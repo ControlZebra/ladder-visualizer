@@ -61,7 +61,7 @@ Existing controller-shaped APIs use the same document pipeline and support the n
 
 ### Program parameters and state
 
-Program parameters are normalized separately from AOI parameters and retain source order, owning program scope, usage, type metadata, optional booleans, comments, and L5K or decorated default data. Program edit, verification, disabled, routine-entry, and executing-task metadata remain optional when their source attributes are absent. Unsupported schema-valid default-data nodes are retained in document fragments and produce `UNSUPPORTED_L5X_PROGRAM_PARAMETER_DATA` with a `partial` result.
+Program parameters are normalized separately from AOI parameters and retain source order, owning program scope, usage, type metadata, optional booleans, comments, and L5K or decorated default data. Program edit, verification, disabled, routine-entry, Equipment Phase state, scan-time, redundancy-synchronization, and executing-task metadata remain optional when their source attributes are absent. Schema-valid program integers outside JavaScript's safe range remain source-preserved and produce `UNSUPPORTED_L5X_PROGRAM_NUMERIC_VALUE` with a `partial` result. Unsupported schema-valid default-data nodes are retained in document fragments and produce `UNSUPPORTED_L5X_PROGRAM_PARAMETER_DATA` with a `partial` result.
 
 The pinned v33, v34, and v35 schemas use the same `ProgramType` and `AOIParameterType` definitions for these fields. None of those schemas declares a program parameter-connection element or attribute, so this compatibility version does not invent or advertise a parameter-connection relationship. Program `LocalTags` and task-to-program relationship validation remain separate slices.
 

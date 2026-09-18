@@ -209,13 +209,14 @@ export class L5XParser extends BaseParser {
       const { controller, context } = finalizeController(l5xToNormalized(xml));
       const document = l5xToDocument(xml, controller);
       const tagWarnings = collectUnsupportedTagWarnings(xml);
+      const programNumericWarnings = collectUnsupportedProgramNumericWarnings(xml);
       const programParameterWarnings = collectUnsupportedProgramParameterWarnings(xml);
       const hasRungDiagnostics = controller.programs.some((program) =>
         program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       ) || controller.aois.some((aoi) =>
         aoi.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       );
-      const status = hasRungDiagnostics || tagWarnings.length || programParameterWarnings.length || document.fragments.some(
+      const status = hasRungDiagnostics || tagWarnings.length || programNumericWarnings.length || programParameterWarnings.length || document.fragments.some(
         (fragment) => fragment.reason === 'unmodeled'
           || fragment.reason === 'protected'
           || isUnnormalizedTagMetadata(fragment.path, fragment.reason)
@@ -226,6 +227,7 @@ export class L5XParser extends BaseParser {
           message: 'Source representations and vendor-specific content are retained in document fragments.',
         }] : []),
         ...tagWarnings,
+        ...programNumericWarnings,
         ...programParameterWarnings,
       ];
       const completionError = checkParseExecution(options);
@@ -449,6 +451,32 @@ const SUPPORTED_PROGRAM_PARAMETER_DATA_NODES = new Set([
   'AlarmDigitalParameters',
   'AlarmConfig',
 ]);
+
+function collectUnsupportedProgramNumericWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program).forEach(
+    (program, programIndex) => {
+      const programPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]`;
+      const numericAttributes = [
+        ['InitialStepIndex', program['@_InitialStepIndex']],
+        ['LastScanTime', program['@_LastScanTime']],
+        ['MaxScanTime', program['@_MaxScanTime']],
+      ] as const;
+      numericAttributes.forEach(([attribute, value]) => {
+        if (value !== undefined && !Number.isSafeInteger(Number(value))) {
+          warnings.push(createParseWarning(
+            `Program ${program['@_Name']} has ${attribute} outside the normalized safe-integer range. The source representation was preserved.`,
+            {
+              code: 'UNSUPPORTED_L5X_PROGRAM_NUMERIC_VALUE',
+              location: { path: `${programPath}/@${attribute}` },
+            }
+          ));
+        }
+      });
+    }
+  );
+  return warnings;
+}
 
 function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarning[] {
   const warnings: ParseWarning[] = [];

@@ -2,7 +2,7 @@
 <RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="ProgramParamsV34" TargetType="Program" ContainsContext="true">
   <Controller Use="Context" Name="FixtureController">
     <Programs>
-      <Program Name="ProgramParamsV34" TestEdits="1" ExecutingTaskName="EventTask" Verified="0" EditsExist="1" Disabled="1">
+      <Program Name="ProgramParamsV34" Type="EquipmentPhase" TestEdits="1" ExecutingTaskName="EventTask" Verified="0" EditsExist="1" Disabled="1" InitialStepIndex="3" InitialState="Aborted" CompleteStateIfNotImpl="NoAction" LossOfCommCmd="Hold" ExternalRequestAction="Clear" LastScanTime="30" MaxScanTime="40" SynchronizeRedundancyDataAfterExecution="0">
         <Parameters>
           <Parameter Name="Command" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="1" Visible="1">
             <DefaultData Format="L5K"><![CDATA[42]]></DefaultData>

@@ -7,6 +7,34 @@ import type {
 } from './tag';
 import type { NormalizedRoutine } from './routine';
 
+export type NormalizedProgramType = 'Typeless' | 'Normal' | 'EquipmentPhase' | 'LastProgramType';
+
+export type NormalizedProgramInitialState =
+  | 'NullState'
+  | 'Idle'
+  | 'Aborted'
+  | 'Stopped'
+  | 'Complete'
+  | 'LastState';
+
+export type NormalizedProgramNotImplementedAction =
+  | 'NoAction'
+  | 'StateComplete'
+  | 'NotImplPhaseFailure'
+  | 'LastNotImplAction';
+
+export type NormalizedProgramLossOfCommunicationCommand =
+  | 'None'
+  | 'Abort'
+  | 'Hold'
+  | 'Stop'
+  | 'LastCommLossAction';
+
+export type NormalizedProgramExternalRequestAction =
+  | 'None'
+  | 'Clear'
+  | 'LastExternalRequestAction';
+
 /** Schema-backed usage/direction declared for a Logix program parameter. */
 export type ProgramParameterUsage =
   | 'Normal'
@@ -52,6 +80,8 @@ export interface NormalizedProgram {
   routines: NormalizedRoutine[];
   /** Program interface parameters in source order. */
   parameters: NormalizedProgramParameter[];
+  /** Schema-declared program kind. */
+  programType?: NormalizedProgramType;
   /** Description/comment for the program */
   description?: string;
   /** Main routine name (entry point) */
@@ -70,4 +100,20 @@ export interface NormalizedProgram {
   editsExist?: boolean;
   /** Whether the program is disabled */
   disabled?: boolean;
+  /** Initial Equipment Phase step index. */
+  initialStepIndex?: number;
+  /** Initial Equipment Phase execution state. */
+  initialState?: NormalizedProgramInitialState;
+  /** Action when an Equipment Phase state is not implemented. */
+  completeStateIfNotImplemented?: NormalizedProgramNotImplementedAction;
+  /** Action taken when communication is lost. */
+  lossOfCommunicationCommand?: NormalizedProgramLossOfCommunicationCommand;
+  /** Action taken for an external request. */
+  externalRequestAction?: NormalizedProgramExternalRequestAction;
+  /** Last recorded program scan time in source units. */
+  lastScanTime?: number;
+  /** Maximum recorded program scan time in source units. */
+  maxScanTime?: number;
+  /** Whether redundancy data is synchronized after execution. */
+  synchronizeRedundancyDataAfterExecution?: boolean;
 }
