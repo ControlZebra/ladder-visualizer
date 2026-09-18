@@ -237,7 +237,12 @@ function accountSource(doc: PlcDocument, root: Node): void {
     program: {
       Name: 'name',
       MainRoutineName: 'mainRoutineName',
+      PreStateRoutineName: 'preStateRoutineName',
       FaultRoutineName: 'faultRoutineName',
+      ExecutingTaskName: 'executingTaskName',
+      TestEdits: 'testEdits',
+      Verified: 'verified',
+      EditsExist: 'editsExist',
       Disabled: 'disabled',
     },
     routine: { Name: 'name', Type: 'type' },

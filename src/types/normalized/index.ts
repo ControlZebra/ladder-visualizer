@@ -23,7 +23,11 @@ export type {
 } from './controller';
 
 // Program
-export type { NormalizedProgram } from './program';
+export type {
+  NormalizedProgram,
+  NormalizedProgramParameter,
+  ProgramParameterUsage,
+} from './program';
 
 // Routine
 export type { NormalizedRoutine, NormalizedRoutineType, STLine } from './routine';

@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.2.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.3.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -53,6 +53,7 @@ export interface L5XNormalizedCounts {
   controllerTags: number;
   programTags: number;
   programs: number;
+  programParameters: number;
   routines: number;
   rungs: number;
   aois: number;
@@ -115,6 +116,7 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
   controllerTags: 0,
   programTags: 0,
   programs: 0,
+  programParameters: 0,
   routines: 0,
   rungs: 0,
   aois: 0,
@@ -127,6 +129,66 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
 };
 
 export const L5X_FIXTURES: readonly L5XFixture[] = [
+  {
+    id: 'program-parameters-v33',
+    file: 'program-parameters-v33.L5X',
+    studio5000Version: '33.00',
+    targetType: 'Program',
+    artifactKind: 'program',
+    profiles: ['rockwell-program-rll', 'rockwell-full-project'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, parameters: 1 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programParameters: 1 },
+    },
+    coverage: ['program parameters', 'singleton parameter', 'program state', 'version matrix'],
+  },
+  {
+    id: 'program-parameters-v34',
+    file: 'program-parameters-v34.L5X',
+    studio5000Version: '34.01',
+    targetType: 'Program',
+    artifactKind: 'program',
+    profiles: ['rockwell-program-rll', 'rockwell-full-project'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, parameters: 2 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programParameters: 2 },
+    },
+    coverage: ['program parameters', 'repeated parameters', 'program state', 'version matrix'],
+  },
+  {
+    id: 'program-parameters-v35',
+    file: 'program-parameters-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Program',
+    artifactKind: 'program',
+    profiles: ['rockwell-program-rll', 'rockwell-full-project'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, parameters: 5, arrays: 1 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programParameters: 5 },
+    },
+    coverage: ['program parameters', 'parameter comments', 'decorated default data', 'version matrix'],
+  },
+  {
+    id: 'program-parameters-unsupported-v35',
+    file: 'program-parameters-unsupported-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Program',
+    artifactKind: 'program',
+    profiles: ['rockwell-program-rll', 'rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, parameters: 1 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programParameters: 1 },
+    },
+    coverage: ['program parameters', 'preserved unsupported parameter default', 'partial diagnostic'],
+  },
   {
     id: 'document-encoded-v33', file: 'document-encoded-v33.L5X',
     studio5000Version: '33.00', targetType: 'Routine', artifactKind: 'protected-content',
@@ -240,6 +302,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         controllerTags: 1,
         programTags: 1,
         programs: 1,
+        programParameters: 0,
         routines: 2,
         rungs: 3,
         aois: 1,
@@ -964,6 +1027,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         controllerTags: 3,
         programTags: 0,
         programs: 1,
+        programParameters: 1,
         routines: 5,
         rungs: 1,
         aois: 1,
@@ -1028,6 +1092,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         controllerTags: 3,
         programTags: 0,
         programs: 1,
+        programParameters: 1,
         routines: 5,
         rungs: 1,
         aois: 1,
@@ -1092,6 +1157,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         controllerTags: 3,
         programTags: 0,
         programs: 1,
+        programParameters: 1,
         routines: 5,
         rungs: 1,
         aois: 1,

@@ -5,6 +5,8 @@
 export type {
   NormalizedController,
   NormalizedProgram,
+  NormalizedProgramParameter,
+  ProgramParameterUsage,
   NormalizedRoutine,
   NormalizedRung,
   NormalizedTag,
