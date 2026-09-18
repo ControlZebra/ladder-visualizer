@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.4.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.5.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -23,6 +23,7 @@ export type L5XArtifactKind =
   | 'module'
   | 'task-scheduling'
   | 'program-hierarchy'
+  | 'trend-watch-list'
   | 'unsupported-language'
   | 'protected-content'
   | 'malformed-input'
@@ -49,6 +50,10 @@ export interface L5XSourceCounts {
   externalContents: number;
   wallClockTimes: number;
   scheduledPrograms: number;
+  trends: number;
+  pens: number;
+  quickWatchLists: number;
+  watchTags: number;
 }
 
 export interface L5XNormalizedCounts {
@@ -68,6 +73,10 @@ export interface L5XNormalizedCounts {
   moduleConnections: number;
   tasks: number;
   scheduledPrograms: number;
+  trends: number;
+  pens: number;
+  quickWatchLists: number;
+  watchTags: number;
 }
 
 interface L5XCurrentParserSuccess {
@@ -115,6 +124,10 @@ const emptySourceCounts: L5XSourceCounts = {
   externalContents: 0,
   wallClockTimes: 0,
   scheduledPrograms: 0,
+  trends: 0,
+  pens: 0,
+  quickWatchLists: 0,
+  watchTags: 0,
 };
 
 const emptyNormalizedCounts: L5XNormalizedCounts = {
@@ -134,9 +147,133 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
   moduleConnections: 0,
   tasks: 0,
   scheduledPrograms: 0,
+  trends: 0,
+  pens: 0,
+  quickWatchLists: 0,
+  watchTags: 0,
 };
 
 export const L5X_FIXTURES: readonly L5XFixture[] = [
+  {
+    id: 'trends-watch-lists-v33',
+    file: 'trends-watch-lists-v33.L5X',
+    studio5000Version: '33.00',
+    targetType: 'Controller',
+    artifactKind: 'trend-watch-list',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      trends: 1,
+      pens: 1,
+      quickWatchLists: 1,
+      watchTags: 1,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        trends: 1,
+        pens: 1,
+        quickWatchLists: 1,
+        watchTags: 1,
+      },
+    },
+    coverage: [
+      'trend',
+      'trend pen',
+      'quick watch list',
+      'watch tag',
+      'structured description value',
+      'localized description value',
+      'version matrix',
+    ],
+  },
+  {
+    id: 'trends-watch-lists-v34',
+    file: 'trends-watch-lists-v34.L5X',
+    studio5000Version: '34.01',
+    targetType: 'Controller',
+    artifactKind: 'trend-watch-list',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      trends: 2,
+      pens: 2,
+      quickWatchLists: 2,
+      watchTags: 3,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        trends: 2,
+        pens: 2,
+        quickWatchLists: 2,
+        watchTags: 3,
+      },
+    },
+    coverage: [
+      'trend',
+      'trend pen',
+      'quick watch list',
+      'watch tag',
+      'structured description value',
+      'localized description value',
+      'CDATA description',
+      'repeated children',
+      'version matrix',
+    ],
+  },
+  {
+    id: 'trends-watch-lists-v35',
+    file: 'trends-watch-lists-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'trend-watch-list',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      trends: 1,
+      quickWatchLists: 1,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        trends: 1,
+        quickWatchLists: 1,
+      },
+    },
+    coverage: [
+      'trend',
+      'quick watch list',
+      'structured description value',
+      'empty children',
+      'omitted optionals',
+      'version matrix',
+    ],
+  },
+  {
+    id: 'trend-numeric-overflow-v35',
+    file: 'trend-numeric-overflow-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'trend-watch-list',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, trends: 1, pens: 1 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, trends: 1, pens: 1 },
+    },
+    coverage: ['trend', 'trend pen', 'signed/unsigned-long boundary', 'partial diagnostic'],
+  },
   {
     id: 'program-hierarchy-v33',
     file: 'program-hierarchy-v33.L5X',
@@ -413,6 +550,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     currentParser: {
       success: true,
       normalizedCounts: {
+        ...emptyNormalizedCounts,
         dataTypes: 1,
         controllerTags: 1,
         programTags: 1,
@@ -1117,6 +1255,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     profiles: ['rockwell-full-project'],
     expectedParseStatus: 'partial',
     sourceCounts: {
+      ...emptySourceCounts,
       controllers: 1,
       dataTypes: 1,
       tags: 3,
@@ -1141,6 +1280,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     currentParser: {
       success: true,
       normalizedCounts: {
+        ...emptyNormalizedCounts,
         dataTypes: 1,
         controllerTags: 3,
         programTags: 0,
@@ -1185,6 +1325,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     profiles: ['rockwell-full-project'],
     expectedParseStatus: 'partial',
     sourceCounts: {
+      ...emptySourceCounts,
       controllers: 1,
       dataTypes: 1,
       tags: 3,
@@ -1209,6 +1350,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     currentParser: {
       success: true,
       normalizedCounts: {
+        ...emptyNormalizedCounts,
         dataTypes: 1,
         controllerTags: 3,
         programTags: 0,
@@ -1253,6 +1395,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     profiles: ['rockwell-full-project'],
     expectedParseStatus: 'partial',
     sourceCounts: {
+      ...emptySourceCounts,
       controllers: 1,
       dataTypes: 1,
       tags: 3,
@@ -1277,6 +1420,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     currentParser: {
       success: true,
       normalizedCounts: {
+        ...emptyNormalizedCounts,
         dataTypes: 1,
         controllerTags: 3,
         programTags: 0,

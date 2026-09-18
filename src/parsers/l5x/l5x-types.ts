@@ -77,11 +77,102 @@ export interface L5XController {
   Tasks?: L5XTasks;
   CST?: unknown;
   WallClockTime?: unknown;
-  Trends?: unknown;
+  Trends?: L5XTrends;
   DataLogs?: unknown;
+  QuickWatchLists?: L5XQuickWatchLists;
   TimeSynchronize?: unknown;
   EthernetPorts?: unknown;
   EthernetNetwork?: unknown;
+}
+
+// ============================================
+// Trends and Quick-Watch Lists
+// ============================================
+
+export interface L5XTrends {
+  '@_UId'?: string;
+  '@_ParentUId'?: string;
+  Trend?: L5XTrend | L5XTrend[];
+}
+
+export type L5XTrendCaptureSizeType = 'No Limit' | 'Samples' | 'Time Period';
+export type L5XTrendTriggerType = 'Event Trigger' | 'No Trigger';
+export type L5XTrendTriggerTargetType = 'Target Tag' | 'Target Value';
+export type L5XTrendSampleType = 'Samples' | 'Time Period';
+export type L5XTrendLogicalOperation = 'AND' | 'OR';
+export type L5XTrendPenType = 'Analog' | 'Digital' | 'Full-Width';
+
+export interface L5XTrend {
+  '@_Name'?: string;
+  '@_UId'?: string;
+  '@_SamplePeriod'?: string;
+  '@_NumberOfCaptures'?: string;
+  '@_CaptureSizeType'?: L5XTrendCaptureSizeType;
+  '@_CaptureSize'?: string;
+  '@_StartTriggerType'?: L5XTrendTriggerType;
+  '@_StartTriggerTag1'?: string;
+  '@_StartTriggerOperation1'?: string;
+  '@_StartTriggerTargetType1'?: L5XTrendTriggerTargetType;
+  '@_StartTriggerTargetValue1'?: string;
+  '@_StartTriggerTargetTag1'?: string;
+  '@_StartTriggerLogicalOperation'?: L5XTrendLogicalOperation;
+  '@_StartTriggerTag2'?: string;
+  '@_StartTriggerOperation2'?: string;
+  '@_StartTriggerTargetType2'?: L5XTrendTriggerTargetType;
+  '@_StartTriggerTargetValue2'?: string;
+  '@_StartTriggerTargetTag2'?: string;
+  '@_PreSampleType'?: L5XTrendSampleType;
+  '@_PreSamples'?: string;
+  '@_StopTriggerType'?: L5XTrendTriggerType;
+  '@_StopTriggerTag1'?: string;
+  '@_StopTriggerOperation1'?: string;
+  '@_StopTriggerTargetType1'?: L5XTrendTriggerTargetType;
+  '@_StopTriggerTargetValue1'?: string;
+  '@_StopTriggerTargetTag1'?: string;
+  '@_StopTriggerLogicalOperation'?: L5XTrendLogicalOperation;
+  '@_StopTriggerTag2'?: string;
+  '@_StopTriggerOperation2'?: string;
+  '@_StopTriggerTargetType2'?: L5XTrendTriggerTargetType;
+  '@_StopTriggerTargetValue2'?: string;
+  '@_StopTriggerTargetTag2'?: string;
+  '@_PostSampleType'?: L5XTrendSampleType;
+  '@_PostSamples'?: string;
+  '@_TrendxVersion'?: string;
+  Description?: L5XDescription;
+  Template?: string;
+  Pens?: L5XPens;
+}
+
+export interface L5XPens {
+  Pen?: L5XPen | L5XPen[];
+}
+
+export interface L5XPen {
+  '@_Name'?: string;
+  '@_Color'?: string;
+  '@_Visible'?: string;
+  '@_Width'?: string;
+  '@_Type'?: L5XTrendPenType;
+  '@_Style'?: string;
+  '@_Marker'?: string;
+  '@_Min'?: string;
+  '@_Max'?: string;
+  '@_EngUnits'?: string;
+  Description?: L5XDescription;
+}
+
+export interface L5XQuickWatchLists {
+  QuickWatchList?: L5XQuickWatchList | L5XQuickWatchList[];
+}
+
+export interface L5XQuickWatchList {
+  '@_Name'?: string;
+  WatchTag?: L5XWatchTag | L5XWatchTag[];
+}
+
+export interface L5XWatchTag {
+  '@_Specifier'?: string;
+  '@_Scope'?: string;
 }
 
 // ============================================
@@ -646,13 +737,26 @@ export interface L5XSFCContent {
 // ============================================
 
 /**
- * Description/Comment element - can be a CDATA string or plain text
- * fast-xml-parser can return this in various formats depending on the content
+ * Description/Comment element as emitted by fast-xml-parser.
+ * DescriptionType also permits direct and localized Value children.
  */
-export type L5XDescription = {
-  '#text'?: string;
-  '#cdata'?: string;
-} | string;
+export type L5XDescription =
+  | string
+  | {
+      '#text'?: string;
+      '#cdata'?: string;
+      Value?: string | string[];
+      LocalizedDescription?: L5XLocalizedDescription | L5XLocalizedDescription[];
+    };
+
+export type L5XLocalizedDescription =
+  | string
+  | {
+      '@_Lang'?: string;
+      '#text'?: string;
+      '#cdata'?: string;
+      Value?: string | string[];
+    };
 
 // ============================================
 // Helper Types for Parsing
@@ -681,9 +785,19 @@ export function extractText(desc: L5XDescription | undefined): string | undefine
   if (desc === undefined) return undefined;
   if (typeof desc === 'string') return desc;
   // Check for CDATA content first
-  if (desc['#cdata']) return desc['#cdata'];
+  if (desc['#cdata'] !== undefined) return desc['#cdata'];
   // Then check for regular text
-  if (desc['#text']) return desc['#text'];
+  if (desc['#text'] !== undefined) return desc['#text'];
+  // Prefer the non-localized value when both representations are present.
+  const directValue = ensureArray(desc.Value)[0];
+  if (directValue !== undefined) return directValue;
+  for (const localized of ensureArray(desc.LocalizedDescription)) {
+    if (typeof localized === 'string') return localized;
+    if (localized['#cdata'] !== undefined) return localized['#cdata'];
+    if (localized['#text'] !== undefined) return localized['#text'];
+    const localizedValue = ensureArray(localized.Value)[0];
+    if (localizedValue !== undefined) return localizedValue;
+  }
   return undefined;
 }
 

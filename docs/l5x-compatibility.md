@@ -1,6 +1,6 @@
 # L5X compatibility contract
 
-Compatibility matrix version: **1.4.0**
+Compatibility matrix version: **1.5.0**
 
 This document defines the narrow, testable claims Ladder Visualizer may make about Rockwell L5X input. A profile is a promise about named constructs and export shapes. It is not a percentage derived from the number of entities that happened to survive normalization.
 
@@ -8,9 +8,9 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 ## Compatibility profiles
 
-| Profile                   | Version 1.4.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
+| Profile                   | Version 1.5.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
 | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `rockwell-controller-rll` | Supported            | Controller metadata, UDT headers, controller and program tags, program hierarchy, Equipment Phase metadata, tasks and schedules, AOIs, modules, RLL routines, and rungs | Does not promise complete controller configuration; SFC-based equipment sequences are preserved rather than normalized |
+| `rockwell-controller-rll` | Supported            | Controller metadata, UDT headers, controller and program tags, program hierarchy, Equipment Phase metadata, tasks and schedules, trends and quick-watch lists, AOIs, modules, RLL routines, and rungs | Does not promise complete controller configuration; SFC-based equipment sequences are preserved rather than normalized |
 | `rockwell-program-rll`    | Supported            | Program target exports with identity/hierarchy attributes, parameters, program state, program tags, and RLL routines | A parent omitted from a component export is not treated as invalid; resource IDs are document-local |
 | `rockwell-routine-rll`    | Supported            | RLL routine target exports represented in the controller-shaped result                                | Document-local resource identity is available; stable cross-export identity and source spans are not modeled                                                        |
 | `rockwell-rung-rll`       | Supported          | Standalone `TargetType="Rung"` exports are present in the corpus                                      | Rungs have typed resources and owner routine IDs                                                                    |
@@ -49,15 +49,17 @@ Public parser results expose both the legacy `success` boolean and a `status` of
 
 Controller results expose tasks in source order. Task types, descriptions, scheduling attributes, event metadata, and ordered scheduled-program names normalize across v33-v35. Programs retain their declared executing-task name. Missing, duplicate, or contradictory relationships produce stable warnings and a `partial` result while preserving the usable controller. Stable cross-document task and program IDs remain outside this profile.
 
+Controller results expose trends and quick-watch lists in source order. Trends retain capture, trigger, pre/post-sample, and version metadata plus ordered pens; pens retain display and engineering-range metadata. Quick-watch lists retain ordered tag specifiers and their source scopes. Omitted collections and empty child collections normalize to empty arrays. Schema-valid trend and pen integers outside JavaScript's safe range remain source-preserved, produce `UNSUPPORTED_L5X_TREND_NUMERIC_VALUE`, and make the result `partial`. Opaque Studio trend templates and collection bookkeeping IDs remain inspectable source representations rather than vendor-neutral fields. `DataLogs` remain outside this profile.
+
 ## Target-aware document API
 
 `parseDocumentString`, `parseDocumentBuffer`, `parseDocumentFile`, and `L5XParser.parseDocument` return a `PlcDocument`. All eight target families appear in `resources`, including context and reference dependencies. Each discriminated resource has a `kind`, typed `data`, a `role`, a one-based XML `sourcePath` used as its document-local `id`, and an `ownerId` where applicable. `targetIds` identifies only the declared export family; owned descendants inherit target roles unless explicitly overridden. IDs are not stable across exports.
 
 Explicit resource `Use` takes precedence over the immediate collection's `Use`. Otherwise targets are selected by name, a unique eligible candidate, or an export without context. The parser checks declared target counts and reports `AMBIGUOUS_L5X_TARGET` instead of choosing between unresolved candidates. Missing targets produce `MISSING_L5X_TARGET` through document and controller-shaped APIs.
 
-`fragments` retains unmodeled elements, protected/encoded content, and source representations that extend or overlap existing normalized fields. Each fragment has a path, parsed subtree, and reason (`unmodeled`, `protected`, or `source-representation`). Attributes use `@_`; text and CDATA use `#text` and `#cdata`. `mappings` accounts for source leaves represented by typed fields. Tests require every parsed leaf to be mapped or preserved. This is parsed-subtree preservation, without a byte-perfect XML or comment guarantee. Normalized decorated structures retain heterogeneous member declaration order.
+`fragments` retains unmodeled elements, protected/encoded content, and source representations that extend or overlap existing normalized fields. Each fragment has a path, parsed subtree, and reason (`unmodeled`, `protected`, or `source-representation`). Attributes use `@_`; text and CDATA use `#text` and `#cdata`. `mappings` accounts for source leaves represented by typed fields. Tests require every parsed leaf to be mapped or preserved. This is parsed-subtree preservation, without a byte-perfect XML or comment guarantee. Normalized decorated structures retain heterogeneous member declaration order. Opaque trend templates are retained as source representations.
 
-A successful result means a usable document was returned, not that all content was normalized. `PRESERVED_L5X_CONTENT` identifies results with retained fragments. Standard tag metadata outside the normalized contract, tasks/configuration, and FBD/SFC bodies remain later slices. Encoded routines expose their headers and retain the body as a protected fragment.
+A successful result means a usable document was returned, not that all content was normalized. `PRESERVED_L5X_CONTENT` identifies results with retained fragments. Standard tag metadata outside the normalized contract, remaining controller configuration including `DataLogs`, and FBD/SFC bodies remain later slices. Encoded routines expose their headers and retain the body as a protected fragment.
 
 Existing controller-shaped APIs use the same document pipeline and support the newly accepted target families. They return warnings, while the document APIs provide access to fragments. A `TargetType="Program"` envelope without an actual Program target returns `MISSING_L5X_TARGET` through both API families; the parser never fabricates a Program that is absent from the source.
 
@@ -84,7 +86,7 @@ Every fixture declares both `sourceCounts` and `normalizedCounts`:
 - Source counts are lexical counts of the entity elements present in the L5X input. This remains deterministic even for intentionally malformed files.
 - Normalized counts describe the current `NormalizedController` result. They are `null` when parsing fails.
 - AOI routines and rungs are included in the aggregate routine and rung totals.
-- Counts include ST lines, program parameters, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, decorated arrays, protected-content containers, and wall-clock objects where applicable.
+- Counts include ST lines, program parameters, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, trends, pens, quick-watch lists, watch tags, decorated arrays, protected-content containers, and wall-clock objects where applicable.
 - A count change requires an intentional manifest update and review; tests must not silently regenerate baselines.
 
 ## Schema validation

@@ -3,6 +3,7 @@ import type { NormalizedTag, ExternalAccess } from './tag';
 import type { NormalizedProgram } from './program';
 import type { NormalizedRoutine } from './routine';
 import type { NormalizedTask } from './task';
+import type { NormalizedQuickWatchList, NormalizedTrend } from './trend';
 
 /**
  * Supported PLC vendors
@@ -281,6 +282,10 @@ export interface NormalizedController {
   modules: NormalizedModule[];
   /** Controller execution tasks and their ordered program schedules */
   tasks: NormalizedTask[];
+  /** Controller trends in source order */
+  trends: NormalizedTrend[];
+  /** Quick-watch lists in source order */
+  quickWatchLists: NormalizedQuickWatchList[];
 
   // ---- Source Information ----
   /** Original vendor */

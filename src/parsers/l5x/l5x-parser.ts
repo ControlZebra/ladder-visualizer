@@ -214,6 +214,7 @@ export class L5XParser extends BaseParser {
       const programParameterWarnings = collectUnsupportedProgramParameterWarnings(xml);
       const programHierarchyWarnings = collectProgramHierarchyWarnings(xml, controller);
       const equipmentSequenceWarnings = collectUnsupportedEquipmentSequenceWarnings(xml);
+      const trendNumericWarnings = collectUnsupportedTrendNumericWarnings(xml);
       const hasRungDiagnostics = controller.programs.some((program) =>
         program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       ) || controller.aois.some((aoi) =>
@@ -227,6 +228,7 @@ export class L5XParser extends BaseParser {
         programParameterWarnings.length ||
         programHierarchyWarnings.length ||
         equipmentSequenceWarnings.length ||
+        trendNumericWarnings.length ||
         document.fragments.some(
           (fragment) =>
             fragment.reason === 'unmodeled' ||
@@ -246,6 +248,7 @@ export class L5XParser extends BaseParser {
         ...programParameterWarnings,
         ...programHierarchyWarnings,
         ...equipmentSequenceWarnings,
+        ...trendNumericWarnings,
       ];
       const completionError = checkParseExecution(options);
       if (completionError) return createFailureResult([completionError]);
@@ -776,6 +779,55 @@ function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarni
       });
     }
   );
+  return warnings;
+}
+
+function collectUnsupportedTrendNumericWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  ensureArray(xml.RSLogix5000Content.Controller.Trends?.Trend).forEach((trend, trendIndex) => {
+    const trendPath = `/RSLogix5000Content/Controller[1]/Trends[1]/Trend[${trendIndex + 1}]`;
+    const trendIntegers = [
+      ['SamplePeriod', trend['@_SamplePeriod']],
+      ['NumberOfCaptures', trend['@_NumberOfCaptures']],
+      ['CaptureSize', trend['@_CaptureSize']],
+      ['StartTriggerOperation1', trend['@_StartTriggerOperation1']],
+      ['StartTriggerOperation2', trend['@_StartTriggerOperation2']],
+      ['PreSamples', trend['@_PreSamples']],
+      ['StopTriggerOperation1', trend['@_StopTriggerOperation1']],
+      ['StopTriggerOperation2', trend['@_StopTriggerOperation2']],
+      ['PostSamples', trend['@_PostSamples']],
+    ] as const;
+    trendIntegers.forEach(([attribute, value]) => {
+      if (value !== undefined && !Number.isSafeInteger(Number(value))) {
+        warnings.push(createParseWarning(
+          `Trend ${trend['@_Name'] ?? trendIndex + 1} has ${attribute} outside the normalized safe-integer range. The source representation was preserved.`,
+          {
+            code: 'UNSUPPORTED_L5X_TREND_NUMERIC_VALUE',
+            location: { path: `${trendPath}/@${attribute}` },
+          }
+        ));
+      }
+    });
+    ensureArray(trend.Pens?.Pen).forEach((pen, penIndex) => {
+      const penPath = `${trendPath}/Pens[1]/Pen[${penIndex + 1}]`;
+      const penIntegers = [
+        ['Width', pen['@_Width']],
+        ['Style', pen['@_Style']],
+        ['Marker', pen['@_Marker']],
+      ] as const;
+      penIntegers.forEach(([attribute, value]) => {
+        if (value !== undefined && !Number.isSafeInteger(Number(value))) {
+          warnings.push(createParseWarning(
+            `Trend pen ${pen['@_Name'] ?? penIndex + 1} has ${attribute} outside the normalized safe-integer range. The source representation was preserved.`,
+            {
+              code: 'UNSUPPORTED_L5X_TREND_NUMERIC_VALUE',
+              location: { path: `${penPath}/@${attribute}` },
+            }
+          ));
+        }
+      });
+    });
+  });
   return warnings;
 }
 

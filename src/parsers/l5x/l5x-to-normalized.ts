@@ -31,6 +31,9 @@ import type {
   L5XLine,
   L5XTask,
   L5XTasks,
+  L5XTrend,
+  L5XPen,
+  L5XQuickWatchList,
 } from './l5x-types';
 import {
   ensureArray,
@@ -79,6 +82,9 @@ import type {
   NormalizedTask,
   NormalizedTaskType,
   NormalizedTaskClass,
+  NormalizedTrend,
+  NormalizedTrendPen,
+  NormalizedQuickWatchList,
 } from '../../types/normalized';
 import { parseRungDetailed } from '../rung-parser';
 
@@ -106,6 +112,8 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
     aois: normalizeAOIs(controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition),
     modules: normalizeModules(controller.Modules),
     tasks: normalizeTasks(controller.Tasks),
+    trends: normalizeTrends(controller.Trends?.Trend),
+    quickWatchLists: normalizeQuickWatchLists(controller.QuickWatchLists?.QuickWatchList),
 
     // Source information
     vendor: 'rockwell',
@@ -631,6 +639,115 @@ function parseOptionalInteger(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number.parseInt(value, 10);
   return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
+// ============================================
+// Trends and Quick-Watch Lists
+// ============================================
+
+function normalizeTrends(trends: L5XTrend | L5XTrend[] | undefined): NormalizedTrend[] {
+  return ensureArray(trends).map((trend) => {
+    const normalized: NormalizedTrend = {
+      pens: ensureArray(trend.Pens?.Pen).map(normalizeTrendPen),
+    };
+    const strings = {
+      name: trend['@_Name'],
+      uid: trend['@_UId'],
+      description: extractText(trend.Description),
+      captureSizeType: trend['@_CaptureSizeType'],
+      startTriggerType: trend['@_StartTriggerType'],
+      startTriggerTag1: trend['@_StartTriggerTag1'],
+      startTriggerTargetType1: trend['@_StartTriggerTargetType1'],
+      startTriggerTargetValue1: trend['@_StartTriggerTargetValue1'],
+      startTriggerTargetTag1: trend['@_StartTriggerTargetTag1'],
+      startTriggerLogicalOperation: trend['@_StartTriggerLogicalOperation'],
+      startTriggerTag2: trend['@_StartTriggerTag2'],
+      startTriggerTargetType2: trend['@_StartTriggerTargetType2'],
+      startTriggerTargetValue2: trend['@_StartTriggerTargetValue2'],
+      startTriggerTargetTag2: trend['@_StartTriggerTargetTag2'],
+      preSampleType: trend['@_PreSampleType'],
+      stopTriggerType: trend['@_StopTriggerType'],
+      stopTriggerTag1: trend['@_StopTriggerTag1'],
+      stopTriggerTargetType1: trend['@_StopTriggerTargetType1'],
+      stopTriggerTargetValue1: trend['@_StopTriggerTargetValue1'],
+      stopTriggerTargetTag1: trend['@_StopTriggerTargetTag1'],
+      stopTriggerLogicalOperation: trend['@_StopTriggerLogicalOperation'],
+      stopTriggerTag2: trend['@_StopTriggerTag2'],
+      stopTriggerTargetType2: trend['@_StopTriggerTargetType2'],
+      stopTriggerTargetValue2: trend['@_StopTriggerTargetValue2'],
+      stopTriggerTargetTag2: trend['@_StopTriggerTargetTag2'],
+      postSampleType: trend['@_PostSampleType'],
+      trendxVersion: trend['@_TrendxVersion'],
+    } as const;
+    for (const [key, value] of Object.entries(strings)) {
+      if (value !== undefined) Object.assign(normalized, { [key]: value });
+    }
+    const integers = {
+      samplePeriod: trend['@_SamplePeriod'],
+      numberOfCaptures: trend['@_NumberOfCaptures'],
+      captureSize: trend['@_CaptureSize'],
+      startTriggerOperation1: trend['@_StartTriggerOperation1'],
+      startTriggerOperation2: trend['@_StartTriggerOperation2'],
+      preSamples: trend['@_PreSamples'],
+      stopTriggerOperation1: trend['@_StopTriggerOperation1'],
+      stopTriggerOperation2: trend['@_StopTriggerOperation2'],
+      postSamples: trend['@_PostSamples'],
+    } as const;
+    for (const [key, value] of Object.entries(integers)) {
+      const parsed = parseOptionalSafeInteger(value);
+      if (parsed !== undefined) Object.assign(normalized, { [key]: parsed });
+    }
+    return normalized;
+  });
+}
+
+function normalizeTrendPen(pen: L5XPen): NormalizedTrendPen {
+  const normalized: NormalizedTrendPen = {};
+  const values = {
+    name: pen['@_Name'],
+    description: extractText(pen.Description),
+    color: pen['@_Color'],
+    type: pen['@_Type'],
+    engineeringUnits: pen['@_EngUnits'],
+  } as const;
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined) Object.assign(normalized, { [key]: value });
+  }
+  if (pen['@_Visible'] !== undefined) normalized.visible = parseOptionalBoolean(pen['@_Visible']);
+  for (const [key, value] of Object.entries({
+    width: pen['@_Width'],
+    style: pen['@_Style'],
+    marker: pen['@_Marker'],
+  })) {
+    const parsed = parseOptionalSafeInteger(value);
+    if (parsed !== undefined) Object.assign(normalized, { [key]: parsed });
+  }
+  const min = parseOptionalFloat(pen['@_Min']);
+  const max = parseOptionalFloat(pen['@_Max']);
+  if (min !== undefined) normalized.min = min;
+  if (max !== undefined) normalized.max = max;
+  return normalized;
+}
+
+function parseOptionalFloat(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (value === 'INF') return Number.POSITIVE_INFINITY;
+  if (value === '-INF') return Number.NEGATIVE_INFINITY;
+  if (value === 'NaN') return Number.NaN;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function normalizeQuickWatchLists(
+  lists: L5XQuickWatchList | L5XQuickWatchList[] | undefined
+): NormalizedQuickWatchList[] {
+  return ensureArray(lists).map((list) => ({
+    ...(list['@_Name'] !== undefined ? { name: list['@_Name'] } : {}),
+    watchTags: ensureArray(list.WatchTag).map((tag) => ({
+      ...(tag['@_Specifier'] !== undefined ? { specifier: tag['@_Specifier'] } : {}),
+      ...(tag['@_Scope'] !== undefined ? { scope: tag['@_Scope'] } : {}),
+    })),
+  }));
 }
 
 // ============================================

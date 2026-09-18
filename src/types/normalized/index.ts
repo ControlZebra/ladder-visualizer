@@ -42,6 +42,20 @@ export type {
   NormalizedTaskEvent,
 } from './task';
 
+// Trends and quick-watch lists
+export type {
+  NormalizedTrend,
+  NormalizedTrendPen,
+  NormalizedTrendCaptureSizeType,
+  NormalizedTrendTriggerType,
+  NormalizedTrendTriggerTargetType,
+  NormalizedTrendSampleType,
+  NormalizedTrendLogicalOperation,
+  NormalizedTrendPenType,
+  NormalizedQuickWatchList,
+  NormalizedWatchTag,
+} from './trend';
+
 // Routine
 export type { NormalizedRoutine, NormalizedRoutineType, STLine } from './routine';
 
