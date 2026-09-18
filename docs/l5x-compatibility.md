@@ -8,10 +8,10 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 ## Compatibility profiles
 
-| Profile                   | Version 1.2.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
+| Profile                   | Version 1.3.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
 | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `rockwell-controller-rll` | Supported            | Controller metadata, UDT headers, controller and program tags, tasks and schedules, AOIs, modules, RLL routines, and rungs | Does not promise complete controller configuration                                            |
-| `rockwell-program-rll`    | Supported            | Program target exports with program tags and RLL routines                                             | Program parameters and child programs are preserved but not normalized; resource IDs are document-local                              |
+| `rockwell-program-rll`    | Supported            | Program target exports with parameters, program state, program tags, and RLL routines                 | Program local tags and child-program hierarchy are preserved but not normalized; resource IDs are document-local                    |
 | `rockwell-routine-rll`    | Supported            | RLL routine target exports represented in the controller-shaped result                                | Document-local resource identity is available; stable cross-export identity and source spans are not modeled                                                        |
 | `rockwell-rung-rll`       | Supported          | Standalone `TargetType="Rung"` exports are present in the corpus                                      | Rungs have typed resources and owner routine IDs                                                                    |
 | `rockwell-tags`           | Partial              | Controller/program tags, aliases, dimensions, comments, forces, decorated arrays/structures, and alarms | Standard tag attributes outside the normalized contract are preserved and explicitly reported as partial |
@@ -61,6 +61,12 @@ A successful result means a usable document was returned, not that all content w
 
 Existing controller-shaped APIs use the same document pipeline and support the newly accepted target families. They return warnings, while the document APIs provide access to fragments. A `TargetType="Program"` envelope without an actual Program target returns `MISSING_L5X_TARGET` through both API families; the parser never fabricates a Program that is absent from the source.
 
+### Program parameters and state
+
+Program parameters are normalized separately from AOI parameters and retain source order, owning program scope, usage, type metadata, optional booleans, comments, and L5K or decorated default data. Program edit, verification, disabled, routine-entry, Equipment Phase state, scan-time, redundancy-synchronization, and executing-task metadata remain optional when their source attributes are absent. Schema-valid program integers outside JavaScript's safe range remain source-preserved and produce `UNSUPPORTED_L5X_PROGRAM_NUMERIC_VALUE` with a `partial` result. Unsupported schema-valid default-data nodes are retained in document fragments and produce `UNSUPPORTED_L5X_PROGRAM_PARAMETER_DATA` with a `partial` result.
+
+The pinned v33, v34, and v35 schemas use the same `ProgramType` and `AOIParameterType` definitions for these fields. None of those schemas declares a program parameter-connection element or attribute, so this compatibility version does not invent or advertise a parameter-connection relationship. Program `LocalTags` and task-to-program relationship validation remain separate slices.
+
 The document capability is optional on `PLCParser`; existing custom parsers remain compatible. JSON parsing continues through the existing APIs. Calling a document API with a parser lacking that capability returns `UNSUPPORTED_FORMAT`.
 
 ## Count rules
@@ -70,7 +76,7 @@ Every fixture declares both `sourceCounts` and `normalizedCounts`:
 - Source counts are lexical counts of the entity elements present in the L5X input. This remains deterministic even for intentionally malformed files.
 - Normalized counts describe the current `NormalizedController` result. They are `null` when parsing fails.
 - AOI routines and rungs are included in the aggregate routine and rung totals.
-- Counts include ST lines, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, decorated arrays, protected-content containers, and wall-clock objects where applicable.
+- Counts include ST lines, program parameters, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, decorated arrays, protected-content containers, and wall-clock objects where applicable.
 - A count change requires an intentional manifest update and review; tests must not silently regenerate baselines.
 
 ## Schema validation

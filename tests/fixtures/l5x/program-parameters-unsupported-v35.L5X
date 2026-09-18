@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="UnsupportedProgramParameter" TargetType="Program" ContainsContext="true">
+  <Controller Use="Context" Name="FixtureController">
+    <Programs>
+      <Program Name="UnsupportedProgramParameter">
+        <Parameters>
+          <Parameter Name="AxisReference" TagType="Base" DataType="AXIS_CIP_DRIVE" Usage="InOut">
+            <DefaultData Format="Decorated"><AxisParameters MotionGroup="MotionGroup1" /></DefaultData>
+          </Parameter>
+        </Parameters>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

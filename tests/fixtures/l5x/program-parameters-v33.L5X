@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="ProgramParamsV33" TargetType="Program" ContainsContext="true">
+  <Controller Use="Context" Name="FixtureController">
+    <Programs>
+      <Program Name="ProgramParamsV33" Type="EquipmentPhase" TestEdits="No" MainRoutineName="Main" PreStateRoutineName="Prepare" FaultRoutineName="Fault" ExecutingTaskName="PeriodicTask" Verified="Yes" EditsExist="No" Disabled="No" InitialStepIndex="0" InitialState="Idle" CompleteStateIfNotImpl="StateComplete" LossOfCommCmd="None" ExternalRequestAction="None" LastScanTime="12" MaxScanTime="20" SynchronizeRedundancyDataAfterExecution="Yes">
+        <Parameters>
+          <Parameter Name="Setpoint" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="Yes" Visible="Yes" Constant="No" ExternalAccess="Read/Write" Verified="Yes">
+            <Description><![CDATA[Requested process setpoint]]></Description>
+            <DefaultData Format="Decorated"><DataValue DataType="REAL" Radix="Float" Value="12.5" /></DefaultData>
+          </Parameter>
+        </Parameters>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

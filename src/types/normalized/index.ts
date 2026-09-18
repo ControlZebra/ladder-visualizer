@@ -23,7 +23,16 @@ export type {
 } from './controller';
 
 // Program
-export type { NormalizedProgram } from './program';
+export type {
+  NormalizedProgram,
+  NormalizedProgramParameter,
+  ProgramParameterUsage,
+  NormalizedProgramType,
+  NormalizedProgramInitialState,
+  NormalizedProgramNotImplementedAction,
+  NormalizedProgramLossOfCommunicationCommand,
+  NormalizedProgramExternalRequestAction,
+} from './program';
 
 // Task
 export type {

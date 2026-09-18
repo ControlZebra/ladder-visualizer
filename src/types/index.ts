@@ -5,6 +5,13 @@
 export type {
   NormalizedController,
   NormalizedProgram,
+  NormalizedProgramParameter,
+  ProgramParameterUsage,
+  NormalizedProgramType,
+  NormalizedProgramInitialState,
+  NormalizedProgramNotImplementedAction,
+  NormalizedProgramLossOfCommunicationCommand,
+  NormalizedProgramExternalRequestAction,
   NormalizedRoutine,
   NormalizedRung,
   NormalizedTag,

@@ -420,11 +420,18 @@ export interface L5XParameter {
   '@_Name': string;
   '@_TagType': string;
   '@_DataType': string;
-  '@_Usage': 'Input' | 'Output' | 'InOut';
+  '@_UId'?: string;
+  '@_ParentUId'?: string;
+  '@_DataTypeUId'?: string;
+  '@_Dimensions'?: string;
+  '@_Usage': 'Normal' | 'Local' | 'Input' | 'Output' | 'InOut' | 'Static' | 'NULL';
   '@_Radix'?: string;
   '@_Required'?: string;
   '@_Visible'?: string;
+  '@_Constant'?: string;
   '@_ExternalAccess'?: string;
+  '@_Verified'?: string;
+  Comments?: L5XComments;
   Description?: L5XDescription;
   DefaultData?: L5XTagData;
 }
@@ -455,15 +462,32 @@ export interface L5XPrograms {
 export interface L5XProgram {
   '@_Use'?: 'Target' | 'Context';
   '@_Name': string;
+  '@_Type'?: 'Typeless' | 'Normal' | 'EquipmentPhase' | 'LastProgramType';
   '@_TestEdits'?: string;
   '@_MainRoutineName'?: string;
+  '@_PreStateRoutineName'?: string;
   '@_FaultRoutineName'?: string;
-  '@_Disabled'?: string;
   '@_ExecutingTaskName'?: string;
+  '@_Verified'?: string;
+  '@_EditsExist'?: string;
+  '@_Disabled'?: string;
+  '@_InitialStepIndex'?: string;
+  '@_InitialState'?: 'NullState' | 'Idle' | 'Aborted' | 'Stopped' | 'Complete' | 'LastState';
+  '@_CompleteStateIfNotImpl'?:
+    | 'NoAction'
+    | 'StateComplete'
+    | 'NotImplPhaseFailure'
+    | 'LastNotImplAction';
+  '@_LossOfCommCmd'?: 'None' | 'Abort' | 'Hold' | 'Stop' | 'LastCommLossAction';
+  '@_ExternalRequestAction'?: 'None' | 'Clear' | 'LastExternalRequestAction';
+  '@_LastScanTime'?: string;
+  '@_MaxScanTime'?: string;
+  '@_SynchronizeRedundancyDataAfterExecution'?: string;
   '@_Class'?: string;
   '@_UseAsFolder'?: string;
   Description?: L5XDescription;
   Tags?: L5XTags;
+  Parameters?: L5XParameters;
   Routines?: L5XRoutines;
 }
 
