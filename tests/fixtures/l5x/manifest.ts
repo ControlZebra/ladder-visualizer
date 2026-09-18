@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.5.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.6.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -24,6 +24,7 @@ export type L5XArtifactKind =
   | 'task-scheduling'
   | 'program-hierarchy'
   | 'trend-watch-list'
+  | 'controller-configuration'
   | 'unsupported-language'
   | 'protected-content'
   | 'malformed-input'
@@ -54,6 +55,16 @@ export interface L5XSourceCounts {
   pens: number;
   quickWatchLists: number;
   watchTags: number;
+  redundancyConfigurations: number;
+  securityConfigurations: number;
+  safetyConfigurations: number;
+  serialPorts: number;
+  csts: number;
+  dataLogs: number;
+  timeSynchronizations: number;
+  internetProtocols: number;
+  ethernetPorts: number;
+  ethernetNetworks: number;
 }
 
 export interface L5XNormalizedCounts {
@@ -128,6 +139,16 @@ const emptySourceCounts: L5XSourceCounts = {
   pens: 0,
   quickWatchLists: 0,
   watchTags: 0,
+  redundancyConfigurations: 0,
+  securityConfigurations: 0,
+  safetyConfigurations: 0,
+  serialPorts: 0,
+  csts: 0,
+  dataLogs: 0,
+  timeSynchronizations: 0,
+  internetProtocols: 0,
+  ethernetPorts: 0,
+  ethernetNetworks: 0,
 };
 
 const emptyNormalizedCounts: L5XNormalizedCounts = {
@@ -154,6 +175,47 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
 };
 
 export const L5X_FIXTURES: readonly L5XFixture[] = [
+  ...(['33', '34', '35'] as const).map((version): L5XFixture => ({
+    id: `controller-configuration-v${version}`,
+    file: `controller-configuration-v${version}.L5X`,
+    studio5000Version: version === '33' ? '33.00' : `${version}.01`,
+    targetType: 'Controller',
+    artifactKind: 'controller-configuration',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      wallClockTimes: 1,
+      redundancyConfigurations: 1,
+      securityConfigurations: 1,
+      safetyConfigurations: 1,
+      serialPorts: 2,
+      csts: 1,
+      dataLogs: 1,
+      timeSynchronizations: 1,
+      internetProtocols: 1,
+      ethernetPorts: 2,
+      ethernetNetworks: 1,
+    },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts } },
+    coverage: [
+      'controller configuration',
+      'redundancy configuration',
+      'security configuration',
+      'safety configuration',
+      'communication port configuration',
+      'CST configuration',
+      'wall clock',
+      'data log configuration',
+      'time synchronization configuration',
+      'Internet Protocol configuration',
+      'Ethernet configuration',
+      'repeated configuration children',
+      'preserved controller configuration diagnostic',
+      'version matrix',
+    ],
+  })),
   {
     id: 'trends-watch-lists-v33',
     file: 'trends-watch-lists-v33.L5X',
@@ -496,7 +558,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Routine',
     artifactKind: 'routine',
     profiles: ['rockwell-routine-rll'],
-    expectedParseStatus: 'complete',
+    expectedParseStatus: 'partial',
     sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 } },
     coverage: ['document resources', 'resource roles', 'repeated routine bodies', 'preserved metadata'],
@@ -508,7 +570,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Routine',
     artifactKind: 'routine',
     profiles: ['rockwell-routine-rll'],
-    expectedParseStatus: 'complete',
+    expectedParseStatus: 'partial',
     sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 } },
     coverage: ['document resources', 'resource roles', 'repeated routine bodies', 'preserved metadata'],
@@ -520,7 +582,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Routine',
     artifactKind: 'routine',
     profiles: ['rockwell-routine-rll'],
-    expectedParseStatus: 'complete',
+    expectedParseStatus: 'partial',
     sourceCounts: { ...emptySourceCounts, controllers: 1, dataTypes: 2, tags: 2, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, dataTypes: 2, controllerTags: 1, programTags: 1, programs: 2, routines: 3, rungs: 2, stLines: 2, tasks: 1, scheduledPrograms: 1 } },
     coverage: ['document resources', 'resource roles', 'repeated routine bodies', 'preserved metadata'],

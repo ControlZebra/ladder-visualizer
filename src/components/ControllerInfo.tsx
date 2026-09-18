@@ -39,7 +39,7 @@ export function ControllerInfo({ controller, className = '' }: ControllerInfoPro
       softwareRevision: (vendorMeta.softwareRevision as string) || '',
       exportDate: (vendorMeta.exportDate as string) || '',
       targetName: (vendorMeta.targetName as string) || '',
-      processorType: (vendorMeta.processorType as string) || '',
+      processorType: controller.processorType || (vendorMeta.processorType as string) || '',
       targetType: (vendorMeta.targetType as string) || '',
       targetClass: (vendorMeta.targetClass as string) || '',
       mainRoutineName: mainRoutineName || '',

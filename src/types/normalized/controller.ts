@@ -264,6 +264,8 @@ export interface NormalizedController {
   serialNumber?: string;
   /** Communication path */
   commPath?: string;
+  /** Controller/processor catalog type reported by the source */
+  processorType?: string;
   /** Date when the project was created */
   createdDate?: Date;
   /** Date when the project was last modified */

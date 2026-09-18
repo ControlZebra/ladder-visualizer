@@ -86,7 +86,7 @@ export function diffControllers(
 // ============================================================================
 
 const CONTROLLER_PROPS = [
-  'name', 'description', 'serialNumber', 'commPath',
+  'name', 'description', 'serialNumber', 'commPath', 'processorType',
   'createdDate', 'modifiedDate', 'vendor', 'sourceFormat',
 ];
 

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="ControllerConfigurationV34" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="ControllerConfigurationV34" ProcessorType="1756-L85E" MajorRev="34" MinorRev="11" TimeSlice="20" ShareUnusedTimeSlice="50" CommDriver="EtherNet/IP" CommPath="AB_ETHIP-1\10.20.30.41\Backplane\0" CurrentProjectLanguage="en-US" IOForcesEnabled="false">
+    <RedundancyInfo UId="3401" Enabled="true" KeepTestEditsOnSwitchOver="false" IOMemoryPadPercentage="10" DataTablePadPercentage="20" />
+    <Security Code="34" SecurityAuthorityID="authority-v34" SecurityAuthorityURI="urn:controlzebra:security:v34" ChangesToDetect="Tags" TrustedSlots="0,1" />
+    <SafetyInfo UId="3402" SafetySignature="sig-v34" SafetyLocked="false" ConfigureSafetyIOAlways="true" SignatureRunModeProtect="false" SafetySigned="true" SafetyLevel="SIL2"><SafetyTaskFaultString>Safety fault v34</SafetyTaskFaultString><SafetyTagMap>SafetyInput=StandardInput</SafetyTagMap></SafetyInfo>
+    <CommPorts>
+      <SerialPort Channel="0" BaudRate="19200" Parity="No Parity" DataBits="8 Bits of Data" StopBits="1 Stop Bit" ComDriverId="DF1" ControlLine="No Handshake" />
+      <SerialPort Channel="1" BaudRate="9600" Parity="Even Parity" DataBits="7 Bits of Data" StopBits="2 Stop Bits" ComDriverId="ASCII" ControlLine="Full Duplex" />
+    </CommPorts>
+    <CST MasterID="1" UId="3403" Verified="true" Status="0" Master="1" />
+    <WallClockTime UId="3404" LocalTimeAdjustment="60" TimeZone="1" Verified="true" />
+    <DataLogs><DataLog Name="BatchHistory"><Entry Tag="BatchId" /></DataLog></DataLogs>
+    <TimeSynchronize UId="3405" Priority1="128" Priority2="129" PTPEnable="true" />
+    <InternetProtocol ConfigType="Manual" IPAddress="10.20.30.41" SubnetMask="255.255.255.0" Gateway="10.20.30.1" PrimaryDNS="10.20.30.2" SecondaryDNS="10.20.30.3" DomainName="example.test" HostName="controller-v34" />
+    <EthernetPorts>
+      <EthernetPort Port="1" PortEnabled="true" AutoNegotiateEnabled="true" InterfaceSpeed="100" DuplexMode="Full" />
+      <EthernetPort Port="2" PortEnabled="false" AutoNegotiateEnabled="false" InterfaceSpeed="10" DuplexMode="Half" />
+    </EthernetPorts>
+    <EthernetNetwork SupervisorModeEnabled="true" SupervisorPrecedence="1" BeaconInterval="400" BeaconTimeout="1960" VLANID="34" />
+  </Controller>
+</RSLogix5000Content>
