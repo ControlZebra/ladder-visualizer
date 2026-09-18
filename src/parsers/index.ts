@@ -14,7 +14,7 @@ export {
 export type { FinalizedController } from './aoi-registration';
 
 // Parser interface and base class
-export type { PLCParser, ParseResult, FileFormat } from './parser-interface';
+export type { PLCParser, ParseResult, ParseStatus, FileFormat } from './parser-interface';
 export { BaseParser, createSuccessResult, createFailureResult } from './parser-interface';
 
 // Parser resource guards and orchestration options

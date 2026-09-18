@@ -14,10 +14,19 @@ import {
 } from '../parser-interface';
 import {
   createParseError,
+  createParseWarning,
   ParseErrorCodes,
   type ParseError,
+  type ParseWarning,
 } from '../parse-error';
-import type { L5XContent } from './l5x-types';
+import {
+  ensureArray,
+  L5X_STRUCTURE_MEMBER_ORDER,
+  type L5XContent,
+  type L5XOrderedStructureMember,
+  type L5XTag,
+  type L5XTagStructure,
+} from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
 import { l5xToDocument, L5XDocumentError, L5X_TARGET_TYPES } from './l5x-document';
 import { finalizeController } from '../aoi-registration';
@@ -96,10 +105,12 @@ export class L5XParser extends BaseParser {
   readonly supportedMimeTypes = ['application/xml', 'text/xml', 'application/l5x'];
 
   private xmlParser: XMLParser;
+  private orderedXmlParser: XMLParser;
 
   constructor() {
     super();
     this.xmlParser = new XMLParser(XML_PARSER_OPTIONS);
+    this.orderedXmlParser = new XMLParser({ ...XML_PARSER_OPTIONS, preserveOrder: true });
   }
 
   /**
@@ -129,7 +140,12 @@ export class L5XParser extends BaseParser {
     if (!result.success || !result.data) return createFailureResult(result.errors ?? [], result);
     const controller = result.data.resources.find(resource => resource.kind === 'controller');
     if (!controller || controller.kind !== 'controller') return createFailureResult([createParseError('Missing controller resource', { code: ParseErrorCodes.INTERNAL_ERROR })]);
-    return createSuccessResult(controller.data, result);
+    return createSuccessResult(controller.data, {
+      warnings: result.warnings,
+      parseTimeMs: result.parseTimeMs,
+      context: result.context,
+      status: result.status === 'partial' ? 'partial' : 'complete',
+    });
   }
 
   /** Parse all declared targets and retain unnormalized source fragments. */
@@ -162,6 +178,12 @@ export class L5XParser extends BaseParser {
     let xml: L5XContent;
     try {
       xml = this.xmlParser.parse(content) as L5XContent;
+      if (content.includes('<Structure')) {
+        annotateStructureMemberOrder(
+          xml as unknown as XmlNode,
+          this.orderedXmlParser.parse(content) as OrderedXmlNode[]
+        );
+      }
     } catch (error) {
       return createFailureResult([
         createParseError('Invalid XML format', {
@@ -186,12 +208,31 @@ export class L5XParser extends BaseParser {
     try {
       const { controller, context } = finalizeController(l5xToNormalized(xml));
       const document = l5xToDocument(xml, controller);
+      const tagWarnings = collectUnsupportedTagWarnings(xml);
+      const hasRungDiagnostics = controller.programs.some((program) =>
+        program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
+      ) || controller.aois.some((aoi) =>
+        aoi.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
+      );
+      const status = hasRungDiagnostics || tagWarnings.length || document.fragments.some(
+        (fragment) => fragment.reason === 'unmodeled'
+          || fragment.reason === 'protected'
+          || isUnnormalizedTagMetadata(fragment.path, fragment.reason)
+      ) ? 'partial' : 'complete';
+      const warnings: ParseWarning[] = [
+        ...(document.fragments.length ? [{
+          code: 'PRESERVED_L5X_CONTENT',
+          message: 'Source representations and vendor-specific content are retained in document fragments.',
+        }] : []),
+        ...tagWarnings,
+      ];
       const completionError = checkParseExecution(options);
       if (completionError) return createFailureResult([completionError]);
-      return createSuccessResult(document, { context, warnings: document.fragments.length ? [{
-        code: 'PRESERVED_L5X_CONTENT',
-        message: 'Source content is retained in document fragments; successful parsing does not imply full normalization.',
-      }] : undefined });
+      return createSuccessResult(document, {
+        context,
+        status,
+        warnings: warnings.length ? warnings : undefined,
+      });
     } catch (error) {
       if (error instanceof L5XDocumentError) return createFailureResult([error.issue]);
       return createFailureResult([
@@ -336,6 +377,148 @@ export class L5XParser extends BaseParser {
 
     return createSuccessResult(undefined);
   }
+}
+
+const SUPPORTED_TAG_FORMATS = new Set(['L5K', 'String', 'Decorated', 'Alarm']);
+const SUPPORTED_DECORATED_NODES = new Set([
+  'DataValue',
+  'Array',
+  'Structure',
+  'AlarmAnalogParameters',
+  'AlarmDigitalParameters',
+  'AlarmConfig',
+]);
+
+function collectUnsupportedTagWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  const root = xml.RSLogix5000Content;
+
+  function inspectTag(tag: L5XTag, tagPath: string): void {
+    ensureArray(tag.Data).forEach((data, dataIndex) => {
+      const dataPath = `${tagPath}/Data[${dataIndex + 1}]`;
+      const format = data['@_Format'];
+      if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
+        warnings.push(createParseWarning(
+          format === undefined
+            ? `Tag ${tag['@_Name']} has data without a Format attribute. The source representation was preserved.`
+            : `Tag ${tag['@_Name']} uses unsupported data encoding ${format}. The source representation was preserved.`,
+          {
+            code: 'UNSUPPORTED_L5X_TAG_ENCODING',
+            location: { path: format === undefined ? dataPath : `${dataPath}/@Format` },
+          }
+        ));
+        return;
+      }
+      if (format !== 'Decorated' && format !== 'Alarm') return;
+      for (const key of Object.keys(data)) {
+        if (key.startsWith('@_') || key.startsWith('#') || SUPPORTED_DECORATED_NODES.has(key)) {
+          continue;
+        }
+        warnings.push(createParseWarning(
+          `Tag ${tag['@_Name']} contains unsupported decorated data node ${key}. The source representation was preserved.`,
+          {
+            code: 'UNSUPPORTED_L5X_TAG_ENCODING',
+            location: { path: `${dataPath}/${key}[1]` },
+          }
+        ));
+      }
+    });
+  }
+
+  ensureArray(root.Controller.Tags?.Tag).forEach((tag, tagIndex) =>
+    inspectTag(tag, `/RSLogix5000Content/Controller[1]/Tags[1]/Tag[${tagIndex + 1}]`)
+  );
+  ensureArray(root.Controller.Programs?.Program).forEach((program, programIndex) => {
+    ensureArray(program.Tags?.Tag).forEach((tag, tagIndex) =>
+      inspectTag(
+        tag,
+        `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/Tags[1]/Tag[${tagIndex + 1}]`
+      )
+    );
+  });
+  return warnings;
+}
+
+const NORMALIZED_TAG_ATTRIBUTES = new Set([
+  'Name',
+  'TagType',
+  'DataType',
+  'Radix',
+  'Dimensions',
+  'Constant',
+  'CanForce',
+  'AliasFor',
+  'ExternalAccess',
+]);
+
+function isUnnormalizedTagMetadata(path: string, reason: string): boolean {
+  if (reason !== 'source-representation') return false;
+  const attribute = path.match(/\/Tag\[\d+\]\/@([^/]+)$/)?.[1];
+  return attribute !== undefined && !NORMALIZED_TAG_ATTRIBUTES.has(attribute);
+}
+
+type XmlNode = Record<string, unknown>;
+type OrderedXmlNode = Record<string, unknown>;
+
+const STRUCTURE_MEMBER_KINDS = {
+  DataValueMember: 'atomic',
+  StructureMember: 'structure',
+  ArrayMember: 'array',
+} as const;
+
+function isXmlNode(value: unknown): value is XmlNode {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Overlay source child order onto the grouped fast-xml-parser object tree. */
+function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedXmlNode[]): void {
+  function visit(
+    parsedParent: XmlNode,
+    orderedChildren: OrderedXmlNode[],
+    parentElement?: string
+  ): void {
+    const occurrences = new Map<string, number>();
+    const members: L5XOrderedStructureMember[] = [];
+
+    for (const orderedChild of orderedChildren) {
+      const entry = Object.entries(orderedChild).find(
+        ([name]) => name !== ':@' && !name.startsWith('#')
+      );
+      if (!entry) continue;
+
+      const [elementName, children] = entry;
+      const occurrence = occurrences.get(elementName) ?? 0;
+      occurrences.set(elementName, occurrence + 1);
+      const groupedChild = parsedParent[elementName];
+      const parsedChild = Array.isArray(groupedChild)
+        ? groupedChild[occurrence]
+        : occurrence === 0
+          ? groupedChild
+          : undefined;
+
+      if (parentElement === 'Structure' || parentElement === 'StructureMember') {
+        const kind = STRUCTURE_MEMBER_KINDS[
+          elementName as keyof typeof STRUCTURE_MEMBER_KINDS
+        ];
+        if (kind && isXmlNode(parsedChild)) {
+          members.push({ kind, value: parsedChild } as L5XOrderedStructureMember);
+        }
+      }
+
+      if (isXmlNode(parsedChild) && Array.isArray(children)) {
+        visit(parsedChild, children as OrderedXmlNode[], elementName);
+      }
+    }
+
+    if ((parentElement === 'Structure' || parentElement === 'StructureMember') && members.length) {
+      Object.defineProperty(parsedParent as L5XTagStructure, L5X_STRUCTURE_MEMBER_ORDER, {
+        value: members,
+        enumerable: false,
+      });
+    }
+  }
+
+  visit(parsedRoot, orderedRoot);
 }
 
 /**

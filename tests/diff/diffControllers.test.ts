@@ -61,6 +61,10 @@ function makeTag(name: string, overrides: Partial<NormalizedTag> = {}): Normaliz
     tagType: 'Base',
     dataType: 'DINT',
     scope: 'Controller',
+    dimensions: [],
+    comments: [],
+    forceData: [],
+    data: [],
     ...overrides,
   };
 }
@@ -438,6 +442,63 @@ describe('diffControllers', () => {
         property: 'value',
         oldValue: 0,
         newValue: 42,
+      });
+    });
+
+    it('should detect every extended tag metadata and representation change', () => {
+      const old = makeController({ tags: [makeTag('Recipe')] });
+      const nu = makeController({
+        tags: [
+          makeTag('Recipe', {
+            dimensions: [2],
+            constant: true,
+            canForce: true,
+            comments: [{ operand: '.Count', text: 'Count', values: ['Count'], localizedTexts: [] }],
+            forceData: [{ format: 'L5K', value: '11' }],
+            data: [{
+              format: 'Decorated',
+              values: [{ kind: 'atomic', name: 'Count', dataType: 'DINT', value: '2' }],
+            }],
+          }),
+        ],
+      });
+
+      const diff = diffControllers(old, nu);
+
+      expect(diff.tags).toHaveLength(1);
+      expect(diff.tags[0].kind).toBe('modified');
+      expect(diff.tags[0].propertyChanges?.map((change) => change.property)).toEqual(
+        expect.arrayContaining([
+          'dimensions',
+          'constant',
+          'canForce',
+          'comments',
+          'forceData',
+          'data',
+        ]),
+      );
+    });
+
+    it('should detect a change confined to a nested structure member', () => {
+      const structuredData = (value: string): NormalizedTag['data'] => [{
+        format: 'Decorated',
+        values: [{
+          kind: 'structure',
+          name: 'Nested',
+          dataType: 'NestedType',
+          members: [{ kind: 'atomic', name: 'Enabled', dataType: 'BOOL', value }],
+        }],
+      }];
+      const old = makeController({ tags: [makeTag('Recipe', { data: structuredData('0') })] });
+      const nu = makeController({ tags: [makeTag('Recipe', { data: structuredData('1') })] });
+
+      const diff = diffControllers(old, nu);
+
+      expect(diff.tags).toHaveLength(1);
+      expect(diff.tags[0]).toMatchObject({
+        name: 'Recipe',
+        kind: 'modified',
+        propertyChanges: [{ property: 'data' }],
       });
     });
 

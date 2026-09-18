@@ -106,7 +106,12 @@ describe('L5X target-aware document contract', () => {
         'reference',
       ]);
       expect(doc.resources.filter((r) => r.kind === 'tag').map((r) => r.data)).toMatchObject([
-        { name: 'Shared', scope: 'Controller' },
+        {
+          name: 'Shared',
+          scope: 'Controller',
+          constant: true,
+          data: [{ format: 'Decorated', values: [{ kind: 'atomic', value: '0007' }] }],
+        },
         { name: 'Shared', scope: 'Program', programName: 'First', aliasFor: 'Shared.0' },
       ]);
       expect(
@@ -133,13 +138,16 @@ describe('L5X target-aware document contract', () => {
       expect(doc.fragments).toContainEqual(
         expect.objectContaining({ path: '/RSLogix5000Content/@Owner', value: 'FixtureOwner' })
       );
-      expect(doc.fragments).toContainEqual(
-        expect.objectContaining({ path: `${cp}/Tags[1]/Tag[1]/@Constant`, value: 'true' })
+      expect(doc.mappings).toContainEqual(
+        expect.objectContaining({
+          sourcePath: `${cp}/Tags[1]/Tag[1]/@Constant`,
+          field: 'constant',
+        })
       );
       expect(doc.fragments).toContainEqual(
         expect.objectContaining({
           path: `${cp}/Tags[1]/Tag[1]/Data[1]`,
-          reason: 'unmodeled',
+          reason: 'source-representation',
           value: {
             '@_Format': 'Decorated',
             DataValue: { '@_DataType': 'DINT', '@_Radix': 'Decimal', '@_Value': '0007' },

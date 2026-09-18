@@ -1,6 +1,6 @@
 import type { PlcDocument } from '../types/normalized';
 import type { ParseResult, FileFormat } from './parser-interface';
-import { createFailureResult } from './parser-interface';
+import { createFailureResult, withDefaultParseStatus } from './parser-interface';
 import { parserRegistry } from './parser-registry';
 import { createParseError, ParseErrorCodes } from './parse-error';
 import { detectFormatFromFilename } from './format-detector';
@@ -82,5 +82,5 @@ function parseDocumentInput(
         code: ParseErrorCodes.UNSUPPORTED_FORMAT,
       }),
     ]);
-  return parser.parseDocument(input, options);
+  return withDefaultParseStatus(parser.parseDocument(input, options));
 }

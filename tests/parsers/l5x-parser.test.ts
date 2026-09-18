@@ -83,6 +83,7 @@ describe('L5XParser', () => {
       const rung = result.data?.programs[0]?.routines[0]?.rungs[0];
 
       expect(result.success).toBe(true);
+      expect(result.status).toBe('partial');
       expect(rung?.instructions.map((instruction) => instruction.mnemonic)).toEqual(['XIC', 'OTE']);
       expect(rung?.diagnostics).toContainEqual(expect.objectContaining({
         code: 'RLL_MISMATCHED_DELIMITER',

@@ -200,6 +200,7 @@ describe('L5X compatibility contract', () => {
     const result = new L5XParser().parse(source);
 
     expect(result.success).toBe(fixture.currentParser.success);
+    expect(result.status).toBe(fixture.expectedParseStatus);
     if (fixture.currentParser.success) {
       expect(result.data).toBeDefined();
       expect(countNormalizedEntities(result.data!)).toEqual(fixture.currentParser.normalizedCounts);
@@ -215,7 +216,7 @@ describe('L5X compatibility contract', () => {
       'rockwell-program-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
-      'rockwell-tags': { complete: 10, partial: 3, failed: 0 },
+      'rockwell-tags': { complete: 16, partial: 6, failed: 0 },
       'rockwell-full-project': { complete: 0, partial: 9, failed: 3 },
     });
   });

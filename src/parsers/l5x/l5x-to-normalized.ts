@@ -9,6 +9,15 @@ import type {
   L5XDataTypes,
   L5XMember,
   L5XTag,
+  L5XTagData,
+  L5XTagStructure,
+  L5XDataValue,
+  L5XArray,
+  L5XElement,
+  L5XComment,
+  L5XForceData,
+  L5XAlarmParameters,
+  L5XAlarmConfig,
   L5XProgram,
   L5XRoutine,
   L5XRoutines,
@@ -21,7 +30,13 @@ import type {
   L5XLocalTag,
   L5XLine,
 } from './l5x-types';
-import { ensureArray, extractText, parseBoolean, parseInt } from './l5x-types';
+import {
+  ensureArray,
+  extractText,
+  L5X_STRUCTURE_MEMBER_ORDER,
+  parseBoolean,
+  parseInt,
+} from './l5x-types';
 import type {
   NormalizedController,
   NormalizedDataType,
@@ -48,6 +63,15 @@ import type {
   AOIClass,
   AOIParameterUsage,
   STLine,
+  NormalizedTagData,
+  NormalizedDecoratedTagValue,
+  NormalizedAtomicTagValue,
+  NormalizedArrayTagValue,
+  NormalizedArrayElement,
+  NormalizedStructureTagValue,
+  NormalizedAlarmTagValue,
+  NormalizedTagComment,
+  NormalizedTagForceData,
 } from '../../types/normalized';
 import { parseRungDetailed } from '../rung-parser';
 
@@ -208,13 +232,23 @@ function normalizeTag(tag: L5XTag, scope: TagScope, programName?: string): Norma
     tagType: tagTypeMap[tag['@_TagType']] || 'Unknown',
     dataType: tag['@_DataType'],
     radix: tag['@_Radix'],
-    externalAccess: normalizeExternalAccess(tag['@_ExternalAccess']),
+    dimensions: parseIntegerList(tag['@_Dimensions']),
+    constant: parseOptionalBoolean(tag['@_Constant']),
+    canForce: parseOptionalBoolean(tag['@_CanForce']),
+    externalAccess: normalizeOptionalExternalAccess(tag['@_ExternalAccess']),
     scope,
     programName,
     description: extractText(tag.Description),
     aliasFor: tag['@_AliasFor'],
+    comments: normalizeTagComments(tag.Comments?.Comment),
+    forceData: ensureArray(tag.ForceData).map(normalizeForceData),
+    data: ensureArray(tag.Data).map(normalizeTagData),
     value: extractTagValue(tag),
   };
+}
+
+function normalizeOptionalExternalAccess(access: string | undefined): ExternalAccess | undefined {
+  return access === undefined ? undefined : normalizeExternalAccess(access);
 }
 
 function normalizeExternalAccess(access: string | undefined): ExternalAccess {
@@ -234,8 +268,10 @@ function extractTagValue(tag: L5XTag): unknown {
   // For simple tags, try to extract the value from L5K format data
   const dataArray = ensureArray(tag.Data);
   const l5kData = dataArray.find((d) => d['@_Format'] === 'L5K');
-  if (l5kData && l5kData['#text']) {
-    const text = l5kData['#text'].trim();
+  const textData = l5kData ?? dataArray.find((d) => d['@_Format'] === 'String');
+  const textValue = extractNodeText(textData);
+  if (textValue !== undefined) {
+    const text = textValue.trim();
     // Try to parse as number
     const num = Number(text);
     if (!isNaN(num)) return num;
@@ -243,6 +279,188 @@ function extractTagValue(tag: L5XTag): unknown {
     return text;
   }
   return undefined;
+}
+
+function normalizeTagData(data: L5XTagData): NormalizedTagData {
+  const text = extractNodeText(data);
+  const length = data['@_Length'] === undefined ? undefined : Number(data['@_Length']);
+  const values: NormalizedDecoratedTagValue[] = [];
+  values.push(...ensureArray(data.DataValue).map(normalizeAtomicValue));
+  values.push(...ensureArray(data.Array).map(normalizeArrayValue));
+  values.push(...ensureArray(data.Structure).map(normalizeStructureValue));
+  values.push(
+    ...ensureArray(data.AlarmDigitalParameters).map((alarm) =>
+      normalizeAlarmParameters(alarm, 'digital')
+    )
+  );
+  values.push(
+    ...ensureArray(data.AlarmAnalogParameters).map((alarm) =>
+      normalizeAlarmParameters(alarm, 'analog')
+    )
+  );
+  values.push(...ensureArray(data.AlarmConfig).map(normalizeAlarmConfig));
+  return {
+    ...(data['@_Format'] !== undefined ? { format: data['@_Format'] } : {}),
+    ...(length !== undefined && Number.isSafeInteger(length) && length >= 0 ? { length } : {}),
+    ...(text !== undefined ? { text } : {}),
+    values,
+  };
+}
+
+function normalizeAtomicValue(value: L5XDataValue): NormalizedAtomicTagValue {
+  return {
+    kind: 'atomic',
+    ...(value['@_Name'] !== undefined ? { name: value['@_Name'] } : {}),
+    ...(value['@_DataType'] !== undefined ? { dataType: value['@_DataType'] } : {}),
+    ...(value['@_Radix'] !== undefined ? { radix: value['@_Radix'] } : {}),
+    ...(value['@_Value'] !== undefined ? { value: value['@_Value'] } : {}),
+    ...(value['@_ForceValue'] !== undefined ? { forceValue: value['@_ForceValue'] } : {}),
+  };
+}
+
+function normalizeArrayValue(array: L5XArray): NormalizedArrayTagValue {
+  return {
+    kind: 'array',
+    ...(array['@_Name'] !== undefined ? { name: array['@_Name'] } : {}),
+    ...(array['@_DataType'] !== undefined ? { dataType: array['@_DataType'] } : {}),
+    dimensions: parseIntegerList(array['@_Dimensions']),
+    ...(array['@_Radix'] !== undefined ? { radix: array['@_Radix'] } : {}),
+    elements: ensureArray(array.Element).map(normalizeArrayElement),
+  };
+}
+
+function normalizeArrayElement(element: L5XElement): NormalizedArrayElement {
+  return {
+    index: parseIntegerList(element['@_Index']),
+    ...(element['@_Value'] !== undefined ? { value: element['@_Value'] } : {}),
+    ...(element['@_ForceValue'] !== undefined ? { forceValue: element['@_ForceValue'] } : {}),
+    structures: ensureArray(element.Structure).map(normalizeStructureValue),
+  };
+}
+
+function normalizeStructureValue(structure: L5XTagStructure): NormalizedStructureTagValue {
+  const orderedMembers = structure[L5X_STRUCTURE_MEMBER_ORDER];
+  const members: NormalizedDecoratedTagValue[] = orderedMembers
+    ? orderedMembers.map((member) => {
+        switch (member.kind) {
+          case 'atomic':
+            return normalizeAtomicValue(member.value);
+          case 'structure':
+            return normalizeStructureValue(member.value);
+          case 'array':
+            return normalizeArrayValue(member.value);
+        }
+      })
+    : [
+        ...ensureArray(structure.DataValueMember).map(normalizeAtomicValue),
+        ...ensureArray(structure.StructureMember).map(normalizeStructureValue),
+        ...ensureArray(structure.ArrayMember).map(normalizeArrayValue),
+      ];
+  return {
+    kind: 'structure',
+    ...(structure['@_Name'] !== undefined ? { name: structure['@_Name'] } : {}),
+    ...(structure['@_DataType'] !== undefined ? { dataType: structure['@_DataType'] } : {}),
+    members,
+  };
+}
+
+function normalizeAlarmParameters(
+  alarm: L5XAlarmParameters,
+  alarmType: 'analog' | 'digital'
+): NormalizedAlarmTagValue {
+  return {
+    kind: 'alarm',
+    alarmType,
+    parameters: Object.fromEntries(
+      Object.entries(alarm)
+        .filter(([name, value]) => name.startsWith('@_') && typeof value === 'string')
+        .map(([name, value]) => [name.slice(2), value])
+    ),
+  };
+}
+
+function normalizeAlarmConfig(config: L5XAlarmConfig): NormalizedAlarmTagValue {
+  const messages = ensureArray(config.Messages?.Message).map((message) => {
+    const id = message['@_ID'] === undefined ? undefined : Number(message['@_ID']);
+    return {
+      ...(message['@_Type'] !== undefined ? { type: message['@_Type'] } : {}),
+      ...(id !== undefined && Number.isSafeInteger(id) ? { id } : {}),
+      ...(message.Text?.['@_Lang'] !== undefined ? { language: message.Text['@_Lang'] } : {}),
+      ...(extractNodeText(message.Text) !== undefined
+        ? { text: extractNodeText(message.Text) }
+        : {}),
+    };
+  });
+  return {
+    kind: 'alarm',
+    alarmType: 'config',
+    parameters: {},
+    ...(extractText(config.AlarmClass) !== undefined
+      ? { alarmClass: extractText(config.AlarmClass) }
+      : {}),
+    ...(extractText(config.HMICmd) !== undefined ? { hmiCommand: extractText(config.HMICmd) } : {}),
+    ...(messages.length ? { messages } : {}),
+  };
+}
+
+function normalizeTagComments(
+  comments: L5XComment | L5XComment[] | undefined
+): NormalizedTagComment[] {
+  return ensureArray(comments).map((comment) => {
+    const localizedTexts = ensureArray(comment.LocalizedComment).flatMap((localized) => {
+      const values = ensureArray(localized.Value);
+      const texts = values.length ? values : [extractNodeText(localized)].filter(isString);
+      return texts.map((text) => ({
+        ...(localized['@_Lang'] !== undefined ? { language: localized['@_Lang'] } : {}),
+        text,
+      }));
+    });
+    const directValues = ensureArray(comment.Value);
+    const mixedText = extractNodeText(comment);
+    const values = [...(mixedText !== undefined ? [mixedText] : []), ...directValues];
+    const directText = values[0];
+    return {
+      ...(comment['@_Operand'] !== undefined ? { operand: comment['@_Operand'] } : {}),
+      ...(directText !== undefined ? { text: directText } : {}),
+      values,
+      ...(comment['@_Unused'] !== undefined
+        ? { unused: parseBoolean(comment['@_Unused']) }
+        : {}),
+      localizedTexts,
+    };
+  });
+}
+
+function normalizeForceData(force: L5XForceData): NormalizedTagForceData {
+  const value = extractNodeText(force);
+  return {
+    ...(force['@_Format'] !== undefined ? { format: force['@_Format'] } : {}),
+    ...(value !== undefined ? { value } : {}),
+  };
+}
+
+function extractNodeText(
+  value: { '#text'?: string; '#cdata'?: string } | string | undefined
+): string | undefined {
+  if (typeof value === 'string') return value;
+  return value?.['#cdata'] ?? value?.['#text'];
+}
+
+function parseIntegerList(value: string | undefined): number[] {
+  if (value === undefined) return [];
+  const unwrapped = value.trim().replace(/^\[/, '').replace(/\]$/, '');
+  if (!unwrapped) return [];
+  const parsed = unwrapped.split(',').map((part) => Number(part.trim()));
+  return parsed.every((item) => Number.isSafeInteger(item) && item >= 0) ? parsed : [];
+}
+
+function parseOptionalBoolean(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  return value === '1' || value.toLowerCase() === 'true';
+}
+
+function isString(value: string | undefined): value is string {
+  return value !== undefined;
 }
 
 // ============================================

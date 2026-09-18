@@ -45,6 +45,40 @@ class MockParser implements PLCParser {
   }
 }
 
+/** Simulates a parser compiled against the pre-status public contract. */
+class LegacyMockParser implements PLCParser {
+  readonly id = 'legacy-parser';
+  readonly name = 'Legacy Parser';
+  readonly supportedExtensions = ['.legacy'];
+  readonly supportedMimeTypes = ['application/x-legacy'];
+
+  canParse(input: string | ArrayBuffer): boolean {
+    return String(input).includes('LEGACY');
+  }
+
+  parse(input: string | ArrayBuffer) {
+    if (String(input).includes('FAIL')) {
+      return {
+        success: false,
+        errors: [createParseError('Legacy failure')],
+      };
+    }
+    return {
+      success: true,
+      data: {
+        name: 'Legacy Controller',
+        dataTypes: [],
+        tags: [],
+        programs: [],
+        aois: [],
+        modules: [],
+        vendor: 'other' as const,
+        sourceFormat: 'other' as const,
+      },
+    };
+  }
+}
+
 describe('ParserRegistry', () => {
   let registry: ParserRegistry;
   let mockParser: MockParser;
@@ -163,6 +197,16 @@ describe('ParserRegistry', () => {
       const result = registry.parse('random content');
       expect(result.success).toBe(false);
       expect(result.errors?.[0].message).toContain('Unable to detect');
+    });
+
+    it('should supply status for legacy custom parser results', () => {
+      registry.register(new LegacyMockParser());
+
+      const success = registry.parse('LEGACY content', 'legacy-parser');
+      const failure = registry.parse('LEGACY FAIL', 'legacy-parser');
+
+      expect(success).toMatchObject({ success: true, status: 'complete' });
+      expect(failure).toMatchObject({ success: false, status: 'failed' });
     });
   });
 

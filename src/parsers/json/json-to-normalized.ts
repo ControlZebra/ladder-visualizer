@@ -220,9 +220,13 @@ function normalizeTag(
     tagType: tagTypeMap[tag.tag_type] || 'Unknown',
     dataType: tag.data_type,
     radix: tag.radix,
+    dimensions: [],
     externalAccess: normalizeExternalAccess(tag.external_access),
     scope,
     programName,
+    comments: [],
+    forceData: [],
+    data: [],
   };
 }
 

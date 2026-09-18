@@ -363,6 +363,7 @@ function diffStructuredText(
 const TAG_PROPS = [
   'tagType', 'dataType', 'radix', 'externalAccess',
   'scope', 'description', 'aliasFor', 'value',
+  'dimensions', 'constant', 'canForce', 'comments', 'forceData', 'data',
 ];
 
 function diffTags(
