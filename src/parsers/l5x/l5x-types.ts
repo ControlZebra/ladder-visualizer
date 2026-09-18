@@ -737,13 +737,26 @@ export interface L5XSFCContent {
 // ============================================
 
 /**
- * Description/Comment element - can be a CDATA string or plain text
- * fast-xml-parser can return this in various formats depending on the content
+ * Description/Comment element as emitted by fast-xml-parser.
+ * DescriptionType also permits direct and localized Value children.
  */
-export type L5XDescription = {
-  '#text'?: string;
-  '#cdata'?: string;
-} | string;
+export type L5XDescription =
+  | string
+  | {
+      '#text'?: string;
+      '#cdata'?: string;
+      Value?: string | string[];
+      LocalizedDescription?: L5XLocalizedDescription | L5XLocalizedDescription[];
+    };
+
+export type L5XLocalizedDescription =
+  | string
+  | {
+      '@_Lang'?: string;
+      '#text'?: string;
+      '#cdata'?: string;
+      Value?: string | string[];
+    };
 
 // ============================================
 // Helper Types for Parsing
@@ -772,9 +785,19 @@ export function extractText(desc: L5XDescription | undefined): string | undefine
   if (desc === undefined) return undefined;
   if (typeof desc === 'string') return desc;
   // Check for CDATA content first
-  if (desc['#cdata']) return desc['#cdata'];
+  if (desc['#cdata'] !== undefined) return desc['#cdata'];
   // Then check for regular text
-  if (desc['#text']) return desc['#text'];
+  if (desc['#text'] !== undefined) return desc['#text'];
+  // Prefer the non-localized value when both representations are present.
+  const directValue = ensureArray(desc.Value)[0];
+  if (directValue !== undefined) return directValue;
+  for (const localized of ensureArray(desc.LocalizedDescription)) {
+    if (typeof localized === 'string') return localized;
+    if (localized['#cdata'] !== undefined) return localized['#cdata'];
+    if (localized['#text'] !== undefined) return localized['#text'];
+    const localizedValue = ensureArray(localized.Value)[0];
+    if (localizedValue !== undefined) return localizedValue;
+  }
   return undefined;
 }
 

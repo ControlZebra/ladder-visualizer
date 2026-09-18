@@ -384,18 +384,29 @@ function accountSource(doc: PlcDocument, root: Node): void {
     return true;
   }
   function text(value: unknown, path: string, field: string, resource: PlcResource) {
-    if (typeof value === 'string') {
-      if (!mapping(value, path, field, resource)) preserve(value, path, 'source-representation');
-    } else {
-      const entries = Object.entries(node(value));
-      if (entries.length !== 1 || !['#text', '#cdata'].includes(entries[0][0])) {
-        preserve(value, path, 'source-representation');
-      } else {
-        const [key, child] = entries[0];
-        if (!mapping(child, `${path}/${key}`, field, resource))
-          preserve(value, path, 'source-representation');
+    let mapped = false;
+    function visitText(item: unknown, itemPath: string) {
+      if (typeof item === 'string') {
+        if (!mapped && mapping(item, itemPath, field, resource)) mapped = true;
+        else preserve(item, itemPath, 'source-representation');
+        return;
+      }
+      for (const [key, child] of Object.entries(node(item))) {
+        if (key === '#text' || key === '#cdata') {
+          const childPath = `${itemPath}/${key}`;
+          if (!mapped && mapping(child, childPath, field, resource)) mapped = true;
+          else preserve(child, childPath, 'source-representation');
+        } else if (key === 'Value' || key === 'LocalizedDescription') {
+          array(child).forEach((nested, index) => {
+            visitText(nested, `${itemPath}/${key}[${index + 1}]`);
+          });
+        } else {
+          const childPath = `${itemPath}/${key.startsWith('@_') ? '@' + key.slice(2) : key}`;
+          preserve(child, childPath, 'source-representation');
+        }
       }
     }
+    visitText(value, path);
   }
   const lineIndices = new Map<string, number>();
   function taskField(path: string, attribute: string): string | undefined {

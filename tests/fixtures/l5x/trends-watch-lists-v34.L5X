@@ -3,12 +3,19 @@
   <Controller Use="Target" Name="TrendWatchV34">
     <Trends>
       <Trend Name="Motion" SamplePeriod="20" CaptureSizeType="No Limit" StartTriggerType="No Trigger" StopTriggerType="No Trigger">
+        <Description>
+          <LocalizedDescription Lang="en"><Value>Motion trend</Value></LocalizedDescription>
+        </Description>
         <Pens>
-          <Pen Name="Axis.ActualPosition" Color="blue" Visible="false" Type="Digital" Min="-100" Max="100" />
+          <Pen Name="Axis.ActualPosition" Color="blue" Visible="false" Type="Digital" Min="-100" Max="100">
+            <Description><Value>Actual position</Value></Description>
+          </Pen>
           <Pen Name="Axis.CommandPosition" Type="Full-Width" EngUnits="mm" />
         </Pens>
       </Trend>
-      <Trend Name="EmptyPens" CaptureSizeType="Time Period" PreSampleType="Time Period" PostSampleType="Samples" />
+      <Trend Name="EmptyPens" CaptureSizeType="Time Period" PreSampleType="Time Period" PostSampleType="Samples">
+        <Description><![CDATA[Empty pens]]></Description>
+      </Trend>
     </Trends>
     <QuickWatchLists>
       <QuickWatchList Name="MotionValues">

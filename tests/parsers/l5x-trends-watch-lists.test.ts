@@ -85,8 +85,19 @@ describe('L5X trends and quick-watch lists', () => {
     expect(result.success).toBe(true);
     expect(result.status).toBe('complete');
     expect(result.data?.trends.map((trend) => trend.name)).toEqual(['Motion', 'EmptyPens']);
+    expect(result.data?.trends.map((trend) => trend.description)).toEqual([
+      'Motion trend',
+      'Empty pens',
+    ]);
     expect(result.data?.trends[0].pens).toMatchObject([
-      { name: 'Axis.ActualPosition', visible: false, type: 'Digital', min: -100, max: 100 },
+      {
+        name: 'Axis.ActualPosition',
+        description: 'Actual position',
+        visible: false,
+        type: 'Digital',
+        min: -100,
+        max: 100,
+      },
       { name: 'Axis.CommandPosition', type: 'Full-Width', engineeringUnits: 'mm' },
     ]);
     expect(result.data?.trends[1].pens).toEqual([]);
@@ -110,7 +121,9 @@ describe('L5X trends and quick-watch lists', () => {
 
     expect(result.success).toBe(true);
     expect(result.status).toBe('complete');
-    expect(result.data?.trends).toEqual([{ name: 'Minimal', pens: [] }]);
+    expect(result.data?.trends).toEqual([
+      { name: 'Minimal', description: 'Minimal trend', pens: [] },
+    ]);
     expect(result.data?.quickWatchLists).toEqual([{ name: 'Empty', watchTags: [] }]);
   });
 
@@ -147,6 +160,16 @@ describe('L5X trends and quick-watch lists', () => {
       sourcePath: `${controllerPath}/Trends[1]/Trend[1]/Pens[1]/Pen[1]/@EngUnits`,
       resourceId: controllerPath,
       field: 'trends.0.pens.0.engineeringUnits',
+    });
+    expect(result.data?.mappings).toContainEqual({
+      sourcePath: `${controllerPath}/Trends[1]/Trend[1]/Description[1]/Value[1]`,
+      resourceId: controllerPath,
+      field: 'trends.0.description',
+    });
+    expect(result.data?.mappings).toContainEqual({
+      sourcePath: `${controllerPath}/Trends[1]/Trend[1]/Pens[1]/Pen[1]/Description[1]/LocalizedDescription[1]/Value[1]`,
+      resourceId: controllerPath,
+      field: 'trends.0.pens.0.description',
     });
     expect(result.data?.mappings).toContainEqual({
       sourcePath: `${controllerPath}/QuickWatchLists[1]/QuickWatchList[1]/WatchTag[1]/@Specifier`,

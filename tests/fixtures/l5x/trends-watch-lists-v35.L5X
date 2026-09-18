@@ -3,6 +3,7 @@
   <Controller Use="Target" Name="TrendWatchV35">
     <Trends>
       <Trend Name="Minimal">
+        <Description><Value>Minimal trend</Value></Description>
         <Pens />
       </Trend>
     </Trends>
