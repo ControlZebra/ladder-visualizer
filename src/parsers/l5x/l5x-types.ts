@@ -873,7 +873,7 @@ export interface L5XFBDContent {
   '@_Start'?: string;
   '@_Count'?: string;
   '@_SheetSize'?: string;
-  '@_SheetOrientation': 'Landscape' | 'Portrait';
+  '@_SheetOrientation'?: string;
   '@_OnlineEditType'?: L5XOnlineEditType;
   Sheet?: L5XSheet | L5XSheet[];
 }
@@ -887,15 +887,119 @@ export type L5XOnlineEditType =
   | 'LastType';
 
 export interface L5XSheet {
-  '@_Number': string;
-  Description?: L5XDescription;
-  Block?: unknown[];
-  IRef?: unknown[];
-  ORef?: unknown[];
-  ICon?: unknown[];
-  OCon?: unknown[];
-  Wire?: unknown[];
-  TextBox?: unknown[];
+  '@_Number'?: string;
+  /** Not declared by v33-v35, but retained for forward-compatible fallback handling. */
+  '@_Name'?: string;
+  Description?: L5XDescription | L5XDescription[];
+  IRef?: L5XFBDReference | L5XFBDReference[];
+  ORef?: L5XFBDReference | L5XFBDReference[];
+  ICon?: L5XFBDConnector | L5XFBDConnector[];
+  OCon?: L5XFBDConnector | L5XFBDConnector[];
+  Block?: L5XFBDBlock | L5XFBDBlock[];
+  AddOnInstruction?: L5XFBDAOI | L5XFBDAOI[];
+  GSV?: L5XFBDObjectControl | L5XFBDObjectControl[];
+  SSV?: L5XFBDObjectControl | L5XFBDObjectControl[];
+  JSR?: L5XFBDRoutineControl | L5XFBDRoutineControl[];
+  SBR?: L5XFBDRoutineControl | L5XFBDRoutineControl[];
+  RET?: L5XFBDRoutineControl | L5XFBDRoutineControl[];
+  /** Function is not declared by v33-v35 and is normalized as a placeholder. */
+  Function?: L5XFBDFunction | L5XFBDFunction[];
+  Wire?: L5XFBDWire | L5XFBDWire[];
+  FeedbackWire?: L5XFBDWire | L5XFBDWire[];
+  TextBox?: L5XFBDTextBox | L5XFBDTextBox[];
+  Attachment?: L5XFBDAttachment | L5XFBDAttachment[];
+  /** Unknown future sheet children remain visible to placeholder normalization. */
+  [name: string]: unknown;
+}
+
+export interface L5XFBDPositioned {
+  '@_ID'?: string;
+  '@_X'?: string;
+  '@_Y'?: string;
+  '@_Verified'?: L5XBoolean;
+}
+
+export interface L5XFBDReference extends L5XFBDPositioned {
+  '@_Operand'?: string;
+  '@_HideDesc'?: L5XBoolean;
+}
+
+export interface L5XFBDConnector extends L5XFBDPositioned {
+  '@_Name'?: string;
+}
+
+export interface L5XFBDBlockArray {
+  '@_Name'?: string;
+  '@_Operand'?: string;
+}
+
+export interface L5XFBDBlock extends L5XFBDPositioned {
+  '@_Type'?: string;
+  '@_Operand'?: string;
+  '@_VisiblePins'?: string;
+  '@_HideDesc'?: L5XBoolean;
+  '@_AutotuneTag'?: string;
+  Array?: L5XFBDBlockArray | L5XFBDBlockArray[];
+}
+
+export interface L5XFBDAOIBinding {
+  '@_Name'?: string;
+  '@_Argument'?: string;
+}
+
+export interface L5XFBDAOI extends L5XFBDPositioned {
+  '@_Name'?: string;
+  '@_Operand'?: string;
+  '@_VisiblePins'?: string;
+  InOutParameter?: L5XFBDAOIBinding | L5XFBDAOIBinding[];
+}
+
+export interface L5XFBDObjectControl extends L5XFBDPositioned {
+  '@_Object'?: string;
+}
+
+export interface L5XFBDRoutineControl extends L5XFBDPositioned {
+  '@_Routine'?: string;
+  '@_In'?: string;
+  '@_Ret'?: string;
+}
+
+export interface L5XFBDFunction extends L5XFBDPositioned {
+  '@_Name'?: string;
+  '@_Type'?: string;
+  '@_VisiblePins'?: string;
+}
+
+export interface L5XFBDWire {
+  '@_FromID'?: string;
+  '@_FromParam'?: string;
+  '@_ToID'?: string;
+  '@_ToParam'?: string;
+  '@_Verified'?: L5XBoolean;
+}
+
+export interface L5XFBDText {
+  '#text'?: string;
+  '#cdata'?: string;
+  Value?: string | string[];
+  LocalizedText?:
+    | string
+    | { '@_Lang'?: string; '#text'?: string; '#cdata'?: string; Value?: string | string[] }
+    | Array<
+        | string
+        | { '@_Lang'?: string; '#text'?: string; '#cdata'?: string; Value?: string | string[] }
+      >;
+}
+
+export interface L5XFBDTextBox extends L5XFBDPositioned {
+  '@_Width'?: string;
+  Text?: string | L5XFBDText;
+}
+
+export interface L5XFBDAttachment {
+  '@_FromID'?: string;
+  '@_ToID'?: string;
+  '@_Verified'?: L5XBoolean;
 }
 
 /**

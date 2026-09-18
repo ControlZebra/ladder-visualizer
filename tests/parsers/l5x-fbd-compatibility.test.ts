@@ -70,13 +70,18 @@ describe('L5X FBD compatibility boundary', () => {
     const result = parseDocumentString(source, 'l5x');
 
     expect(result.success).toBe(true);
-    expect(result.status).toBe('partial');
+    expect(result.status).toBe('complete');
     const routine = result.data?.resources.find((resource) => resource.kind === 'routine');
-    expect(routine?.data).toMatchObject({ name: 'FBDLogic', type: 'FBD', rungs: [] });
+    expect(routine?.data).toMatchObject({
+      name: 'FBDLogic',
+      type: 'FBD',
+      rungs: [],
+      fbd: { sheets: [{ number: { value: '1', source: 'declared' } }] },
+    });
     expect(result.data?.fragments).toContainEqual(
       expect.objectContaining({
         path: `${routine?.sourcePath}/FBDContent[1]`,
-        reason: 'unmodeled',
+        reason: 'source-representation',
       })
     );
   });

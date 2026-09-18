@@ -34,6 +34,17 @@ import type {
   L5XTrend,
   L5XPen,
   L5XQuickWatchList,
+  L5XFBDContent,
+  L5XSheet,
+  L5XFBDPositioned,
+  L5XFBDReference,
+  L5XFBDConnector,
+  L5XFBDBlock,
+  L5XFBDAOI,
+  L5XFBDRoutineControl,
+  L5XFBDTextBox,
+  L5XFBDWire,
+  L5XFBDAttachment,
 } from './l5x-types';
 import {
   ensureArray,
@@ -85,6 +96,15 @@ import type {
   NormalizedTrend,
   NormalizedTrendPen,
   NormalizedQuickWatchList,
+  NormalizedFBDBody,
+  NormalizedFBDSheet,
+  NormalizedFBDElement,
+  NormalizedFBDPlaceholder,
+  NormalizedFBDPlaceholderReason,
+  NormalizedFBDDiagnostic,
+  NormalizedFBDPosition,
+  NormalizedFBDConnection,
+  NormalizedFBDAttachment,
 } from '../../types/normalized';
 import { parseRungDetailed } from '../rung-parser';
 
@@ -783,8 +803,494 @@ function normalizeRoutine(routine: L5XRoutine): NormalizedRoutine {
             ensureArray(routine.STContent).flatMap((body) => ensureArray(body.Line))
           )
         : undefined,
+    fbd:
+      type === 'FBD' && routine.FBDContent !== undefined
+        ? normalizeFBDContent(ensureArray(routine.FBDContent)[0])
+        : undefined,
     description: extractText(routine.Description),
   };
+}
+
+const MAX_UNSIGNED_LONG = BigInt('18446744073709551615');
+
+function normalizeFBDContent(content: L5XFBDContent): NormalizedFBDBody {
+  const diagnostics: NormalizedFBDDiagnostic[] = [];
+  const sheetSize = content['@_SheetSize'];
+  const orientation = content['@_SheetOrientation'];
+
+  if (sheetSize === undefined) {
+    diagnostics.push({
+      code: 'FBD_MISSING_SHEET_SIZE',
+      message: 'FBD SheetSize is absent; using the canonical Unspecified display size.',
+      severity: 'info',
+    });
+  }
+  if (orientation === undefined) {
+    diagnostics.push({
+      code: 'FBD_MISSING_SHEET_ORIENTATION',
+      message: 'FBD SheetOrientation is absent; using the canonical Landscape orientation.',
+      severity: 'info',
+    });
+  } else if (orientation !== 'Landscape' && orientation !== 'Portrait') {
+    diagnostics.push({
+      code: 'FBD_INVALID_SHEET_ORIENTATION',
+      message: `FBD SheetOrientation ${orientation} is unsupported; using Landscape.`,
+      severity: 'info',
+    });
+  }
+
+  return {
+    sheetSize: {
+      value: sheetSize ?? 'Unspecified',
+      source: sheetSize === undefined ? 'fallback' : 'declared',
+    },
+    orientation: {
+      value: orientation === 'Portrait' ? 'Portrait' : 'Landscape',
+      source: orientation === 'Landscape' || orientation === 'Portrait' ? 'declared' : 'fallback',
+    },
+    sheets: ensureArray(content.Sheet).map((sheet, index) =>
+      normalizeFBDSheet(sheet, index, diagnostics)
+    ),
+    diagnostics,
+  };
+}
+
+function normalizeFBDSheet(
+  sheet: L5XSheet,
+  sheetIndex: number,
+  diagnostics: NormalizedFBDDiagnostic[]
+): NormalizedFBDSheet {
+  const declaredNumber = sheet['@_Number'];
+  const validNumber = isUnsignedLong(declaredNumber);
+  const number = validNumber ? declaredNumber : String(sheetIndex + 1);
+  const declaredName = sheet['@_Name'];
+
+  if (declaredNumber === undefined) {
+    diagnostics.push({
+      code: 'FBD_MISSING_SHEET_NUMBER',
+      message: `FBD sheet ${sheetIndex + 1} has no Number; using ${number}.`,
+      severity: 'info',
+      sheetIndex,
+    });
+  } else if (!validNumber) {
+    diagnostics.push({
+      code: 'FBD_INVALID_SHEET_NUMBER',
+      message: `FBD sheet ${sheetIndex + 1} has invalid Number ${declaredNumber}; using ${number}.`,
+      severity: 'info',
+      sheetIndex,
+    });
+  }
+  if (declaredName === undefined) {
+    diagnostics.push({
+      code: 'FBD_MISSING_SHEET_NAME',
+      message: `FBD sheet ${sheetIndex + 1} has no Name; using Sheet ${number}.`,
+      severity: 'info',
+      sheetIndex,
+    });
+  }
+
+  const elements: NormalizedFBDElement[] = [];
+  const pendingConnections: Array<{ kind: 'wire' | 'feedback-wire'; value: L5XFBDWire }> = [];
+  const pendingAttachments: L5XFBDAttachment[] = [];
+
+  const appendElement = (element: NormalizedFBDElement) => {
+    elements.push(element);
+    if (element.kind === 'placeholder') {
+      diagnostics.push({
+        code: 'FBD_PLACEHOLDER_ELEMENT',
+        message: `FBD ${element.sourceKind} was retained as a placeholder (${element.reasonCodes.join(', ')}).`,
+        severity: 'warning',
+        sheetIndex,
+        sourceKind: element.sourceKind,
+      });
+    }
+  };
+
+  for (const [sourceKind, collection] of Object.entries(sheet)) {
+    if (sourceKind.startsWith('@_') || sourceKind === 'Description') continue;
+    if (sourceKind === 'Wire' || sourceKind === 'FeedbackWire') {
+      ensureUnknownArray(collection).forEach((value) =>
+        pendingConnections.push({
+          kind: sourceKind === 'Wire' ? 'wire' : 'feedback-wire',
+          value: asRecord(value) as L5XFBDWire,
+        })
+      );
+      continue;
+    }
+    if (sourceKind === 'Attachment') {
+      ensureUnknownArray(collection).forEach((value) =>
+        pendingAttachments.push(asRecord(value) as L5XFBDAttachment)
+      );
+      continue;
+    }
+
+    ensureUnknownArray(collection).forEach((value) => {
+      const node = asRecord(value);
+      switch (sourceKind) {
+        case 'IRef':
+          appendElement(normalizeFBDReference(node as L5XFBDReference, 'input', sourceKind));
+          break;
+        case 'ORef':
+          appendElement(normalizeFBDReference(node as L5XFBDReference, 'output', sourceKind));
+          break;
+        case 'ICon':
+          appendElement(normalizeFBDConnector(node as L5XFBDConnector, 'input', sourceKind));
+          break;
+        case 'OCon':
+          appendElement(normalizeFBDConnector(node as L5XFBDConnector, 'output', sourceKind));
+          break;
+        case 'Block':
+          appendElement(normalizeFBDBlock(node as L5XFBDBlock));
+          break;
+        case 'AddOnInstruction':
+          appendElement(normalizeFBDAOI(node as L5XFBDAOI));
+          break;
+        case 'GSV':
+        case 'SSV':
+          appendElement(
+            createFBDPlaceholder(
+              node,
+              sourceKind,
+              ['unsupported-semantics'],
+              splitTokens(node['@_VisiblePins'])
+            )
+          );
+          break;
+        case 'JSR':
+        case 'SBR':
+        case 'RET':
+          appendElement(normalizeFBDRoutineControl(node as L5XFBDRoutineControl, sourceKind));
+          break;
+        case 'TextBox':
+          appendElement(normalizeFBDTextBox(node as L5XFBDTextBox));
+          break;
+        case 'Function':
+          appendElement(
+            createFBDPlaceholder(
+              node,
+              sourceKind,
+              ['unsupported-kind'],
+              splitTokens(node['@_VisiblePins'])
+            )
+          );
+          break;
+        default:
+          appendElement(
+            createFBDPlaceholder(
+              node,
+              sourceKind,
+              ['unknown-kind'],
+              splitTokens(node['@_VisiblePins'])
+            )
+          );
+      }
+    });
+  }
+
+  const connections: NormalizedFBDConnection[] = [];
+  for (const pending of pendingConnections) {
+    const fromId = pending.value['@_FromID'];
+    const toId = pending.value['@_ToID'];
+    if (!isUnsignedLong(fromId) || !isUnsignedLong(toId)) {
+      const reasons: NormalizedFBDPlaceholderReason[] = [];
+      if (fromId === undefined || toId === undefined) reasons.push('missing-id');
+      if (
+        (fromId !== undefined && !isUnsignedLong(fromId)) ||
+        (toId !== undefined && !isUnsignedLong(toId))
+      )
+        reasons.push('invalid-id');
+      appendElement(
+        createNonPositionedPlaceholder(pending.kind === 'wire' ? 'Wire' : 'FeedbackWire', reasons)
+      );
+      continue;
+    }
+    const fromPort = pending.value['@_FromParam'] ?? implicitFBDPort(elements, fromId, 'from');
+    const toPort = pending.value['@_ToParam'] ?? implicitFBDPort(elements, toId, 'to');
+    connections.push({
+      kind: pending.kind,
+      from: { elementId: fromId, ...(fromPort !== undefined ? { port: fromPort } : {}) },
+      to: { elementId: toId, ...(toPort !== undefined ? { port: toPort } : {}) },
+      ...(parseFBDBoolean(pending.value['@_Verified']) !== undefined
+        ? { verified: parseFBDBoolean(pending.value['@_Verified']) }
+        : {}),
+    });
+  }
+
+  const attachments: NormalizedFBDAttachment[] = [];
+  for (const attachment of pendingAttachments) {
+    const fromId = attachment['@_FromID'];
+    const toId = attachment['@_ToID'];
+    if (!isUnsignedLong(fromId) || !isUnsignedLong(toId)) {
+      const reasons: NormalizedFBDPlaceholderReason[] = [];
+      if (fromId === undefined || toId === undefined) reasons.push('missing-id');
+      if (
+        (fromId !== undefined && !isUnsignedLong(fromId)) ||
+        (toId !== undefined && !isUnsignedLong(toId))
+      )
+        reasons.push('invalid-id');
+      appendElement(createNonPositionedPlaceholder('Attachment', reasons));
+      continue;
+    }
+    attachments.push({
+      fromElementId: fromId,
+      toElementId: toId,
+      ...(parseFBDBoolean(attachment['@_Verified']) !== undefined
+        ? { verified: parseFBDBoolean(attachment['@_Verified']) }
+        : {}),
+    });
+  }
+
+  return {
+    number: { value: number, source: validNumber ? 'declared' : 'fallback' },
+    name: {
+      value: declaredName ?? `Sheet ${number}`,
+      source: declaredName === undefined ? 'fallback' : 'declared',
+    },
+    descriptions: ensureArray(sheet.Description)
+      .map(extractText)
+      .filter((description): description is string => description !== undefined),
+    elements,
+    connections,
+    attachments,
+  };
+}
+
+function normalizeFBDReference(
+  node: L5XFBDReference,
+  referenceType: 'input' | 'output',
+  sourceKind: 'IRef' | 'ORef'
+): NormalizedFBDElement {
+  const positioned = normalizeFBDPositioned(node, sourceKind, ['value']);
+  if ('kind' in positioned) return positioned;
+  const hidden = parseFBDBoolean(node['@_HideDesc']);
+  return {
+    kind: 'reference',
+    referenceType,
+    ...positioned,
+    ...(node['@_Operand'] !== undefined ? { operand: node['@_Operand'] } : {}),
+    ...(hidden !== undefined ? { hideDescription: hidden } : {}),
+    ports: ['value'],
+  };
+}
+
+function normalizeFBDConnector(
+  node: L5XFBDConnector,
+  connectorType: 'input' | 'output',
+  sourceKind: 'ICon' | 'OCon'
+): NormalizedFBDElement {
+  const positioned = normalizeFBDPositioned(node, sourceKind, ['value']);
+  if ('kind' in positioned) return positioned;
+  return {
+    kind: 'connector',
+    connectorType,
+    ...positioned,
+    ...(node['@_Name'] !== undefined ? { name: node['@_Name'] } : {}),
+    ports: ['value'],
+  };
+}
+
+function normalizeFBDBlock(node: L5XFBDBlock): NormalizedFBDElement {
+  const visiblePins = splitTokens(node['@_VisiblePins']);
+  const positioned = normalizeFBDPositioned(node, 'Block', visiblePins);
+  if ('kind' in positioned) return positioned;
+  const hidden = parseFBDBoolean(node['@_HideDesc']);
+  return {
+    kind: 'block',
+    ...positioned,
+    ...(node['@_Type'] !== undefined ? { instruction: node['@_Type'] } : {}),
+    ...(node['@_Operand'] !== undefined ? { operand: node['@_Operand'] } : {}),
+    visiblePins,
+    arrays: ensureArray(node.Array).map((array) => ({
+      ...(array['@_Name'] !== undefined ? { name: array['@_Name'] } : {}),
+      ...(array['@_Operand'] !== undefined ? { operand: array['@_Operand'] } : {}),
+    })),
+    ...(hidden !== undefined ? { hideDescription: hidden } : {}),
+    ...(node['@_AutotuneTag'] !== undefined ? { autotuneTag: node['@_AutotuneTag'] } : {}),
+  };
+}
+
+function normalizeFBDAOI(node: L5XFBDAOI): NormalizedFBDElement {
+  const visiblePins = splitTokens(node['@_VisiblePins']);
+  const positioned = normalizeFBDPositioned(node, 'AddOnInstruction', visiblePins);
+  if ('kind' in positioned) return positioned;
+  return {
+    kind: 'add-on-instruction',
+    ...positioned,
+    ...(node['@_Name'] !== undefined ? { name: node['@_Name'] } : {}),
+    ...(node['@_Operand'] !== undefined ? { operand: node['@_Operand'] } : {}),
+    visiblePins,
+    bindings: ensureArray(node.InOutParameter).map((binding) => ({
+      ...(binding['@_Name'] !== undefined ? { name: binding['@_Name'] } : {}),
+      ...(binding['@_Argument'] !== undefined ? { argument: binding['@_Argument'] } : {}),
+    })),
+  };
+}
+
+function normalizeFBDRoutineControl(
+  node: L5XFBDRoutineControl,
+  operation: 'JSR' | 'SBR' | 'RET'
+): NormalizedFBDElement {
+  const positioned = normalizeFBDPositioned(node, operation, []);
+  if ('kind' in positioned) return positioned;
+  // Rockwell stores SBR inputs in Ret and RET returns in In because those names
+  // describe the element-side connection, not the call parameter direction.
+  const inputParameters = splitTokens(
+    operation === 'RET' ? undefined : operation === 'SBR' ? node['@_Ret'] : node['@_In']
+  );
+  const returnParameters = splitTokens(
+    operation === 'SBR' ? undefined : operation === 'RET' ? node['@_In'] : node['@_Ret']
+  );
+  return {
+    kind: 'routine-control',
+    operation,
+    ...positioned,
+    ...(node['@_Routine'] !== undefined ? { routine: node['@_Routine'] } : {}),
+    inputParameters,
+    returnParameters,
+  };
+}
+
+function normalizeFBDTextBox(node: L5XFBDTextBox): NormalizedFBDElement {
+  const positioned = normalizeFBDPositioned(node, 'TextBox', []);
+  if ('kind' in positioned) return positioned;
+  const text = extractFBDText(node.Text);
+  return {
+    kind: 'text-box',
+    ...positioned,
+    ...(node['@_Width'] !== undefined ? { width: node['@_Width'] } : {}),
+    ...(text !== undefined ? { text } : {}),
+  };
+}
+
+function normalizeFBDPositioned(
+  node: L5XFBDPositioned,
+  sourceKind: string,
+  ports: string[]
+):
+  | { id: string; position: { x: string; y: string }; verified?: boolean }
+  | NormalizedFBDPlaceholder {
+  const placeholder = createFBDPlaceholder(
+    node as L5XFBDPositioned & Record<string, unknown>,
+    sourceKind,
+    [],
+    ports
+  );
+  if (placeholder.reasonCodes.length) return placeholder;
+  const verified = parseFBDBoolean(node['@_Verified']);
+  return {
+    id: node['@_ID']!,
+    position: { x: node['@_X']!, y: node['@_Y']! },
+    ...(verified !== undefined ? { verified } : {}),
+  };
+}
+
+function createFBDPlaceholder(
+  node: Record<string, unknown>,
+  sourceKind: string,
+  initialReasons: NormalizedFBDPlaceholderReason[],
+  ports: string[]
+): NormalizedFBDPlaceholder {
+  const id = stringValue(node['@_ID']);
+  const x = stringValue(node['@_X']);
+  const y = stringValue(node['@_Y']);
+  const reasonCodes = [...initialReasons];
+  if (id === undefined) reasonCodes.push('missing-id');
+  else if (!isUnsignedLong(id)) reasonCodes.push('invalid-id');
+  if (x === undefined || y === undefined) reasonCodes.push('missing-position');
+  else if (!isUnsignedLong(x) || !isUnsignedLong(y)) reasonCodes.push('invalid-position');
+  const position: NormalizedFBDPosition = {
+    ...(x !== undefined ? { x } : {}),
+    ...(y !== undefined ? { y } : {}),
+  };
+  return {
+    kind: 'placeholder',
+    sourceKind,
+    ...(id !== undefined ? { id } : {}),
+    ...(Object.keys(position).length ? { position } : {}),
+    ports,
+    reasonCodes,
+  };
+}
+
+function createNonPositionedPlaceholder(
+  sourceKind: string,
+  reasonCodes: NormalizedFBDPlaceholderReason[]
+): NormalizedFBDPlaceholder {
+  return { kind: 'placeholder', sourceKind, ports: [], reasonCodes };
+}
+
+function implicitFBDPort(
+  elements: NormalizedFBDElement[],
+  id: string,
+  endpoint: 'from' | 'to'
+): string | undefined {
+  const element = elements.find((candidate) => 'id' in candidate && candidate.id === id);
+  if (!element) return undefined;
+  if (
+    endpoint === 'from' &&
+    ((element.kind === 'reference' && element.referenceType === 'input') ||
+      (element.kind === 'connector' && element.connectorType === 'input') ||
+      (element.kind === 'placeholder' && ['IRef', 'ICon'].includes(element.sourceKind)))
+  )
+    return 'value';
+  if (
+    endpoint === 'to' &&
+    ((element.kind === 'reference' && element.referenceType === 'output') ||
+      (element.kind === 'connector' && element.connectorType === 'output') ||
+      (element.kind === 'placeholder' && ['ORef', 'OCon'].includes(element.sourceKind)))
+  )
+    return 'value';
+  return undefined;
+}
+
+function extractFBDText(value: L5XFBDTextBox['Text']): string | undefined {
+  if (value === undefined || typeof value === 'string') return value;
+  if (value['#cdata'] !== undefined) return value['#cdata'];
+  if (value['#text'] !== undefined) return value['#text'];
+  const direct = ensureArray(value.Value)[0];
+  if (direct !== undefined) return direct;
+  for (const localized of ensureArray(value.LocalizedText)) {
+    if (typeof localized === 'string') return localized;
+    if (localized['#cdata'] !== undefined) return localized['#cdata'];
+    if (localized['#text'] !== undefined) return localized['#text'];
+    const localizedValue = ensureArray(localized.Value)[0];
+    if (localizedValue !== undefined) return localizedValue;
+  }
+  return undefined;
+}
+
+function parseFBDBoolean(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (/^(true|yes|1)$/i.test(value)) return true;
+  if (/^(false|no|0)$/i.test(value)) return false;
+  return undefined;
+}
+
+function splitTokens(value: unknown): string[] {
+  return typeof value === 'string' ? value.trim().split(/\s+/).filter(Boolean) : [];
+}
+
+function isUnsignedLong(value: string | undefined): value is string {
+  if (value === undefined || !/^\d+$/.test(value)) return false;
+  try {
+    return BigInt(value) <= MAX_UNSIGNED_LONG;
+  } catch {
+    return false;
+  }
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function ensureUnknownArray(value: unknown): unknown[] {
+  return value === undefined ? [] : Array.isArray(value) ? value : [value];
 }
 
 /**
