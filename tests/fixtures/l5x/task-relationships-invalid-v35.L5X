@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="InvalidTaskRelationships" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="InvalidTaskRelationships">
+    <Programs>
+      <Program Name="GoodProgram" ExecutingTaskName="PrimaryTask" />
+      <Program Name="WrongOwner" ExecutingTaskName="SecondaryTask" />
+      <Program Name="UnscheduledProgram" ExecutingTaskName="PrimaryTask" />
+      <Program Name="OrphanProgram" ExecutingTaskName="MissingTask" />
+      <Program Name="SharedProgram" />
+    </Programs>
+    <Tasks>
+      <Task Name="PrimaryTask" Type="CONTINUOUS">
+        <ScheduledPrograms>
+          <ScheduledProgram Name="GoodProgram" />
+          <ScheduledProgram Name="GoodProgram" />
+          <ScheduledProgram Name="MissingProgram" />
+          <ScheduledProgram Name="WrongOwner" />
+          <ScheduledProgram Name="SharedProgram" />
+        </ScheduledPrograms>
+      </Task>
+      <Task Name="SecondaryTask" Type="PERIODIC" Rate="100"><ScheduledPrograms><ScheduledProgram Name="SharedProgram" /></ScheduledPrograms></Task>
+    </Tasks>
+  </Controller>
+</RSLogix5000Content>

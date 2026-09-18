@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="TaskNumericOverflow" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="TaskNumericOverflow">
+    <Tasks>
+      <Task Name="LargePeriodicTask" Type="PERIODIC" Rate="18446744073709551615" Watchdog="18446744073709551615" />
+    </Tasks>
+  </Controller>
+</RSLogix5000Content>

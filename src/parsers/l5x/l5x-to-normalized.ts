@@ -29,6 +29,8 @@ import type {
   L5XParameter,
   L5XLocalTag,
   L5XLine,
+  L5XTask,
+  L5XTasks,
 } from './l5x-types';
 import {
   ensureArray,
@@ -72,6 +74,9 @@ import type {
   NormalizedAlarmTagValue,
   NormalizedTagComment,
   NormalizedTagForceData,
+  NormalizedTask,
+  NormalizedTaskType,
+  NormalizedTaskClass,
 } from '../../types/normalized';
 import { parseRungDetailed } from '../rung-parser';
 
@@ -98,6 +103,7 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
     programs: normalizePrograms(controller.Programs?.Program),
     aois: normalizeAOIs(controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition),
     modules: normalizeModules(controller.Modules),
+    tasks: normalizeTasks(controller.Tasks),
 
     // Source information
     vendor: 'rockwell',
@@ -456,7 +462,7 @@ function parseIntegerList(value: string | undefined): number[] {
 
 function parseOptionalBoolean(value: string | undefined): boolean | undefined {
   if (value === undefined) return undefined;
-  return value === '1' || value.toLowerCase() === 'true';
+  return value === '1' || ['true', 'yes'].includes(value.toLowerCase());
 }
 
 function isString(value: string | undefined): value is string {
@@ -483,7 +489,72 @@ function normalizeProgram(program: L5XProgram, index: number): NormalizedProgram
     mainRoutineName: program['@_MainRoutineName'],
     faultRoutineName: program['@_FaultRoutineName'],
     disabled: parseBoolean(program['@_Disabled']),
+    executingTaskName: program['@_ExecutingTaskName'],
   };
+}
+
+// ============================================
+// Tasks
+// ============================================
+
+function normalizeTasks(tasks: L5XTasks | undefined): NormalizedTask[] {
+  return ensureArray(tasks?.Task).map(normalizeTask);
+}
+
+function normalizeTask(task: L5XTask): NormalizedTask {
+  const typeMap: Record<L5XTask['@_Type'], NormalizedTaskType> = {
+    CONTINUOUS: 'Continuous',
+    PERIODIC: 'Periodic',
+    EVENT: 'Event',
+  };
+  const taskClass = task['@_Class'];
+  const normalizedClass: NormalizedTaskClass | undefined =
+    taskClass === 'Standard' || taskClass === 'Safety' ? taskClass : undefined;
+  const event = task.EventInfo;
+  const rate = parseOptionalInteger(task['@_Rate']);
+  const priority = parseOptionalInteger(task['@_Priority']);
+  const watchdog = parseOptionalInteger(task['@_Watchdog']);
+
+  return {
+    name: task['@_Name'],
+    type: typeMap[task['@_Type']],
+    description: extractText(task.Description),
+    ...(rate !== undefined ? { rate } : {}),
+    ...(priority !== undefined ? { priority } : {}),
+    ...(watchdog !== undefined ? { watchdog } : {}),
+    ...(task['@_DisableUpdateOutputs'] !== undefined
+      ? { disableUpdateOutputs: parseOptionalBoolean(task['@_DisableUpdateOutputs']) }
+      : {}),
+    ...(task['@_InhibitTask'] !== undefined
+      ? { inhibited: parseOptionalBoolean(task['@_InhibitTask']) }
+      : {}),
+    ...(task['@_Verified'] !== undefined
+      ? { verified: parseOptionalBoolean(task['@_Verified']) }
+      : {}),
+    ...(normalizedClass !== undefined ? { class: normalizedClass } : {}),
+    ...(event !== undefined
+      ? {
+          event: {
+            ...(event['@_EventTrigger'] !== undefined
+              ? { trigger: event['@_EventTrigger'] }
+              : {}),
+            ...(event['@_EventTag'] !== undefined ? { tag: event['@_EventTag'] } : {}),
+            ...(event['@_EnableTimeout'] !== undefined
+              ? { timeoutEnabled: parseOptionalBoolean(event['@_EnableTimeout']) }
+              : {}),
+          },
+        }
+      : {}),
+    scheduledProgramNames: ensureArray(task.ScheduledPrograms?.ScheduledProgram).map(
+      (program) => program['@_Name']
+    ),
+  };
+}
+
+function parseOptionalInteger(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 // ============================================

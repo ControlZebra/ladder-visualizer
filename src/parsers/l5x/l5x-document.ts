@@ -239,6 +239,7 @@ function accountSource(doc: PlcDocument, root: Node): void {
       MainRoutineName: 'mainRoutineName',
       FaultRoutineName: 'faultRoutineName',
       Disabled: 'disabled',
+      ExecutingTaskName: 'executingTaskName',
     },
     routine: { Name: 'name', Type: 'type' },
     rung: { Number: 'number', Type: 'type' },
@@ -270,13 +271,16 @@ function accountSource(doc: PlcDocument, root: Node): void {
   };
   const children: Record<string, string[]> = {
     RSLogix5000Content: ['Controller'],
-    Controller: ['DataTypes', 'Modules', 'AddOnInstructionDefinitions', 'Tags', 'Programs'],
+    Controller: ['DataTypes', 'Modules', 'AddOnInstructionDefinitions', 'Tags', 'Programs', 'Tasks'],
     DataTypes: ['DataType'],
     Modules: ['Module'],
     AddOnInstructionDefinitions: ['AddOnInstructionDefinition'],
     Tags: ['Tag'],
     Programs: ['Program'],
     Program: ['Tags', 'Routines'],
+    Tasks: ['Task'],
+    Task: ['EventInfo', 'ScheduledPrograms'],
+    ScheduledPrograms: ['ScheduledProgram'],
     AddOnInstructionDefinition: ['Routines'],
     Routines: ['Routine'],
     Routine: ['RLLContent', 'STContent'],
@@ -321,6 +325,9 @@ function accountSource(doc: PlcDocument, root: Node): void {
       'Read Only': 'ReadOnly',
       Standard: 'BuiltIn',
       ProductDefined: 'BuiltIn',
+      CONTINUOUS: 'Continuous',
+      PERIODIC: 'Periodic',
+      EVENT: 'Event',
       N: 'Normal',
       E: 'Empty',
       D: 'Delete',
@@ -334,8 +341,8 @@ function accountSource(doc: PlcDocument, root: Node): void {
       (typeof destination === 'string' && translated[String(value)] === destination) ||
       (typeof destination === 'boolean' &&
         typeof value === 'string' &&
-        /^(true|false)$/i.test(value) &&
-        (value.toLowerCase() === 'true') === destination) ||
+        /^(true|false|yes|no|0|1)$/i.test(value) &&
+        /^(true|yes|1)$/i.test(value) === destination) ||
       (typeof destination === 'number' &&
         Number.isSafeInteger(destination) &&
         Number(value) === destination);
@@ -358,6 +365,45 @@ function accountSource(doc: PlcDocument, root: Node): void {
     }
   }
   const lineIndices = new Map<string, number>();
+  function taskField(path: string, attribute: string): string | undefined {
+    const task = path.match(/\/Tasks\[1\]\/Task\[(\d+)\]$/);
+    if (task) {
+      const prefix = `tasks.${Number(task[1]) - 1}`;
+      const fields: Record<string, string> = {
+        Name: 'name',
+        Type: 'type',
+        Rate: 'rate',
+        Priority: 'priority',
+        Watchdog: 'watchdog',
+        DisableUpdateOutputs: 'disableUpdateOutputs',
+        InhibitTask: 'inhibited',
+        Verified: 'verified',
+        Class: 'class',
+      };
+      return fields[attribute] ? `${prefix}.${fields[attribute]}` : undefined;
+    }
+    const event = path.match(/\/Tasks\[1\]\/Task\[(\d+)\]\/EventInfo\[1\]$/);
+    if (event) {
+      const prefix = `tasks.${Number(event[1]) - 1}.event`;
+      const fields: Record<string, string> = {
+        EventTrigger: 'trigger',
+        EventTag: 'tag',
+        EnableTimeout: 'timeoutEnabled',
+      };
+      return fields[attribute] ? `${prefix}.${fields[attribute]}` : undefined;
+    }
+    const scheduled = path.match(
+      /\/Tasks\[1\]\/Task\[(\d+)\]\/ScheduledPrograms\[1\]\/ScheduledProgram\[(\d+)\]$/
+    );
+    if (scheduled && attribute === 'Name') {
+      return `tasks.${Number(scheduled[1]) - 1}.scheduledProgramNames.${Number(scheduled[2]) - 1}`;
+    }
+    return undefined;
+  }
+  function taskDescriptionField(path: string): string | undefined {
+    const task = path.match(/\/Tasks\[1\]\/Task\[(\d+)\]$/);
+    return task ? `tasks.${Number(task[1]) - 1}.description` : undefined;
+  }
   function walk(value: unknown, path: string, element: string, owner?: PlcResource) {
     const resource = byPath.get(path);
     const currentOwner = resource ?? owner;
@@ -376,8 +422,10 @@ function accountSource(doc: PlcDocument, root: Node): void {
             ? rootAttributes[name]
             : resource
               ? attributes[resource.kind]?.[name]
-              : undefined;
-        if (!mapping(child, attrPath, field, resource))
+              : currentOwner?.kind === 'controller'
+                ? taskField(path, name)
+                : undefined;
+        if (!mapping(child, attrPath, field, resource ?? currentOwner))
           preserve(child, attrPath, 'source-representation');
       } else if (key.startsWith('#')) {
         preserve(child, `${path}/${key}`, 'source-representation');
@@ -396,6 +444,14 @@ function accountSource(doc: PlcDocument, root: Node): void {
               key === 'Text' ? 'raw' : key === 'Comment' ? 'comment' : 'description',
               resource
             );
+          } else if (
+            element === 'Task' &&
+            key === 'Description' &&
+            currentOwner?.kind === 'controller'
+          ) {
+            const field = taskDescriptionField(path);
+            if (field) text(item, childPath, field, currentOwner);
+            else preserve(item, childPath, 'source-representation');
           } else if (
             element === 'STContent' &&
             key === 'Line' &&

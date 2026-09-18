@@ -154,20 +154,25 @@ describe('L5X target-aware document contract', () => {
           },
         })
       );
-      expect(doc.fragments).toContainEqual(
-        expect.objectContaining({
-          path: `${cp}/Tasks[1]`,
-          reason: 'unmodeled',
-          value: {
-            Task: {
-              '@_Name': 'Periodic',
-              '@_Type': 'PERIODIC',
-              '@_Rate': '10000',
-              '@_Priority': '10',
-              ScheduledPrograms: { ScheduledProgram: { '@_Name': 'First' } },
-            },
+      expect(doc.resources.find((resource) => resource.kind === 'controller')?.data).toMatchObject({
+        tasks: [
+          {
+            name: 'Periodic',
+            type: 'Periodic',
+            rate: 10000,
+            priority: 10,
+            scheduledProgramNames: ['First'],
           },
+        ],
+      });
+      expect(doc.mappings).toContainEqual(
+        expect.objectContaining({
+          sourcePath: `${cp}/Tasks[1]/Task[1]/ScheduledPrograms[1]/ScheduledProgram[1]/@Name`,
+          field: 'tasks.0.scheduledProgramNames.0',
         })
+      );
+      expect(doc.fragments).not.toContainEqual(
+        expect.objectContaining({ path: `${cp}/Tasks[1]`, reason: 'unmodeled' })
       );
     }
   );

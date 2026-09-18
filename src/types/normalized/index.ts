@@ -25,6 +25,14 @@ export type {
 // Program
 export type { NormalizedProgram } from './program';
 
+// Task
+export type {
+  NormalizedTask,
+  NormalizedTaskType,
+  NormalizedTaskClass,
+  NormalizedTaskEvent,
+} from './task';
+
 // Routine
 export type { NormalizedRoutine, NormalizedRoutineType, STLine } from './routine';
 

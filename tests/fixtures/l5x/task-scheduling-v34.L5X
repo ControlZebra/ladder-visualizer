@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="TaskFixtureV34" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="TaskFixtureV34">
+    <Programs>
+      <Program Name="MainProgram" ExecutingTaskName="MainTask" />
+      <Program Name="PeriodicProgramA" ExecutingTaskName="PeriodicTask" />
+      <Program Name="PeriodicProgramB" ExecutingTaskName="PeriodicTask" />
+    </Programs>
+    <Tasks>
+      <Task Name="MainTask" Type="CONTINUOUS" Priority="10" Watchdog="500" DisableUpdateOutputs="0" InhibitTask="0" Verified="1" Class="Standard">
+        <Description><![CDATA[Main & coordination]]></Description>
+        <ScheduledPrograms><ScheduledProgram Name="MainProgram" /></ScheduledPrograms>
+      </Task>
+      <Task Name="PeriodicTask" Type="PERIODIC" Rate="100" Priority="5" Watchdog="250" DisableUpdateOutputs="0" InhibitTask="0">
+        <ScheduledPrograms><ScheduledProgram Name="PeriodicProgramA" /><ScheduledProgram Name="PeriodicProgramB" /></ScheduledPrograms>
+      </Task>
+      <Task Name="MotionEventTask" Type="EVENT" Rate="10" Priority="1" Watchdog="100" DisableUpdateOutputs="1" InhibitTask="0">
+        <EventInfo EventTrigger="Motion Group Execution" EventTag="MotionGroup" EnableTimeout="0" />
+        <ScheduledPrograms />
+      </Task>
+    </Tasks>
+  </Controller>
+</RSLogix5000Content>

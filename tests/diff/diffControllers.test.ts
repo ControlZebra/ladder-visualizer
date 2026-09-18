@@ -23,6 +23,7 @@ function makeController(overrides: Partial<NormalizedController> = {}): Normaliz
     programs: [],
     aois: [],
     modules: [],
+    tasks: [],
     ...overrides,
   };
 }

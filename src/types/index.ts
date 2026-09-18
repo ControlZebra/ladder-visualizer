@@ -12,6 +12,7 @@ export type {
   NormalizedDataTypeMember,
   NormalizedAOI,
   NormalizedModule,
+  NormalizedTask,
   PLCVendor,
   SourceFormat,
   NormalizedRoutineType,
@@ -42,6 +43,9 @@ export type {
   ModuleConnection,
   EKeyState,
   PortType,
+  NormalizedTaskType,
+  NormalizedTaskClass,
+  NormalizedTaskEvent,
 } from './normalized';
 
 // ============================================================================

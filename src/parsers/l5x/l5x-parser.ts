@@ -209,12 +209,13 @@ export class L5XParser extends BaseParser {
       const { controller, context } = finalizeController(l5xToNormalized(xml));
       const document = l5xToDocument(xml, controller);
       const tagWarnings = collectUnsupportedTagWarnings(xml);
+      const taskWarnings = collectTaskWarnings(xml, controller);
       const hasRungDiagnostics = controller.programs.some((program) =>
         program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       ) || controller.aois.some((aoi) =>
         aoi.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       );
-      const status = hasRungDiagnostics || tagWarnings.length || document.fragments.some(
+      const status = hasRungDiagnostics || tagWarnings.length || taskWarnings.length || document.fragments.some(
         (fragment) => fragment.reason === 'unmodeled'
           || fragment.reason === 'protected'
           || isUnnormalizedTagMetadata(fragment.path, fragment.reason)
@@ -225,6 +226,7 @@ export class L5XParser extends BaseParser {
           message: 'Source representations and vendor-specific content are retained in document fragments.',
         }] : []),
         ...tagWarnings,
+        ...taskWarnings,
       ];
       const completionError = checkParseExecution(options);
       if (completionError) return createFailureResult([completionError]);
@@ -436,6 +438,108 @@ function collectUnsupportedTagWarnings(xml: L5XContent): ParseWarning[] {
       )
     );
   });
+  return warnings;
+}
+
+function collectTaskWarnings(
+  xml: L5XContent,
+  controller: NormalizedController
+): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  const rawTasks = ensureArray(xml.RSLogix5000Content.Controller.Tasks?.Task);
+  const rawPrograms = ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program);
+  const programsByName = new Map(controller.programs.map((program) => [program.name, program]));
+  const taskNames = new Set(controller.tasks.map((task) => task.name));
+  const scheduledByTask = new Map<string, Set<string>>();
+  const schedulingTaskByProgram = new Map<string, string>();
+  const taskSideContradictions = new Set<string>();
+
+  rawTasks.forEach((task, taskIndex) => {
+    const taskName = task['@_Name'];
+    const taskPath = `/RSLogix5000Content/Controller[1]/Tasks[1]/Task[${taskIndex + 1}]`;
+    const numericAttributes = [
+      ['Rate', task['@_Rate']],
+      ['Watchdog', task['@_Watchdog']],
+    ] as const;
+    numericAttributes.forEach(([attribute, value]) => {
+      if (value !== undefined && !Number.isSafeInteger(Number(value))) {
+        warnings.push(createParseWarning(
+          `Task ${taskName} has ${attribute} outside the normalized safe-integer range. The source representation was preserved.`,
+          {
+            code: 'UNSUPPORTED_L5X_TASK_NUMERIC_VALUE',
+            location: { path: `${taskPath}/@${attribute}` },
+          }
+        ));
+      }
+    });
+    const scheduled = ensureArray(task.ScheduledPrograms?.ScheduledProgram);
+    const seen = new Set<string>();
+    const scheduledNames = new Set<string>();
+    scheduledByTask.set(taskName, scheduledNames);
+
+    scheduled.forEach((reference, referenceIndex) => {
+      const programName = reference['@_Name'];
+      const path = `/RSLogix5000Content/Controller[1]/Tasks[1]/Task[${taskIndex + 1}]/ScheduledPrograms[1]/ScheduledProgram[${referenceIndex + 1}]/@Name`;
+      if (seen.has(programName)) {
+        warnings.push(createParseWarning(
+          `Task ${taskName} schedules program ${programName} more than once.`,
+          { code: 'DUPLICATE_TASK_PROGRAM_REFERENCE', location: { path } }
+        ));
+        return;
+      }
+      seen.add(programName);
+      scheduledNames.add(programName);
+
+      const priorTaskName = schedulingTaskByProgram.get(programName);
+      if (priorTaskName !== undefined && priorTaskName !== taskName) {
+        warnings.push(createParseWarning(
+          `Program ${programName} is scheduled by both task ${priorTaskName} and task ${taskName}.`,
+          { code: 'DUPLICATE_TASK_PROGRAM_REFERENCE', location: { path } }
+        ));
+      } else if (priorTaskName === undefined) {
+        schedulingTaskByProgram.set(programName, taskName);
+      }
+
+      const program = programsByName.get(programName);
+      if (!program) {
+        warnings.push(createParseWarning(
+          `Task ${taskName} schedules missing program ${programName}.`,
+          { code: 'MISSING_TASK_PROGRAM', location: { path } }
+        ));
+        return;
+      }
+      if (program.executingTaskName && program.executingTaskName !== taskName) {
+        warnings.push(createParseWarning(
+          `Task ${taskName} schedules program ${programName}, but the program declares ${program.executingTaskName} as its executing task.`,
+          { code: 'CONTRADICTORY_TASK_PROGRAM_RELATIONSHIP', location: { path } }
+        ));
+        taskSideContradictions.add(programName);
+      }
+    });
+  });
+
+  rawPrograms.forEach((_rawProgram, programIndex) => {
+    const program = controller.programs[programIndex];
+    if (!program?.executingTaskName) return;
+    const path = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/@ExecutingTaskName`;
+    if (!taskNames.has(program.executingTaskName)) {
+      warnings.push(createParseWarning(
+        `Program ${program.name} declares missing executing task ${program.executingTaskName}.`,
+        { code: 'MISSING_EXECUTING_TASK', location: { path } }
+      ));
+      return;
+    }
+    if (
+      !taskSideContradictions.has(program.name) &&
+      !scheduledByTask.get(program.executingTaskName)?.has(program.name)
+    ) {
+      warnings.push(createParseWarning(
+        `Program ${program.name} declares executing task ${program.executingTaskName}, but that task does not schedule the program.`,
+        { code: 'CONTRADICTORY_TASK_PROGRAM_RELATIONSHIP', location: { path } }
+      ));
+    }
+  });
+
   return warnings;
 }
 

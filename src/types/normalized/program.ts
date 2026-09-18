@@ -19,4 +19,6 @@ export interface NormalizedProgram {
   faultRoutineName?: string;
   /** Whether the program is disabled */
   disabled?: boolean;
+  /** Controller task declared by the source as this program's executor */
+  executingTaskName?: string;
 }
