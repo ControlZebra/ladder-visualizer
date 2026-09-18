@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.6.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.7.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -950,6 +950,36 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     coverage: ['module export', 'module port'],
   },
   {
+    id: 'fbd-v33',
+    file: 'fbd-v33.L5X',
+    studio5000Version: '33.00',
+    targetType: 'Program',
+    artifactKind: 'unsupported-language',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 1, fbdSheets: 1 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 },
+    },
+    coverage: ['static FBD compatibility', 'unsupported FBD body', 'version matrix'],
+  },
+  {
+    id: 'fbd-v34',
+    file: 'fbd-v34.L5X',
+    studio5000Version: '34.01',
+    targetType: 'Program',
+    artifactKind: 'unsupported-language',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 1, fbdSheets: 1 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 },
+    },
+    coverage: ['static FBD compatibility', 'unsupported FBD body', 'version matrix'],
+  },
+  {
     id: 'fbd-v35',
     file: 'fbd-v35.L5X',
     studio5000Version: '35.01',
@@ -962,7 +992,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       success: true,
       normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 },
     },
-    coverage: ['unsupported FBD body'],
+    coverage: ['static FBD compatibility', 'unsupported FBD body', 'version matrix'],
   },
   {
     id: 'sfc-v35',

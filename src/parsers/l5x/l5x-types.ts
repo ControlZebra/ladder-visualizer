@@ -37,6 +37,18 @@ export interface RSLogix5000Content {
  */
 export type L5XTargetType = import('../../types/normalized').PlcExportTarget;
 export type L5XBoolean = 'false' | 'true' | 'No' | 'Yes' | '0' | '1';
+export type L5XUse =
+  | 'Invalid'
+  | 'Context'
+  | 'Create'
+  | 'Target'
+  | 'Update'
+  | 'Delete'
+  | 'Insert'
+  | 'Append'
+  | 'Redefine'
+  | 'Reference'
+  | 'Overwrite';
 
 // ============================================
 // Controller Types
@@ -815,7 +827,7 @@ export interface L5XRoutine {
   Description?: L5XDescription;
   RLLContent?: L5XRLLContent | L5XRLLContent[];
   STContent?: L5XSTContent | L5XSTContent[];
-  FBDContent?: L5XFBDContent;
+  FBDContent?: L5XFBDContent | L5XFBDContent[];
   SFCContent?: L5XSFCContent;
 }
 
@@ -857,10 +869,22 @@ export interface L5XLine {
  * FBD (Function Block Diagram) content
  */
 export interface L5XFBDContent {
+  '@_Use'?: L5XUse;
+  '@_Start'?: string;
+  '@_Count'?: string;
   '@_SheetSize'?: string;
-  '@_SheetOrientation'?: string;
+  '@_SheetOrientation': 'Landscape' | 'Portrait';
+  '@_OnlineEditType'?: L5XOnlineEditType;
   Sheet?: L5XSheet | L5XSheet[];
 }
+
+export type L5XOnlineEditType =
+  | 'NoType'
+  | 'Original'
+  | 'PendingEdits'
+  | 'TestEdits'
+  | 'OrginalPending'
+  | 'LastType';
 
 export interface L5XSheet {
   '@_Number': string;

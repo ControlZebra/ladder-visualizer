@@ -24,6 +24,7 @@ import {
   L5X_STRUCTURE_MEMBER_ORDER,
   type L5XContent,
   type L5XOrderedStructureMember,
+  type L5XRoutines,
   type L5XTag,
   type L5XTagStructure,
 } from './l5x-types';
@@ -202,6 +203,11 @@ export class L5XParser extends BaseParser {
     const validationResult = this.validateL5XStructure(xml);
     if (!validationResult.success) {
       return createFailureResult(validationResult.errors ?? []);
+    }
+
+    const fbdCompatibilityErrors = collectUnsupportedFBDOnlineEditErrors(xml);
+    if (fbdCompatibilityErrors.length) {
+      return createFailureResult(fbdCompatibilityErrors);
     }
 
     // Transform to normalized model
@@ -402,8 +408,64 @@ export class L5XParser extends BaseParser {
       return createFailureResult(structureResult.errors || []);
     }
 
+    const fbdCompatibilityErrors = collectUnsupportedFBDOnlineEditErrors(xml);
+    if (fbdCompatibilityErrors.length) {
+      return createFailureResult(fbdCompatibilityErrors);
+    }
+
     return createSuccessResult(undefined);
   }
+}
+
+/**
+ * FBD online edits can encode multiple competing views of one routine. Until
+ * the parser can model and select those views explicitly, accept only one
+ * untagged body and fail before constructing any normalized controller data.
+ */
+function collectUnsupportedFBDOnlineEditErrors(xml: L5XContent): ParseError[] {
+  const errors: ParseError[] = [];
+
+  function inspectRoutines(
+    routines: L5XRoutines | undefined,
+    collectionPath: string
+  ): void {
+    ensureArray(routines?.Routine).forEach((routine, routineIndex) => {
+      const bodies = ensureArray(routine.FBDContent);
+      if (!bodies.length) return;
+      const observedStates = bodies.map((body) => body['@_OnlineEditType'] ?? 'untagged');
+      if (bodies.length === 1 && observedStates[0] === 'untagged') return;
+
+      errors.push(
+        createParseError(
+          `Routine ${routine['@_Name'] ?? '(unnamed)'} contains an unsupported FBD online-edit representation. Expected exactly one untagged static body. Observed states: ${observedStates.join(', ')}.`,
+          {
+            code: ParseErrorCodes.UNSUPPORTED_FBD_ONLINE_EDIT,
+            location: { path: `${collectionPath}/Routine[${routineIndex + 1}]` },
+          }
+        )
+      );
+    });
+  }
+
+  const controllerPath = '/RSLogix5000Content/Controller[1]';
+  ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program).forEach(
+    (program, programIndex) => {
+      inspectRoutines(
+        program.Routines,
+        `${controllerPath}/Programs[1]/Program[${programIndex + 1}]/Routines[1]`
+      );
+    }
+  );
+  ensureArray(
+    xml.RSLogix5000Content.Controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition
+  ).forEach((aoi, aoiIndex) => {
+    inspectRoutines(
+      aoi.Routines,
+      `${controllerPath}/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[${aoiIndex + 1}]/Routines[1]`
+    );
+  });
+
+  return errors;
 }
 
 const ACCOUNTED_CONTROLLER_ATTRIBUTES = new Set([
