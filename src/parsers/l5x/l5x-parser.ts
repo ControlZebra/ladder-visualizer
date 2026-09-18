@@ -209,12 +209,14 @@ export class L5XParser extends BaseParser {
       const { controller, context } = finalizeController(l5xToNormalized(xml));
       const document = l5xToDocument(xml, controller);
       const tagWarnings = collectUnsupportedTagWarnings(xml);
+      const programNumericWarnings = collectUnsupportedProgramNumericWarnings(xml);
+      const programParameterWarnings = collectUnsupportedProgramParameterWarnings(xml);
       const hasRungDiagnostics = controller.programs.some((program) =>
         program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       ) || controller.aois.some((aoi) =>
         aoi.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       );
-      const status = hasRungDiagnostics || tagWarnings.length || document.fragments.some(
+      const status = hasRungDiagnostics || tagWarnings.length || programNumericWarnings.length || programParameterWarnings.length || document.fragments.some(
         (fragment) => fragment.reason === 'unmodeled'
           || fragment.reason === 'protected'
           || isUnnormalizedTagMetadata(fragment.path, fragment.reason)
@@ -225,6 +227,8 @@ export class L5XParser extends BaseParser {
           message: 'Source representations and vendor-specific content are retained in document fragments.',
         }] : []),
         ...tagWarnings,
+        ...programNumericWarnings,
+        ...programParameterWarnings,
       ];
       const completionError = checkParseExecution(options);
       if (completionError) return createFailureResult([completionError]);
@@ -436,6 +440,79 @@ function collectUnsupportedTagWarnings(xml: L5XContent): ParseWarning[] {
       )
     );
   });
+  return warnings;
+}
+
+const SUPPORTED_PROGRAM_PARAMETER_DATA_NODES = new Set([
+  'DataValue',
+  'Array',
+  'Structure',
+  'AlarmAnalogParameters',
+  'AlarmDigitalParameters',
+  'AlarmConfig',
+]);
+
+function collectUnsupportedProgramNumericWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program).forEach(
+    (program, programIndex) => {
+      const programPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]`;
+      const numericAttributes = [
+        ['InitialStepIndex', program['@_InitialStepIndex']],
+        ['LastScanTime', program['@_LastScanTime']],
+        ['MaxScanTime', program['@_MaxScanTime']],
+      ] as const;
+      numericAttributes.forEach(([attribute, value]) => {
+        if (value !== undefined && !Number.isSafeInteger(Number(value))) {
+          warnings.push(createParseWarning(
+            `Program ${program['@_Name']} has ${attribute} outside the normalized safe-integer range. The source representation was preserved.`,
+            {
+              code: 'UNSUPPORTED_L5X_PROGRAM_NUMERIC_VALUE',
+              location: { path: `${programPath}/@${attribute}` },
+            }
+          ));
+        }
+      });
+    }
+  );
+  return warnings;
+}
+
+function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program).forEach(
+    (program, programIndex) => {
+      ensureArray(program.Parameters?.Parameter).forEach((parameter, parameterIndex) => {
+        if (!parameter.DefaultData) return;
+        const dataPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/Parameters[1]/Parameter[${parameterIndex + 1}]/DefaultData[1]`;
+        const format = parameter.DefaultData['@_Format'];
+        if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
+          warnings.push(createParseWarning(
+            format === undefined
+              ? `Program parameter ${parameter['@_Name']} has default data without a Format attribute. The source representation was preserved.`
+              : `Program parameter ${parameter['@_Name']} uses unsupported default-data encoding ${format}. The source representation was preserved.`,
+            {
+              code: 'UNSUPPORTED_L5X_PROGRAM_PARAMETER_DATA',
+              location: { path: format === undefined ? dataPath : `${dataPath}/@Format` },
+            }
+          ));
+          return;
+        }
+        for (const key of Object.keys(parameter.DefaultData)) {
+          if (key.startsWith('@_') || key.startsWith('#') || SUPPORTED_PROGRAM_PARAMETER_DATA_NODES.has(key)) {
+            continue;
+          }
+          warnings.push(createParseWarning(
+            `Program parameter ${parameter['@_Name']} contains unsupported default-data node ${key}. The source representation was preserved.`,
+            {
+              code: 'UNSUPPORTED_L5X_PROGRAM_PARAMETER_DATA',
+              location: { path: `${dataPath}/${key}[1]` },
+            }
+          ));
+        }
+      });
+    }
+  );
   return warnings;
 }
 

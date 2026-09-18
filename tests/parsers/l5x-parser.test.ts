@@ -53,6 +53,292 @@ describe('L5XParser', () => {
   });
 
   describe('parse', () => {
+    it.each([
+      ['33', 1],
+      ['34', 2],
+      ['35', 5],
+    ])('normalizes program parameters and state for v%s', (version, parameterCount) => {
+      const source = readFileSync(
+        join(fixtureDirectory, `program-parameters-v${version}.L5X`),
+        'utf-8'
+      );
+      const result = parser.parse(source);
+      const program = result.data?.programs[0];
+
+      expect(result.success).toBe(true);
+      expect(result.status).toBe('complete');
+      expect(program?.parameters).toHaveLength(parameterCount);
+      expect(program?.parameters?.every((parameter) =>
+        parameter.scope === 'Program' && parameter.programName === program.name
+      )).toBe(true);
+    });
+
+    it('retains exact program parameter metadata, comments, dimensions, and default data', () => {
+      const source = readFileSync(
+        join(fixtureDirectory, 'program-parameters-v35.L5X'),
+        'utf-8'
+      );
+      const result = parseString(source, 'l5x');
+      const program = result.data?.programs[0];
+
+      expect(program).toMatchObject({
+        name: 'ProgramParamsV35',
+        disabled: false,
+        parameters: [
+          {
+            name: 'Recipe',
+            uid: '18446744073709551615',
+            parentUid: '9007199254740993',
+            tagType: 'Base',
+            dataType: 'DINT',
+            dataTypeUid: '42',
+            dimensions: [2, 3],
+            usage: 'InOut',
+            radix: 'Decimal',
+            required: true,
+            visible: true,
+            constant: false,
+            externalAccess: 'None',
+            verified: true,
+            scope: 'Program',
+            programName: 'ProgramParamsV35',
+            comments: [{
+              operand: '[0,0]',
+              text: 'First recipe cell',
+              values: ['First recipe cell'],
+              localizedTexts: [],
+            }],
+            defaultData: {
+              format: 'Decorated',
+              values: [{
+                kind: 'array',
+                dataType: 'DINT',
+                dimensions: [2, 3],
+                radix: 'Decimal',
+                elements: [
+                  { index: [0, 0], value: '7', structures: [] },
+                  { index: [1, 2], value: '9', structures: [] },
+                ],
+              }],
+            },
+          },
+          { name: 'Scratch', usage: 'Local' },
+          { name: 'Status', usage: 'Static' },
+          { name: 'NormalValue', usage: 'Normal' },
+          { name: 'NullValue', usage: 'NULL' },
+        ],
+      });
+      expect(program?.parameters[1].required).toBeUndefined();
+      expect(program?.parameters[1].visible).toBeUndefined();
+      expect(program?.parameters[1].externalAccess).toBeUndefined();
+    });
+
+    it('retains optional program edit, verification, routine-entry, and execution metadata', () => {
+      const source = readFileSync(
+        join(fixtureDirectory, 'program-parameters-v33.L5X'),
+        'utf-8'
+      );
+      const result = parser.parse(source);
+
+      expect(result.data?.programs[0]).toMatchObject({
+        programType: 'EquipmentPhase',
+        testEdits: false,
+        mainRoutineName: 'Main',
+        preStateRoutineName: 'Prepare',
+        faultRoutineName: 'Fault',
+        executingTaskName: 'PeriodicTask',
+        verified: true,
+        editsExist: false,
+        disabled: false,
+        initialStepIndex: 0,
+        initialState: 'Idle',
+        completeStateIfNotImplemented: 'StateComplete',
+        lossOfCommunicationCommand: 'None',
+        externalRequestAction: 'None',
+        lastScanTime: 12,
+        maxScanTime: 20,
+        synchronizeRedundancyDataAfterExecution: true,
+      });
+      expect(result.data?.programs[0].parameters?.[0].defaultData).toEqual({
+        format: 'Decorated',
+        values: [{ kind: 'atomic', dataType: 'REAL', radix: 'Float', value: '12.5' }],
+      });
+      expect(result.data?.programs[0].parameters?.[0]).toMatchObject({
+        description: 'Requested process setpoint',
+        required: true,
+        visible: true,
+        constant: false,
+        externalAccess: 'ReadWrite',
+        verified: true,
+      });
+    });
+
+    it.each([
+      ['33', {
+        initialStepIndex: 0,
+        initialState: 'Idle',
+        completeStateIfNotImplemented: 'StateComplete',
+        lossOfCommunicationCommand: 'None',
+        externalRequestAction: 'None',
+        lastScanTime: 12,
+        maxScanTime: 20,
+        synchronizeRedundancyDataAfterExecution: true,
+      }],
+      ['34', {
+        initialStepIndex: 3,
+        initialState: 'Aborted',
+        completeStateIfNotImplemented: 'NoAction',
+        lossOfCommunicationCommand: 'Hold',
+        externalRequestAction: 'Clear',
+        lastScanTime: 30,
+        maxScanTime: 40,
+        synchronizeRedundancyDataAfterExecution: false,
+      }],
+      ['35', {
+        initialStepIndex: 7,
+        initialState: 'Stopped',
+        completeStateIfNotImplemented: 'NotImplPhaseFailure',
+        lossOfCommunicationCommand: 'Stop',
+        externalRequestAction: 'LastExternalRequestAction',
+        lastScanTime: 50,
+        maxScanTime: 60,
+        synchronizeRedundancyDataAfterExecution: true,
+      }],
+    ] as const)('retains schema-backed program state for v%s', (version, expectedState) => {
+      const source = readFileSync(
+        join(fixtureDirectory, `program-parameters-v${version}.L5X`),
+        'utf-8'
+      );
+      const result = parseString(source, 'l5x');
+
+      expect(result.status).toBe('complete');
+      expect(result.data?.programs[0]).toMatchObject({
+        programType: 'EquipmentPhase',
+        ...expectedState,
+      });
+    });
+
+    it('reports schema-valid program integers outside the normalized safe range as partial', () => {
+      const source = readFileSync(
+        join(fixtureDirectory, 'program-state-numeric-overflow-v35.L5X'),
+        'utf-8'
+      );
+      const result = parseString(source, 'l5x');
+      const program = result.data?.programs[0];
+
+      expect(result.success).toBe(true);
+      expect(result.status).toBe('partial');
+      expect(program).toMatchObject({
+        name: 'ProgramStateNumericOverflow',
+        programType: 'EquipmentPhase',
+      });
+      expect(program?.initialStepIndex).toBeUndefined();
+      expect(program?.lastScanTime).toBeUndefined();
+      expect(program?.maxScanTime).toBeUndefined();
+      expect(result.warnings?.filter(
+        (warning) => warning.code === 'UNSUPPORTED_L5X_PROGRAM_NUMERIC_VALUE'
+      ).map((warning) => warning.location?.path)).toEqual([
+        '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@InitialStepIndex',
+        '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@LastScanTime',
+        '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/@MaxScanTime',
+      ]);
+    });
+
+    it('retains repeated parameter order, L5K defaults, and explicit false values', () => {
+      const source = readFileSync(
+        join(fixtureDirectory, 'program-parameters-v34.L5X'),
+        'utf-8'
+      );
+      const result = parseDocumentString(source, 'l5x');
+      const target = result.data?.resources.find((resource) => resource.kind === 'program');
+      const program = target?.kind === 'program' ? target.data : undefined;
+
+      expect(program).toMatchObject({
+        testEdits: true,
+        executingTaskName: 'EventTask',
+        verified: false,
+        editsExist: true,
+        disabled: true,
+      });
+      expect(program?.parameters?.map((parameter) => parameter.name)).toEqual([
+        'Command',
+        'Complete',
+      ]);
+      expect(program?.parameters?.[0].defaultData).toEqual({
+        format: 'L5K',
+        text: '42',
+        values: [],
+      });
+      expect(program?.parameters?.[1]).toMatchObject({
+        usage: 'Output',
+        required: false,
+        visible: true,
+        externalAccess: 'ReadOnly',
+      });
+    });
+
+    it('does not invent optional program state or parameters when absent', () => {
+      const source = readFileSync(join(fixtureDirectory, 'program-rll-v35.L5X'), 'utf-8');
+      const result = parser.parse(source);
+      const program = result.data?.programs[0];
+
+      expect(program?.parameters).toEqual([]);
+      expect(program?.testEdits).toBeUndefined();
+      expect(program?.verified).toBeUndefined();
+      expect(program?.editsExist).toBeUndefined();
+      expect(program?.disabled).toBeUndefined();
+      expect(program?.preStateRoutineName).toBeUndefined();
+      expect(program?.executingTaskName).toBeUndefined();
+      expect(program?.programType).toBeUndefined();
+      expect(program?.initialStepIndex).toBeUndefined();
+      expect(program?.initialState).toBeUndefined();
+      expect(program?.completeStateIfNotImplemented).toBeUndefined();
+      expect(program?.lossOfCommunicationCommand).toBeUndefined();
+      expect(program?.externalRequestAction).toBeUndefined();
+      expect(program?.lastScanTime).toBeUndefined();
+      expect(program?.maxScanTime).toBeUndefined();
+      expect(program?.synchronizeRedundancyDataAfterExecution).toBeUndefined();
+    });
+
+    it('preserves unsupported program parameter defaults with a stable partial diagnostic', () => {
+      const source = readFileSync(
+        join(fixtureDirectory, 'program-parameters-unsupported-v35.L5X'),
+        'utf-8'
+      );
+      const result = parseDocumentString(source, 'l5x');
+
+      expect(result.success).toBe(true);
+      expect(result.status).toBe('partial');
+      expect(result.warnings).toContainEqual(expect.objectContaining({
+        code: 'UNSUPPORTED_L5X_PROGRAM_PARAMETER_DATA',
+        location: {
+          path: '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/Parameters[1]/Parameter[1]/DefaultData[1]/AxisParameters[1]',
+        },
+      }));
+      expect(result.data?.fragments).toContainEqual(expect.objectContaining({
+        path: '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]/Parameters[1]',
+        reason: 'source-representation',
+      }));
+    });
+
+    it.each(['33', '34', '35'])(
+      'normalizes program parameters in the full-project controller envelope for v%s',
+      (version) => {
+        const source = readFileSync(join(fixtureDirectory, `full-project-v${version}.L5X`), 'utf-8');
+        const result = parser.parse(source);
+
+        expect(result.data?.programs[0].parameters).toEqual([
+          expect.objectContaining({
+            name: 'ProgramInput',
+            dataType: 'BOOL',
+            usage: 'Input',
+            scope: 'Program',
+            programName: 'FixtureProgram',
+          }),
+        ]);
+      }
+    );
+
     it.each(['33', '34', '35'])('parses grammar-complete standalone rungs for v%s', (version) => {
       const source = readFileSync(join(fixtureDirectory, `rung-rll-v${version}.L5X`), 'utf-8');
       const result = parser.parse(source);

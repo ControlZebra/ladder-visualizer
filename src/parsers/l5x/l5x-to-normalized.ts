@@ -43,6 +43,8 @@ import type {
   NormalizedDataTypeMember,
   NormalizedTag,
   NormalizedProgram,
+  NormalizedProgramParameter,
+  ProgramParameterUsage,
   NormalizedRoutine,
   NormalizedRung,
   NormalizedRoutineType,
@@ -456,7 +458,13 @@ function parseIntegerList(value: string | undefined): number[] {
 
 function parseOptionalBoolean(value: string | undefined): boolean | undefined {
   if (value === undefined) return undefined;
-  return value === '1' || value.toLowerCase() === 'true';
+  return value === '1' || ['true', 'yes'].includes(value.toLowerCase());
+}
+
+function parseOptionalSafeInteger(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 function isString(value: string | undefined): value is string {
@@ -479,11 +487,75 @@ function normalizeProgram(program: L5XProgram, index: number): NormalizedProgram
     name: programName,
     tags: normalizeProgramTags(program.Tags?.Tag, programName),
     routines: normalizeRoutines(program.Routines),
+    parameters: normalizeProgramParameters(program.Parameters?.Parameter, programName),
+    programType: program['@_Type'],
     description: extractText(program.Description),
     mainRoutineName: program['@_MainRoutineName'],
+    preStateRoutineName: program['@_PreStateRoutineName'],
     faultRoutineName: program['@_FaultRoutineName'],
-    disabled: parseBoolean(program['@_Disabled']),
+    executingTaskName: program['@_ExecutingTaskName'],
+    testEdits: parseOptionalBoolean(program['@_TestEdits']),
+    verified: parseOptionalBoolean(program['@_Verified']),
+    editsExist: parseOptionalBoolean(program['@_EditsExist']),
+    disabled: parseOptionalBoolean(program['@_Disabled']),
+    initialStepIndex: parseOptionalSafeInteger(program['@_InitialStepIndex']),
+    initialState: program['@_InitialState'],
+    completeStateIfNotImplemented: program['@_CompleteStateIfNotImpl'],
+    lossOfCommunicationCommand: program['@_LossOfCommCmd'],
+    externalRequestAction: program['@_ExternalRequestAction'],
+    lastScanTime: parseOptionalSafeInteger(program['@_LastScanTime']),
+    maxScanTime: parseOptionalSafeInteger(program['@_MaxScanTime']),
+    synchronizeRedundancyDataAfterExecution: parseOptionalBoolean(
+      program['@_SynchronizeRedundancyDataAfterExecution']
+    ),
   };
+}
+
+function normalizeProgramParameters(
+  parameters: L5XParameter | L5XParameter[] | undefined,
+  programName: string
+): NormalizedProgramParameter[] {
+  return ensureArray(parameters).map((parameter) => ({
+    name: parameter['@_Name'],
+    dataType: parameter['@_DataType'],
+    usage: parameter['@_Usage'] as ProgramParameterUsage,
+    scope: 'Program',
+    programName,
+    ...(parameter['@_TagType'] !== undefined
+      ? { tagType: parameter['@_TagType'] as NormalizedTagType }
+      : {}),
+    ...(parameter['@_UId'] !== undefined ? { uid: parameter['@_UId'] } : {}),
+    ...(parameter['@_ParentUId'] !== undefined ? { parentUid: parameter['@_ParentUId'] } : {}),
+    ...(parameter['@_DataTypeUId'] !== undefined
+      ? { dataTypeUid: parameter['@_DataTypeUId'] }
+      : {}),
+    ...(parameter['@_Dimensions'] !== undefined
+      ? { dimensions: parseIntegerList(parameter['@_Dimensions']) }
+      : {}),
+    ...(parameter['@_Radix'] !== undefined ? { radix: parameter['@_Radix'] } : {}),
+    ...(parameter['@_Required'] !== undefined
+      ? { required: parseOptionalBoolean(parameter['@_Required']) }
+      : {}),
+    ...(parameter['@_Visible'] !== undefined
+      ? { visible: parseOptionalBoolean(parameter['@_Visible']) }
+      : {}),
+    ...(parameter['@_Constant'] !== undefined
+      ? { constant: parseOptionalBoolean(parameter['@_Constant']) }
+      : {}),
+    ...(parameter['@_ExternalAccess'] !== undefined
+      ? { externalAccess: normalizeOptionalExternalAccess(parameter['@_ExternalAccess']) }
+      : {}),
+    ...(parameter['@_Verified'] !== undefined
+      ? { verified: parseOptionalBoolean(parameter['@_Verified']) }
+      : {}),
+    ...(extractText(parameter.Description) !== undefined
+      ? { description: extractText(parameter.Description) }
+      : {}),
+    comments: normalizeTagComments(parameter.Comments?.Comment),
+    ...(parameter.DefaultData !== undefined
+      ? { defaultData: normalizeTagData(parameter.DefaultData) }
+      : {}),
+  }));
 }
 
 // ============================================

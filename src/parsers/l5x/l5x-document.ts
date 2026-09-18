@@ -236,9 +236,23 @@ function accountSource(doc: PlcDocument, root: Node): void {
     controller: { Name: 'name', ProjectSN: 'serialNumber' },
     program: {
       Name: 'name',
+      Type: 'programType',
       MainRoutineName: 'mainRoutineName',
+      PreStateRoutineName: 'preStateRoutineName',
       FaultRoutineName: 'faultRoutineName',
+      ExecutingTaskName: 'executingTaskName',
+      TestEdits: 'testEdits',
+      Verified: 'verified',
+      EditsExist: 'editsExist',
       Disabled: 'disabled',
+      InitialStepIndex: 'initialStepIndex',
+      InitialState: 'initialState',
+      CompleteStateIfNotImpl: 'completeStateIfNotImplemented',
+      LossOfCommCmd: 'lossOfCommunicationCommand',
+      ExternalRequestAction: 'externalRequestAction',
+      LastScanTime: 'lastScanTime',
+      MaxScanTime: 'maxScanTime',
+      SynchronizeRedundancyDataAfterExecution: 'synchronizeRedundancyDataAfterExecution',
     },
     routine: { Name: 'name', Type: 'type' },
     rung: { Number: 'number', Type: 'type' },
@@ -334,8 +348,8 @@ function accountSource(doc: PlcDocument, root: Node): void {
       (typeof destination === 'string' && translated[String(value)] === destination) ||
       (typeof destination === 'boolean' &&
         typeof value === 'string' &&
-        /^(true|false)$/i.test(value) &&
-        (value.toLowerCase() === 'true') === destination) ||
+        /^(true|false|yes|no|0|1)$/i.test(value) &&
+        /^(true|yes|1)$/i.test(value) === destination) ||
       (typeof destination === 'number' &&
         Number.isSafeInteger(destination) &&
         Number(value) === destination);
