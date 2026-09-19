@@ -58,7 +58,7 @@ export interface FBDMetadataResolution {
   diagnostics: FBDMetadataDiagnostic[];
 }
 
-const supportedVersions = [33, 34, 35];
+const supportedVersions = Array.from({ length: 19 }, (_, index) => index + 17);
 const allControllers: FBDControllerFamily[] = ['all'];
 const functionControllers: FBDControllerFamily[] = [
   'compactlogix-5380',
