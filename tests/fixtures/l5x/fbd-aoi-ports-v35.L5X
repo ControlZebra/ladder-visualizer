@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="AOIPortProgram" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies">
+  <Controller Use="Context" Name="FixtureController" ProcessorType="1756-L85E">
+    <AddOnInstructionDefinitions>
+      <AddOnInstructionDefinition Name="ValveAOI" Class="Standard" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+        <Parameters>
+          <Parameter Name="Command" TagType="Base" DataType="BOOL" Usage="Input" Required="true" Visible="true" />
+          <Parameter Name="State" TagType="Base" DataType="DINT" Usage="InOut" Required="true" Visible="true" />
+          <Parameter Name="Feedback" TagType="Base" DataType="BOOL" Usage="Input" Required="false" Visible="true" />
+          <Parameter Name="Running" TagType="Base" DataType="BOOL" Usage="Output" Required="false" Visible="true" />
+          <Parameter Name="HiddenStatus" TagType="Base" DataType="DINT" Usage="Output" Required="false" Visible="false" />
+        </Parameters>
+      </AddOnInstructionDefinition>
+    </AddOnInstructionDefinitions>
+    <Programs>
+      <Program Name="AOIPortProgram">
+        <Routines>
+          <Routine Name="Logic" Type="FBD">
+            <FBDContent SheetSize="Tabloid - 11 x 17 in" SheetOrientation="Landscape">
+              <Sheet Number="1">
+                <AddOnInstruction Name="ValveAOI" ID="1" X="80" Y="40" Operand="Valve_01" VisiblePins="Command Feedback Running">
+                  <InOutParameter Name="State" Argument="ValveState" />
+                </AddOnInstruction>
+              </Sheet>
+            </FBDContent>
+          </Routine>
+        </Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

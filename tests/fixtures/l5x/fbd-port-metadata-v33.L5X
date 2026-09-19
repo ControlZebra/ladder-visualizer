@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.00" TargetName="FBDPortMetadata" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context">
+  <Controller Use="Context" Name="FixtureController" ProcessorType="1756-L75">
+    <Programs>
+      <Program Name="FBDPortMetadata">
+        <Routines>
+          <Routine Name="LevelControl" Type="FBD">
+            <FBDContent SheetSize="Tabloid - 11 x 17 in" SheetOrientation="Landscape">
+              <Sheet Number="1">
+                <Block Type="ADD" ID="1" X="20" Y="20" Operand="ADD_01" VisiblePins="SourceA SourceB Dest" />
+                <Block Type="DEDT" ID="2" X="180" Y="20" Operand="DEDT_01" VisiblePins="In Out">
+                  <Array Name="StorageArray" Operand="DEDT_01array" />
+                </Block>
+                <Block Type="HLL" ID="3" X="340" Y="20" Operand="HLL_01" VisiblePins="In Out HighAlarm LowAlarm" />
+                <Block Type="LDLG" ID="4" X="500" Y="20" Operand="LDLG_01" VisiblePins="In Out" />
+                <Block Type="MUL" ID="5" X="20" Y="180" Operand="MUL_01" VisiblePins="SourceA Dest" />
+                <Block Type="PIDE" ID="6" X="180" Y="180" Operand="PIDE_01" VisiblePins="PV SPProg SPCascade RatioProg CVProg FF HandFB ProgProgReq ProgOperReq ProgCasRatReq ProgAutoReq ProgManualReq ProgOverrideReq ProgHandReq CVEU SP PVHHAlarm PVHAlarm PVLAlarm PVLLAlarm PVROCPosAlarm PVROCNegAlarm DevHHAlarm DevHAlarm DevLAlarm DevLLAlarm ProgOper CasRat Auto Manual Override Hand" />
+                <Block Type="SUB" ID="7" X="340" Y="180" Operand="SUB_01" VisiblePins="SourceA SourceB Dest" />
+                <Block Type="D2SD" ID="8" X="500" Y="180" Operand="D2SD_01" VisiblePins="ProgCommand State0Perm State1Perm FB0 FB1 HandFB ProgProgReq ProgOperReq ProgOverrideReq ProgHandReq Out Device0State Device1State CommandStatus FaultAlarm ModeAlarm ProgOper Override Hand" />
+                <Block Type="GRT" ID="9" X="660" Y="180" Operand="GRT_01" VisiblePins="SourceA SourceB Dest" />
+              </Sheet>
+            </FBDContent>
+          </Routine>
+        </Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

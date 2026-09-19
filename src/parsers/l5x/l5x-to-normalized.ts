@@ -103,10 +103,22 @@ import type {
   NormalizedFBDPlaceholderReason,
   NormalizedFBDDiagnostic,
   NormalizedFBDPosition,
+  NormalizedFBDPort,
   NormalizedFBDConnection,
   NormalizedFBDAttachment,
 } from '../../types/normalized';
 import { parseRungDetailed } from '../rung-parser';
+import {
+  resolveBuiltInFBDInstructionMetadata,
+  type FBDMetadataDiagnostic,
+  type FBDPortMetadata,
+} from './fbd-metadata';
+
+interface FBDNormalizationContext {
+  softwareRevision?: string;
+  processorType?: string;
+  aoiDefinitions: Map<string, L5XAddOnInstruction>;
+}
 
 /**
  * Convert L5X content to NormalizedController
@@ -115,6 +127,14 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
   const root = content.RSLogix5000Content;
   const controller = root.Controller;
   const targetType = root['@_TargetType'];
+  const aoiSources = ensureArray(
+    controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition
+  );
+  const fbdContext: FBDNormalizationContext = {
+    softwareRevision: root['@_SoftwareRevision'],
+    processorType: controller['@_ProcessorType'],
+    aoiDefinitions: new Map(aoiSources.map((aoi) => [aoi['@_Name'], aoi])),
+  };
 
   return {
     // Core metadata
@@ -129,8 +149,8 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
     // Core data
     dataTypes: normalizeDataTypes(controller.DataTypes),
     tags: normalizeControllerTags(controller.Tags?.Tag),
-    programs: normalizePrograms(controller.Programs?.Program),
-    aois: normalizeAOIs(controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition),
+    programs: normalizePrograms(controller.Programs?.Program, fbdContext),
+    aois: normalizeAOIs(aoiSources, fbdContext),
     modules: normalizeModules(controller.Modules),
     tasks: normalizeTasks(controller.Tasks),
     trends: normalizeTrends(controller.Trends?.Trend),
@@ -510,12 +530,19 @@ function isString(value: string | undefined): value is string {
 // Programs
 // ============================================
 
-function normalizePrograms(programs: L5XProgram | L5XProgram[] | undefined): NormalizedProgram[] {
+function normalizePrograms(
+  programs: L5XProgram | L5XProgram[] | undefined,
+  fbdContext: FBDNormalizationContext
+): NormalizedProgram[] {
   const programArray = ensureArray(programs);
-  return programArray.map((program, index) => normalizeProgram(program, index));
+  return programArray.map((program, index) => normalizeProgram(program, index, fbdContext));
 }
 
-function normalizeProgram(program: L5XProgram, index: number): NormalizedProgram {
+function normalizeProgram(
+  program: L5XProgram,
+  index: number,
+  fbdContext: FBDNormalizationContext
+): NormalizedProgram {
   const programName = program['@_Name'] || `Program_${index}`;
 
   return {
@@ -524,7 +551,7 @@ function normalizeProgram(program: L5XProgram, index: number): NormalizedProgram
     parentUid: program['@_ParentUId'],
     useAsFolder: parseOptionalBoolean(program['@_UseAsFolder']),
     tags: normalizeProgramTags(program.Tags?.Tag, programName),
-    routines: normalizeRoutines(program.Routines),
+    routines: normalizeRoutines(program.Routines, fbdContext),
     parameters: normalizeProgramParameters(program.Parameters?.Parameter, programName),
     programType: program['@_Type'],
     description: extractText(program.Description),
@@ -775,9 +802,12 @@ function normalizeQuickWatchLists(
 // Routines
 // ============================================
 
-function normalizeRoutines(routines: L5XRoutines | undefined): NormalizedRoutine[] {
+function normalizeRoutines(
+  routines: L5XRoutines | undefined,
+  fbdContext: FBDNormalizationContext
+): NormalizedRoutine[] {
   return [
-    ...ensureArray(routines?.Routine).map(normalizeRoutine),
+    ...ensureArray(routines?.Routine).map((routine) => normalizeRoutine(routine, fbdContext)),
     ...ensureArray(routines?.EncodedData).map((encoded) => ({
       name: encoded['@_Name'],
       type: encoded['@_Type'] ?? ('Encrypted' as const),
@@ -787,7 +817,10 @@ function normalizeRoutines(routines: L5XRoutines | undefined): NormalizedRoutine
   ];
 }
 
-function normalizeRoutine(routine: L5XRoutine): NormalizedRoutine {
+function normalizeRoutine(
+  routine: L5XRoutine,
+  fbdContext: FBDNormalizationContext
+): NormalizedRoutine {
   const type = routine['@_Type'] as NormalizedRoutineType;
 
   return {
@@ -805,7 +838,7 @@ function normalizeRoutine(routine: L5XRoutine): NormalizedRoutine {
         : undefined,
     fbd:
       type === 'FBD' && routine.FBDContent !== undefined
-        ? normalizeFBDContent(ensureArray(routine.FBDContent)[0])
+        ? normalizeFBDContent(ensureArray(routine.FBDContent)[0], fbdContext)
         : undefined,
     description: extractText(routine.Description),
   };
@@ -813,7 +846,10 @@ function normalizeRoutine(routine: L5XRoutine): NormalizedRoutine {
 
 const MAX_UNSIGNED_LONG = BigInt('18446744073709551615');
 
-function normalizeFBDContent(content: L5XFBDContent): NormalizedFBDBody {
+function normalizeFBDContent(
+  content: L5XFBDContent,
+  fbdContext: FBDNormalizationContext
+): NormalizedFBDBody {
   const diagnostics: NormalizedFBDDiagnostic[] = [];
   const sheetSize = content['@_SheetSize'];
   const orientation = content['@_SheetOrientation'];
@@ -849,7 +885,7 @@ function normalizeFBDContent(content: L5XFBDContent): NormalizedFBDBody {
       source: orientation === 'Landscape' || orientation === 'Portrait' ? 'declared' : 'fallback',
     },
     sheets: ensureArray(content.Sheet).map((sheet, index) =>
-      normalizeFBDSheet(sheet, index, diagnostics)
+      normalizeFBDSheet(sheet, index, diagnostics, fbdContext)
     ),
     diagnostics,
   };
@@ -858,7 +894,8 @@ function normalizeFBDContent(content: L5XFBDContent): NormalizedFBDBody {
 function normalizeFBDSheet(
   sheet: L5XSheet,
   sheetIndex: number,
-  diagnostics: NormalizedFBDDiagnostic[]
+  diagnostics: NormalizedFBDDiagnostic[],
+  fbdContext: FBDNormalizationContext
 ): NormalizedFBDSheet {
   const declaredNumber = sheet['@_Number'];
   const validNumber = isUnsignedLong(declaredNumber);
@@ -940,10 +977,19 @@ function normalizeFBDSheet(
           appendElement(normalizeFBDConnector(node as L5XFBDConnector, 'output', sourceKind));
           break;
         case 'Block':
-          appendElement(normalizeFBDBlock(node as L5XFBDBlock));
+          appendElement(
+            normalizeFBDBlock(
+              node as L5XFBDBlock,
+              fbdContext,
+              diagnostics,
+              sheetIndex
+            )
+          );
           break;
         case 'AddOnInstruction':
-          appendElement(normalizeFBDAOI(node as L5XFBDAOI));
+          appendElement(
+            normalizeFBDAOI(node as L5XFBDAOI, fbdContext, diagnostics, sheetIndex)
+          );
           break;
         case 'GSV':
         case 'SSV':
@@ -952,7 +998,7 @@ function normalizeFBDSheet(
               node,
               sourceKind,
               ['unsupported-semantics'],
-              splitTokens(node['@_VisiblePins'])
+              []
             )
           );
           break;
@@ -966,12 +1012,7 @@ function normalizeFBDSheet(
           break;
         case 'Function':
           appendElement(
-            createFBDPlaceholder(
-              node,
-              sourceKind,
-              ['unsupported-kind'],
-              splitTokens(node['@_VisiblePins'])
-            )
+            normalizeFBDFunction(node, fbdContext, diagnostics, sheetIndex)
           );
           break;
         default:
@@ -979,8 +1020,8 @@ function normalizeFBDSheet(
             createFBDPlaceholder(
               node,
               sourceKind,
-              ['unknown-kind'],
-              splitTokens(node['@_VisiblePins'])
+              ['unknown-kind', 'unresolved-metadata'],
+              []
             )
           );
       }
@@ -1060,7 +1101,10 @@ function normalizeFBDReference(
   referenceType: 'input' | 'output',
   sourceKind: 'IRef' | 'ORef'
 ): NormalizedFBDElement {
-  const positioned = normalizeFBDPositioned(node, sourceKind, ['value']);
+  const placeholderPorts = [
+    implicitNormalizedFBDPort(referenceType === 'input' ? 'output' : 'input'),
+  ];
+  const positioned = normalizeFBDPositioned(node, sourceKind, placeholderPorts);
   if ('kind' in positioned) return positioned;
   const hidden = parseFBDBoolean(node['@_HideDesc']);
   return {
@@ -1078,7 +1122,10 @@ function normalizeFBDConnector(
   connectorType: 'input' | 'output',
   sourceKind: 'ICon' | 'OCon'
 ): NormalizedFBDElement {
-  const positioned = normalizeFBDPositioned(node, sourceKind, ['value']);
+  const placeholderPorts = [
+    implicitNormalizedFBDPort(connectorType === 'input' ? 'output' : 'input'),
+  ];
+  const positioned = normalizeFBDPositioned(node, sourceKind, placeholderPorts);
   if ('kind' in positioned) return positioned;
   return {
     kind: 'connector',
@@ -1089,29 +1136,160 @@ function normalizeFBDConnector(
   };
 }
 
-function normalizeFBDBlock(node: L5XFBDBlock): NormalizedFBDElement {
+function normalizeFBDBlock(
+  node: L5XFBDBlock,
+  context: FBDNormalizationContext,
+  diagnostics: NormalizedFBDDiagnostic[],
+  sheetIndex: number
+): NormalizedFBDElement {
   const visiblePins = splitTokens(node['@_VisiblePins']);
-  const positioned = normalizeFBDPositioned(node, 'Block', visiblePins);
+  const mnemonic = node['@_Type'] ?? '';
+  const resolution = resolveBuiltInFBDInstructionMetadata({
+    mnemonic,
+    form: 'block',
+    softwareRevision: context.softwareRevision,
+    processorType: context.processorType,
+  });
+  appendFBDMetadataDiagnostics(diagnostics, resolution.diagnostics, sheetIndex, 'Block');
+  if (!resolution.metadata || resolution.diagnostics.length) {
+    return createFBDPlaceholder(node as L5XFBDBlock & Record<string, unknown>, 'Block', [
+      'unresolved-metadata',
+    ], []);
+  }
+  const ports = selectFBDPorts(
+    resolution.metadata.ports,
+    visiblePins,
+    diagnostics,
+    sheetIndex,
+    'Block',
+    mnemonic
+  );
+  const arrays = ensureArray(node.Array).map((array) => ({
+    ...(array['@_Name'] !== undefined ? { name: array['@_Name'] } : {}),
+    ...(array['@_Operand'] !== undefined ? { operand: array['@_Operand'] } : {}),
+  }));
+  const missingArrays = resolution.metadata.arrays.filter(
+    (requirement) =>
+      requirement.required && !arrays.some((array) => array.name === requirement.id)
+  );
+  for (const requirement of missingArrays) {
+    diagnostics.push({
+      code: 'FBD_MISSING_REQUIRED_ARRAY',
+      message: `FBD ${mnemonic} requires the ${requirement.id} array binding.`,
+      severity: 'warning',
+      sheetIndex,
+      sourceKind: 'Block',
+    });
+  }
+  if (!ports || missingArrays.length) {
+    return createFBDPlaceholder(node as L5XFBDBlock & Record<string, unknown>, 'Block', [
+      'unresolved-metadata',
+    ], []);
+  }
+  const positioned = normalizeFBDPositioned(node, 'Block', ports);
   if ('kind' in positioned) return positioned;
   const hidden = parseFBDBoolean(node['@_HideDesc']);
   return {
     kind: 'block',
     ...positioned,
-    ...(node['@_Type'] !== undefined ? { instruction: node['@_Type'] } : {}),
+    instruction: mnemonic,
     ...(node['@_Operand'] !== undefined ? { operand: node['@_Operand'] } : {}),
     visiblePins,
-    arrays: ensureArray(node.Array).map((array) => ({
-      ...(array['@_Name'] !== undefined ? { name: array['@_Name'] } : {}),
-      ...(array['@_Operand'] !== undefined ? { operand: array['@_Operand'] } : {}),
-    })),
+    ports,
+    arrays,
+    arrayRequirements: resolution.metadata.arrays.map((array) => ({ ...array })),
     ...(hidden !== undefined ? { hideDescription: hidden } : {}),
     ...(node['@_AutotuneTag'] !== undefined ? { autotuneTag: node['@_AutotuneTag'] } : {}),
   };
 }
 
-function normalizeFBDAOI(node: L5XFBDAOI): NormalizedFBDElement {
+function normalizeFBDAOI(
+  node: L5XFBDAOI,
+  context: FBDNormalizationContext,
+  diagnostics: NormalizedFBDDiagnostic[],
+  sheetIndex: number
+): NormalizedFBDElement {
   const visiblePins = splitTokens(node['@_VisiblePins']);
-  const positioned = normalizeFBDPositioned(node, 'AddOnInstruction', visiblePins);
+  const bindings = ensureArray(node.InOutParameter).map((binding) => ({
+    ...(binding['@_Name'] !== undefined ? { name: binding['@_Name'] } : {}),
+    ...(binding['@_Argument'] !== undefined ? { argument: binding['@_Argument'] } : {}),
+  }));
+  const name = node['@_Name'] ?? '';
+  const definition = context.aoiDefinitions.get(name);
+  if (!definition) {
+    diagnostics.push({
+      code: 'FBD_UNKNOWN_AOI',
+      message: `No AOI definition is available for ${name || '(unnamed)'}.`,
+      severity: 'warning',
+      sheetIndex,
+      sourceKind: 'AddOnInstruction',
+    });
+    return {
+      ...createFBDPlaceholder(
+        node as L5XFBDAOI & Record<string, unknown>,
+        'AddOnInstruction',
+        ['unresolved-metadata'],
+        []
+      ),
+      bindings,
+    };
+  }
+  const portMetadata: FBDPortMetadata[] = [];
+  let inputOrder = 0;
+  let outputOrder = 0;
+  for (const parameter of ensureArray(definition.Parameters?.Parameter)) {
+    if (parameter['@_Usage'] === 'Input') {
+      portMetadata.push({
+        id: parameter['@_Name'],
+        label: parameter['@_Name'],
+        direction: 'input',
+        side: 'left',
+        order: inputOrder++,
+        defaultVisible: parseBoolean(parameter['@_Visible']),
+      });
+    } else if (parameter['@_Usage'] === 'Output') {
+      portMetadata.push({
+        id: parameter['@_Name'],
+        label: parameter['@_Name'],
+        direction: 'output',
+        side: 'right',
+        order: outputOrder++,
+        defaultVisible: parseBoolean(parameter['@_Visible']),
+      });
+    }
+  }
+  const duplicateIds = duplicatePortIds(portMetadata);
+  for (const portId of duplicateIds) {
+    diagnostics.push({
+      code: 'FBD_DUPLICATE_PORT_ID',
+      message: `AOI ${name} declares duplicate wireable parameter ${portId}.`,
+      severity: 'warning',
+      sheetIndex,
+      sourceKind: 'AddOnInstruction',
+    });
+  }
+  const ports = duplicateIds.length
+    ? undefined
+    : selectFBDPorts(
+        portMetadata,
+        visiblePins,
+        diagnostics,
+        sheetIndex,
+        'AddOnInstruction',
+        name
+      );
+  if (!ports) {
+    return {
+      ...createFBDPlaceholder(
+        node as L5XFBDAOI & Record<string, unknown>,
+        'AddOnInstruction',
+        ['unresolved-metadata'],
+        []
+      ),
+      bindings,
+    };
+  }
+  const positioned = normalizeFBDPositioned(node, 'AddOnInstruction', ports);
   if ('kind' in positioned) return positioned;
   return {
     kind: 'add-on-instruction',
@@ -1119,11 +1297,120 @@ function normalizeFBDAOI(node: L5XFBDAOI): NormalizedFBDElement {
     ...(node['@_Name'] !== undefined ? { name: node['@_Name'] } : {}),
     ...(node['@_Operand'] !== undefined ? { operand: node['@_Operand'] } : {}),
     visiblePins,
-    bindings: ensureArray(node.InOutParameter).map((binding) => ({
-      ...(binding['@_Name'] !== undefined ? { name: binding['@_Name'] } : {}),
-      ...(binding['@_Argument'] !== undefined ? { argument: binding['@_Argument'] } : {}),
-    })),
+    ports,
+    bindings,
   };
+}
+
+function normalizeFBDFunction(
+  node: Record<string, unknown>,
+  context: FBDNormalizationContext,
+  diagnostics: NormalizedFBDDiagnostic[],
+  sheetIndex: number
+): NormalizedFBDElement {
+  const mnemonic = stringValue(node['@_Type']) ?? stringValue(node['@_Name']) ?? '';
+  const resolution = resolveBuiltInFBDInstructionMetadata({
+    mnemonic,
+    form: 'function',
+    softwareRevision: context.softwareRevision,
+    processorType: context.processorType,
+  });
+  appendFBDMetadataDiagnostics(diagnostics, resolution.diagnostics, sheetIndex, 'Function');
+  if (!resolution.metadata || resolution.diagnostics.length) {
+    return createFBDPlaceholder(
+      node,
+      'Function',
+      ['unsupported-semantics', 'unresolved-metadata'],
+      []
+    );
+  }
+  const visiblePins = splitTokens(node['@_VisiblePins']);
+  const ports = selectFBDPorts(
+    resolution.metadata.ports,
+    visiblePins,
+    diagnostics,
+    sheetIndex,
+    'Function',
+    mnemonic
+  );
+  if (!ports) {
+    return createFBDPlaceholder(
+      node,
+      'Function',
+      ['unsupported-semantics', 'unresolved-metadata'],
+      []
+    );
+  }
+  const positioned = normalizeFBDPositioned(
+    node as L5XFBDPositioned & Record<string, unknown>,
+    'Function',
+    ports
+  );
+  if ('kind' in positioned) return positioned;
+  return { kind: 'function', instruction: mnemonic, ...positioned, ports };
+}
+
+function selectFBDPorts(
+  metadata: FBDPortMetadata[],
+  visiblePins: string[],
+  diagnostics: NormalizedFBDDiagnostic[],
+  sheetIndex: number,
+  sourceKind: string,
+  mnemonic: string
+): NormalizedFBDPort[] | undefined {
+  const selectedIds = visiblePins.length
+    ? new Set(visiblePins)
+    : new Set(metadata.filter((port) => port.defaultVisible).map((port) => port.id));
+  const knownIds = new Set(metadata.map((port) => port.id));
+  const unknownIds = [...selectedIds].filter((id) => !knownIds.has(id));
+  for (const portId of unknownIds) {
+    diagnostics.push({
+      code: 'FBD_UNKNOWN_VISIBLE_PIN',
+      message: `${sourceKind} ${mnemonic} selects unknown canonical port ${portId}.`,
+      severity: 'warning',
+      sheetIndex,
+      sourceKind,
+    });
+  }
+  if (unknownIds.length) return undefined;
+  return metadata
+    .filter((port) => selectedIds.has(port.id))
+    .map((port) => ({
+      id: port.id,
+      label: port.label,
+      direction: port.direction!,
+      side: port.side!,
+      order: port.order,
+      defaultVisible: port.defaultVisible,
+      visible: true,
+    }));
+}
+
+function duplicatePortIds(ports: FBDPortMetadata[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const port of ports) {
+    if (seen.has(port.id)) duplicates.add(port.id);
+    seen.add(port.id);
+  }
+  return [...duplicates];
+}
+
+function appendFBDMetadataDiagnostics(
+  target: NormalizedFBDDiagnostic[],
+  source: FBDMetadataDiagnostic[],
+  sheetIndex: number,
+  sourceKind: string
+) {
+  for (const diagnostic of source) {
+    target.push({
+      code: diagnostic.code,
+      message: diagnostic.message,
+      severity: 'warning',
+      sheetIndex,
+      sourceKind,
+    });
+  }
 }
 
 function normalizeFBDRoutineControl(
@@ -1165,7 +1452,7 @@ function normalizeFBDTextBox(node: L5XFBDTextBox): NormalizedFBDElement {
 function normalizeFBDPositioned(
   node: L5XFBDPositioned,
   sourceKind: string,
-  ports: string[]
+  ports: NormalizedFBDPort[]
 ):
   | { id: string; position: { x: string; y: string }; verified?: boolean }
   | NormalizedFBDPlaceholder {
@@ -1188,7 +1475,7 @@ function createFBDPlaceholder(
   node: Record<string, unknown>,
   sourceKind: string,
   initialReasons: NormalizedFBDPlaceholderReason[],
-  ports: string[]
+  ports: NormalizedFBDPort[]
 ): NormalizedFBDPlaceholder {
   const id = stringValue(node['@_ID']);
   const x = stringValue(node['@_X']);
@@ -1217,6 +1504,18 @@ function createNonPositionedPlaceholder(
   reasonCodes: NormalizedFBDPlaceholderReason[]
 ): NormalizedFBDPlaceholder {
   return { kind: 'placeholder', sourceKind, ports: [], reasonCodes };
+}
+
+function implicitNormalizedFBDPort(direction: 'input' | 'output'): NormalizedFBDPort {
+  return {
+    id: 'value',
+    label: 'Value',
+    direction,
+    side: direction === 'input' ? 'left' : 'right',
+    order: 0,
+    defaultVisible: true,
+    visible: true,
+  };
 }
 
 function implicitFBDPort(
@@ -1383,13 +1682,17 @@ function mapRungType(type: L5XRungType): NormalizedRung['type'] {
 // ============================================
 
 function normalizeAOIs(
-  aois: L5XAddOnInstruction | L5XAddOnInstruction[] | undefined
+  aois: L5XAddOnInstruction | L5XAddOnInstruction[] | undefined,
+  fbdContext: FBDNormalizationContext
 ): NormalizedAOI[] {
   const aoiArray = ensureArray(aois);
-  return aoiArray.map(normalizeAOI);
+  return aoiArray.map((aoi) => normalizeAOI(aoi, fbdContext));
 }
 
-function normalizeAOI(aoi: L5XAddOnInstruction): NormalizedAOI {
+function normalizeAOI(
+  aoi: L5XAddOnInstruction,
+  fbdContext: FBDNormalizationContext
+): NormalizedAOI {
   const classMap: Record<string, AOIClass> = {
     Standard: 'Standard',
     Safety: 'Safety',
@@ -1426,7 +1729,7 @@ function normalizeAOI(aoi: L5XAddOnInstruction): NormalizedAOI {
     localTags: normalizeAOILocalTags(aoi.LocalTags?.LocalTag),
 
     // Implementation
-    routines: normalizeRoutines(aoi.Routines),
+    routines: normalizeRoutines(aoi.Routines, fbdContext),
   };
 }
 

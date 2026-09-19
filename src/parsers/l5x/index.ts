@@ -10,6 +10,24 @@ export { L5XConflictVisualAdapter, l5xConflictVisualAdapter } from './l5x-confli
 
 // Transformation
 export { l5xToNormalized } from './l5x-to-normalized';
+export {
+  FBD_INSTRUCTION_METADATA,
+  resolveBuiltInFBDInstructionMetadata,
+  resolveFBDInstructionMetadata,
+} from './fbd-metadata';
+export type {
+  FBDInstructionForm,
+  FBDPortDirection,
+  FBDPortSide,
+  FBDControllerFamily,
+  FBDPortMetadata,
+  FBDArrayRequirement,
+  FBDInstructionMetadata,
+  FBDMetadataDiagnosticCode,
+  FBDMetadataDiagnostic,
+  FBDMetadataRequest,
+  FBDMetadataResolution,
+} from './fbd-metadata';
 
 // Types
 export type {

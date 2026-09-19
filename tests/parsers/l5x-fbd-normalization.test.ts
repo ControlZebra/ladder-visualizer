@@ -220,19 +220,19 @@ describe('L5X canonical FBD normalization', () => {
         sourceKind: 'Function',
         id: '3',
         position: { x: '80', y: '20' },
-        ports: ['In', 'Out'],
-        reasonCodes: ['unsupported-kind'],
+        ports: [],
+        reasonCodes: ['unsupported-semantics', 'unresolved-metadata'],
       }),
       expect.objectContaining({
         sourceKind: 'FutureBlock',
         id: '4',
         position: { x: '120', y: '20' },
-        ports: ['Left', 'Right'],
-        reasonCodes: ['unknown-kind'],
+        ports: [],
+        reasonCodes: ['unknown-kind', 'unresolved-metadata'],
       }),
       expect.objectContaining({
         sourceKind: 'Mystery',
-        reasonCodes: ['unknown-kind', 'missing-id', 'missing-position'],
+        reasonCodes: ['unknown-kind', 'unresolved-metadata', 'missing-id', 'missing-position'],
       }),
     ]);
   });
