@@ -319,13 +319,6 @@ function wireObstacle(bounds: FBDRect): FBDRect {
   };
 }
 
-function pointInsideRect(point: FBDPoint, rect: FBDRect): boolean {
-  return point.x > rect.x
-    && point.x < rect.x + rect.width
-    && point.y > rect.y
-    && point.y < rect.y + rect.height;
-}
-
 function segmentClearsRect(from: FBDPoint, to: FBDPoint, rect: FBDRect): boolean {
   if (from.x === to.x) {
     if (from.x <= rect.x || from.x >= rect.x + rect.width) return true;
@@ -392,16 +385,66 @@ function sortedUnique(values: readonly number[]): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
 }
 
-type RouteDirection = 'horizontal' | 'vertical';
+type RouteDirection = 0 | 1 | 2;
 
 interface RouteState {
   nodeIndex: number;
-  direction?: RouteDirection;
+  direction: RouteDirection;
   cost: number;
+  priority: number;
 }
 
-function routeStateKey(nodeIndex: number, direction?: RouteDirection): string {
-  return `${nodeIndex}:${direction ?? 'start'}`;
+function routeStateKey(nodeIndex: number, direction: RouteDirection): number {
+  return nodeIndex * 3 + direction;
+}
+
+class RouteMinHeap {
+  private readonly values: RouteState[] = [];
+
+  get length(): number {
+    return this.values.length;
+  }
+
+  push(value: RouteState): void {
+    this.values.push(value);
+    let index = this.values.length - 1;
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (!RouteMinHeap.precedes(value, this.values[parent])) break;
+      this.values[index] = this.values[parent];
+      index = parent;
+    }
+    this.values[index] = value;
+  }
+
+  pop(): RouteState | undefined {
+    const first = this.values[0];
+    const last = this.values.pop();
+    if (!first || !last || this.values.length === 0) return first;
+    let index = 0;
+    while (index * 2 + 1 < this.values.length) {
+      const left = index * 2 + 1;
+      const right = left + 1;
+      const child = right < this.values.length
+        && RouteMinHeap.precedes(this.values[right], this.values[left])
+        ? right
+        : left;
+      if (!RouteMinHeap.precedes(this.values[child], last)) break;
+      this.values[index] = this.values[child];
+      index = child;
+    }
+    this.values[index] = last;
+    return first;
+  }
+
+  private static precedes(left: RouteState, right: RouteState): boolean {
+    return left.priority < right.priority
+      || (left.priority === right.priority && left.cost < right.cost)
+      || (left.priority === right.priority && left.cost === right.cost
+        && left.nodeIndex < right.nodeIndex)
+      || (left.priority === right.priority && left.cost === right.cost
+        && left.nodeIndex === right.nodeIndex && left.direction < right.direction);
+  }
 }
 
 function simplifyOrthogonalPoints(points: readonly FBDPoint[]): FBDPoint[] {
@@ -446,46 +489,75 @@ function routeAroundObstacles(
         : []),
     ]),
   ]);
-  const nodes = xs.flatMap((x) => ys.map((y) => ({ x, y })))
-    .filter((point) => obstacles.every((obstacle) => !pointInsideRect(point, obstacle)));
-  const nodeIndex = new Map(nodes.map((point, index) => [`${point.x}:${point.y}`, index]));
-  const startIndex = nodeIndex.get(`${start.x}:${start.y}`);
-  const endIndex = nodeIndex.get(`${end.x}:${end.y}`);
-  if (startIndex === undefined || endIndex === undefined) return [start, end];
+  const xIndices = new Map(xs.map((x, index) => [x, index]));
+  const yIndices = new Map(ys.map((y, index) => [y, index]));
+  const gridHeight = ys.length;
+  const nodeIndex = (xIndex: number, yIndex: number) => xIndex * gridHeight + yIndex;
+  const pointBlocked = new Uint8Array(xs.length * ys.length);
+  const horizontalBlocked = new Uint8Array(Math.max(0, xs.length - 1) * ys.length);
+  const verticalBlocked = new Uint8Array(xs.length * Math.max(0, ys.length - 1));
 
-  const neighbors = new Map<number, number[]>();
-  const rows = new Map<number, number[]>();
-  const columns = new Map<number, number[]>();
-  nodes.forEach((point, index) => {
-    rows.set(point.y, [...(rows.get(point.y) ?? []), index]);
-    columns.set(point.x, [...(columns.get(point.x) ?? []), index]);
-  });
-  const connectAdjacent = (indices: number[], coordinate: 'x' | 'y') => {
-    indices.sort((left, right) => nodes[left][coordinate] - nodes[right][coordinate]);
-    indices.slice(1).forEach((right, index) => {
-      const left = indices[index];
-      if (!routeClearsObstacles([nodes[left], nodes[right]], obstacles)) return;
-      if (pathOverlapsSegments([nodes[left], nodes[right]], occupiedSegments)) return;
-      neighbors.set(left, [...(neighbors.get(left) ?? []), right]);
-      neighbors.set(right, [...(neighbors.get(right) ?? []), left]);
-    });
-  };
+  for (const obstacle of obstacles) {
+    const left = xIndices.get(obstacle.x);
+    const right = xIndices.get(obstacle.x + obstacle.width);
+    const top = yIndices.get(obstacle.y);
+    const bottom = yIndices.get(obstacle.y + obstacle.height);
+    if (left === undefined || right === undefined || top === undefined || bottom === undefined) continue;
+    for (let xIndex = left + 1; xIndex < right; xIndex += 1) {
+      for (let yIndex = top + 1; yIndex < bottom; yIndex += 1) {
+        pointBlocked[nodeIndex(xIndex, yIndex)] = 1;
+      }
+      for (let yIndex = top; yIndex < bottom; yIndex += 1) {
+        verticalBlocked[xIndex * (ys.length - 1) + yIndex] = 1;
+      }
+    }
+    for (let xIndex = left; xIndex < right; xIndex += 1) {
+      for (let yIndex = top + 1; yIndex < bottom; yIndex += 1) {
+        horizontalBlocked[xIndex * ys.length + yIndex] = 1;
+      }
+    }
+  }
 
-  for (const indices of rows.values()) connectAdjacent(indices, 'x');
-  for (const indices of columns.values()) connectAdjacent(indices, 'y');
+  for (const segment of occupiedSegments) {
+    if (segment.from.y === segment.to.y) {
+      const yIndex = yIndices.get(segment.from.y);
+      const first = xIndices.get(Math.min(segment.from.x, segment.to.x));
+      const last = xIndices.get(Math.max(segment.from.x, segment.to.x));
+      if (yIndex === undefined || first === undefined || last === undefined) continue;
+      for (let xIndex = first; xIndex < last; xIndex += 1) {
+        horizontalBlocked[xIndex * ys.length + yIndex] = 1;
+      }
+    } else if (segment.from.x === segment.to.x) {
+      const xIndex = xIndices.get(segment.from.x);
+      const first = yIndices.get(Math.min(segment.from.y, segment.to.y));
+      const last = yIndices.get(Math.max(segment.from.y, segment.to.y));
+      if (xIndex === undefined || first === undefined || last === undefined) continue;
+      for (let yIndex = first; yIndex < last; yIndex += 1) {
+        verticalBlocked[xIndex * (ys.length - 1) + yIndex] = 1;
+      }
+    }
+  }
 
-  const queue: RouteState[] = [{ nodeIndex: startIndex, cost: 0 }];
-  const distances = new Map([[routeStateKey(startIndex), 0]]);
-  const previous = new Map<string, string>();
-  let finalKey: string | undefined;
+  const startX = xIndices.get(start.x);
+  const startY = yIndices.get(start.y);
+  const endX = xIndices.get(end.x);
+  const endY = yIndices.get(end.y);
+  if (startX === undefined || startY === undefined || endX === undefined || endY === undefined) {
+    return [start, end];
+  }
+  const startIndex = nodeIndex(startX, startY);
+  const endIndex = nodeIndex(endX, endY);
+  const heuristic = (xIndex: number, yIndex: number) => (
+    Math.abs(xs[xIndex] - end.x) + Math.abs(ys[yIndex] - end.y)
+  );
+  const queue = new RouteMinHeap();
+  queue.push({ nodeIndex: startIndex, direction: 0, cost: 0, priority: heuristic(startX, startY) });
+  const distances = new Map([[routeStateKey(startIndex, 0), 0]]);
+  const previous = new Map<number, number>();
+  let finalKey: number | undefined;
 
   while (queue.length > 0) {
-    queue.sort((left, right) => (
-      left.cost - right.cost
-      || left.nodeIndex - right.nodeIndex
-      || (left.direction ?? '').localeCompare(right.direction ?? '')
-    ));
-    const current = queue.shift();
+    const current = queue.pop();
     if (!current) break;
     const currentKey = routeStateKey(current.nodeIndex, current.direction);
     if (current.cost !== distances.get(currentKey)) continue;
@@ -494,31 +566,69 @@ function routeAroundObstacles(
       break;
     }
 
-    for (const neighborIndex of neighbors.get(current.nodeIndex) ?? []) {
-      const currentPoint = nodes[current.nodeIndex];
-      const neighborPoint = nodes[neighborIndex];
-      const direction: RouteDirection = currentPoint.x === neighborPoint.x
-        ? 'vertical'
-        : 'horizontal';
-      const distance = Math.abs(currentPoint.x - neighborPoint.x)
-        + Math.abs(currentPoint.y - neighborPoint.y);
-      const bendCost = current.direction && current.direction !== direction
+    const xIndex = Math.floor(current.nodeIndex / gridHeight);
+    const yIndex = current.nodeIndex % gridHeight;
+    const candidates: Array<{
+      xIndex: number;
+      yIndex: number;
+      direction: RouteDirection;
+      blocked: boolean;
+    }> = [];
+    if (xIndex > 0) candidates.push({
+      xIndex: xIndex - 1,
+      yIndex,
+      direction: 1,
+      blocked: horizontalBlocked[(xIndex - 1) * ys.length + yIndex] === 1,
+    });
+    if (xIndex + 1 < xs.length) candidates.push({
+      xIndex: xIndex + 1,
+      yIndex,
+      direction: 1,
+      blocked: horizontalBlocked[xIndex * ys.length + yIndex] === 1,
+    });
+    if (yIndex > 0) candidates.push({
+      xIndex,
+      yIndex: yIndex - 1,
+      direction: 2,
+      blocked: verticalBlocked[xIndex * (ys.length - 1) + yIndex - 1] === 1,
+    });
+    if (yIndex + 1 < ys.length) candidates.push({
+      xIndex,
+      yIndex: yIndex + 1,
+      direction: 2,
+      blocked: verticalBlocked[xIndex * (ys.length - 1) + yIndex] === 1,
+    });
+
+    for (const candidate of candidates) {
+      const neighborIndex = nodeIndex(candidate.xIndex, candidate.yIndex);
+      if (candidate.blocked || pointBlocked[neighborIndex] === 1) continue;
+      const distance = Math.abs(xs[xIndex] - xs[candidate.xIndex])
+        + Math.abs(ys[yIndex] - ys[candidate.yIndex]);
+      const bendCost = current.direction !== 0 && current.direction !== candidate.direction
         ? FBD_ROUTE_BEND_COST
         : 0;
       const cost = current.cost + distance + bendCost;
-      const neighborKey = routeStateKey(neighborIndex, direction);
+      const neighborKey = routeStateKey(neighborIndex, candidate.direction);
       if (cost >= (distances.get(neighborKey) ?? Number.POSITIVE_INFINITY)) continue;
       distances.set(neighborKey, cost);
       previous.set(neighborKey, currentKey);
-      queue.push({ nodeIndex: neighborIndex, direction, cost });
+      queue.push({
+        nodeIndex: neighborIndex,
+        direction: candidate.direction,
+        cost,
+        priority: cost + heuristic(candidate.xIndex, candidate.yIndex),
+      });
     }
   }
 
   if (!finalKey) return [start, end];
   const route: FBDPoint[] = [];
-  let key: string | undefined = finalKey;
-  while (key) {
-    route.push(nodes[Number(key.split(':', 1)[0])]);
+  let key: number | undefined = finalKey;
+  while (key !== undefined) {
+    const currentNode = Math.floor(key / 3);
+    const xIndex = Math.floor(currentNode / gridHeight);
+    const yIndex = currentNode % gridHeight;
+    route.push({ x: xs[xIndex], y: ys[yIndex] });
     key = previous.get(key);
   }
   return simplifyOrthogonalPoints(route.reverse());

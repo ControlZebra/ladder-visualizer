@@ -447,6 +447,29 @@ describe('FBD layout', () => {
     expect(FBD_WIRE_SEPARATION).toBeGreaterThan(0);
   });
 
+  it('keeps large Studio-exported obstacle sets within a bounded routing cost', () => {
+    const obstacleCount = 200;
+    const obstacles = Array.from({ length: obstacleCount }, (_value, index) => ({
+      x: 150 + index * 20,
+      y: -index,
+      width: 10,
+      height: 200 + index * 2,
+    }));
+    const startedAt = performance.now();
+    const route = routeFBDConnection(
+      port(100, 100, 'output'),
+      port(150 + obstacleCount * 20 + 100, 100, 'input'),
+      'wire',
+      0,
+      { x: 80, y: -obstacleCount, width: obstacleCount * 20 + 200, height: 600 },
+      obstacles,
+    );
+    const elapsed = performance.now() - startedAt;
+
+    expect(route.points.length).toBeGreaterThan(3);
+    expect(elapsed).toBeLessThan(2_000);
+  }, 3_000);
+
   it('omits connections that reference ambiguous duplicate element IDs', () => {
     const source = levelControlBody().sheets[0];
     const input = source.elements.find((element) => element.kind === 'reference');
