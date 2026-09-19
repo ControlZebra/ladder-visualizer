@@ -45,6 +45,9 @@
     "test:run": "vitest run",
     "test:conformance": "vitest run tests/parsers/l5x-conformance.test.ts",
     "test:visual": "playwright test --config playwright.config.ts",
+    "build:performance": "vite build --config vite.performance.config.ts",
+    "preview:performance": "vite preview --config vite.performance.config.ts --host 127.0.0.1 --port 4174",
+    "test:performance": "npm run build:performance && playwright test --config playwright.performance.config.ts",
     "test:schema": "node scripts/validate-l5x-schemas.mjs",
     "lint": "eslint src --ext ts,tsx",
     "typecheck": "tsc --noEmit"

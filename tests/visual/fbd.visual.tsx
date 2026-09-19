@@ -7,27 +7,53 @@ import '../../src/styles/index.css';
 import levelControlFixture from '../fixtures/l5x/fbd-level-control-v35.L5X?raw';
 import elementFixture from '../fixtures/l5x/fbd-render-elements-v35.L5X?raw';
 import { withFunctionElement } from '../fixtures/fbdRenderElements';
+import { createFBDBenchmarkBody } from '../fixtures/fbdBenchmark';
 
 const query = new URLSearchParams(window.location.search);
-const showElements = query.get('fixture') === 'elements';
-const source = showElements
-  ? withFunctionElement(elementFixture)
-  : levelControlFixture;
-const routineName = showElements ? 'Elements' : 'MainFBD';
-const result = parseString(source, 'l5x');
-const body = result.data?.programs[0]?.routines.find(
-  (routine) => routine.name === routineName,
-)?.fbd;
-if (!body) throw new Error(`The ${routineName} fixture did not produce an FBD body.`);
+const fixture = query.get('fixture') ?? 'level-control';
+const body = fixture === 'benchmark'
+  ? createFBDBenchmarkBody()
+  : (() => {
+    const showElements = fixture === 'elements';
+    const source = showElements ? withFunctionElement(elementFixture) : levelControlFixture;
+    const routineName = showElements ? 'Elements' : 'MainFBD';
+    const result = parseString(source, 'l5x');
+    const parsedBody = result.data?.programs[0]?.routines.find(
+      (routine) => routine.name === routineName,
+    )?.fbd;
+    if (!parsedBody) throw new Error(`The ${routineName} fixture did not produce an FBD body.`);
+    return parsedBody;
+  })();
 
 const sheetIndex = Number(query.get('sheet') ?? '0');
 const dark = query.get('theme') === 'dark';
 const theme = dark ? DARK_THEME : DEFAULT_THEME;
+const onlyRenderVisibleElements = query.get('cull') === '1';
+const renderStartedAt = performance.now();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <div id="stage" style={{ background: theme.bgPrimary }}>
-      <FBDDiagram body={body} sheetIndex={sheetIndex} width={1240} height={780} theme={theme} />
+      <FBDDiagram
+        body={body}
+        sheetIndex={sheetIndex}
+        width={1240}
+        height={780}
+        theme={theme}
+        onlyRenderVisibleElements={onlyRenderVisibleElements}
+      />
     </div>
   </StrictMode>
 );
+
+if (fixture === 'benchmark') {
+  const markReady = () => {
+    if (document.querySelectorAll('.react-flow__node').length === 150) {
+      document.documentElement.dataset.fbdRenderMs = String(performance.now() - renderStartedAt);
+      document.documentElement.dataset.fbdReady = 'true';
+      return;
+    }
+    requestAnimationFrame(markReady);
+  };
+  requestAnimationFrame(markReady);
+}
