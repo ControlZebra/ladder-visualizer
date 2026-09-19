@@ -80,8 +80,12 @@ export {
   FBD_SHEET_PADDING,
   FBD_PORT_SPACING,
   FBD_BLOCK_HEADER_HEIGHT,
+  FBD_TEXT_LINE_HEIGHT,
   FBD_BACKWARD_ROUTE_GAP,
   FBD_ROUTE_LANE_GAP,
+  FBD_PORT_PIN_EXTENT,
+  FBD_WIRE_OBSTACLE_GAP,
+  FBD_WIRE_SEPARATION,
   measureFBDElement,
   placeFBDElementPorts,
   layoutFBDElement,
@@ -89,6 +93,9 @@ export {
   buildFBDSheetLayout,
   buildFBDConnectorIndex,
   getFBDBlockArrayLabels,
+  getFBDAOIBindingLabels,
+  getFBDElementFooterLabels,
+  wrapFBDText,
 } from './fbdLayout';
 
 export type {
@@ -98,6 +105,7 @@ export type {
   FBDElementLayout,
   FBDRouteKind,
   FBDConnectionLayout,
+  FBDAttachmentLayout,
   FBDLayoutDiagnosticCode,
   FBDLayoutDiagnostic,
   FBDSheetLayout,

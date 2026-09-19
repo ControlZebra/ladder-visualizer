@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import type {
   FBDConnectionLayout,
+  FBDAttachmentLayout,
   FBDConnectorIndex,
   FBDConnectorLocation,
   FBDElementLayout,
@@ -22,15 +23,66 @@ export const FBD_GRID_TO_SVG_SCALE = 1;
 export const FBD_SHEET_PADDING = 32;
 export const FBD_PORT_SPACING = 24;
 export const FBD_BLOCK_HEADER_HEIGHT = 42;
+export const FBD_TEXT_LINE_HEIGHT = 16;
 export const FBD_BACKWARD_ROUTE_GAP = 28;
 export const FBD_ROUTE_LANE_GAP = 12;
+export const FBD_PORT_PIN_EXTENT = 9;
+export const FBD_WIRE_OBSTACLE_GAP = 8;
+export const FBD_WIRE_SEPARATION = 4;
 
 const CHARACTER_WIDTH = 7;
 const REFERENCE_HEIGHT = 32;
-const MIN_BLOCK_WIDTH = 140;
+const MIN_BLOCK_WIDTH = 70;
+const BLOCK_LABEL_SEPARATOR_GAP = 36;
+const FBD_ROUTE_BEND_COST = 8;
 
 function textWidth(value: string | undefined): number {
   return (value?.length ?? 0) * CHARACTER_WIDTH;
+}
+
+function autoTextBoxWidth(value: string | undefined): number {
+  const longestLineWidth = Math.max(
+    0,
+    ...(value ?? '').split(/\r?\n/).map((line) => textWidth(line.trim())),
+  );
+  return Math.max(120, longestLineWidth + 24);
+}
+
+function wrapToken(token: string, maxCharacters: number): string[] {
+  if (token.length <= maxCharacters) return [token];
+  const chunks: string[] = [];
+  for (let index = 0; index < token.length; index += maxCharacters) {
+    chunks.push(token.slice(index, index + maxCharacters));
+  }
+  return chunks;
+}
+
+/** Deterministically wraps FBD text using the same width estimate as measurement. */
+export function wrapFBDText(text: string | undefined, width: number): string[] {
+  const maxCharacters = Math.max(1, Math.floor((width - 24) / CHARACTER_WIDTH));
+  const paragraphs = (text ?? '').split(/\r?\n/);
+  const lines: string[] = [];
+
+  for (const paragraph of paragraphs) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean)
+      .flatMap((word) => wrapToken(word, maxCharacters));
+    if (words.length === 0) {
+      lines.push('');
+      continue;
+    }
+    let line = words[0];
+    for (const word of words.slice(1)) {
+      if (`${line} ${word}`.length <= maxCharacters) {
+        line = `${line} ${word}`;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    }
+    lines.push(line);
+  }
+
+  return lines.length ? lines : [''];
 }
 
 function sourceCoordinate(value: string | undefined): number | undefined {
@@ -80,8 +132,8 @@ function elementPorts(element: NormalizedFBDElement): NormalizedFBDPort[] {
   return [];
 }
 
-function blockArrayRows(element: NormalizedFBDElement): number {
-  return element.kind === 'block' ? element.arrays.length : 0;
+function elementFooterRows(element: NormalizedFBDElement): number {
+  return getFBDElementFooterLabels(element).length;
 }
 
 export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 'width' | 'height'> {
@@ -94,9 +146,13 @@ export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 
 
   if (element.kind === 'text-box') {
     const declaredWidth = sourceCoordinate(element.width);
+    const width = declaredWidth !== undefined && declaredWidth > 0
+      ? declaredWidth
+      : autoTextBoxWidth(element.text);
+    const lines = wrapFBDText(element.text, width);
     return {
-      width: declaredWidth ?? Math.max(120, textWidth(element.text) + 24),
-      height: 56,
+      width,
+      height: Math.max(56, lines.length * FBD_TEXT_LINE_HEIGHT + 24),
     };
   }
 
@@ -113,11 +169,21 @@ export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 
       ? element.routine
       : undefined;
   const operandWidth = textWidth(operand) + 28;
-  const arrayRows = blockArrayRows(element);
+  const footerLabels = getFBDElementFooterLabels(element);
+  const footerWidth = Math.max(0, ...footerLabels.map((label) => textWidth(label) + 24));
 
   return {
-    width: Math.max(MIN_BLOCK_WIDTH, titleWidth, operandWidth, leftLabelWidth + rightLabelWidth + 72),
-    height: Math.max(64, FBD_BLOCK_HEADER_HEIGHT + portRows * FBD_PORT_SPACING + arrayRows * 18),
+    width: Math.max(
+      MIN_BLOCK_WIDTH,
+      titleWidth,
+      operandWidth,
+      footerWidth,
+      Math.max(leftLabelWidth, rightLabelWidth) * 2 + BLOCK_LABEL_SEPARATOR_GAP,
+    ),
+    height: Math.max(
+      64,
+      FBD_BLOCK_HEADER_HEIGHT + portRows * FBD_PORT_SPACING + footerLabels.length * 18,
+    ),
   };
 }
 
@@ -165,7 +231,7 @@ export function placeFBDElementPorts(
     if (ordered.length === 0) {
       return [];
     }
-    const footerHeight = blockArrayRows(element) * 18;
+    const footerHeight = elementFooterRows(element) * 18;
     const availableHeight = Math.max(
       bounds.height - FBD_BLOCK_HEADER_HEIGHT - footerHeight,
       FBD_PORT_SPACING,
@@ -187,7 +253,14 @@ export function layoutFBDElement(element: NormalizedFBDElement): FBDElementLayou
     return undefined;
   }
   const dimensions = measureFBDElement(element);
-  const bounds = { ...position, ...dimensions };
+  const terminal = implicitTerminal(element);
+  const bounds = terminal
+    ? {
+      x: terminal.side === 'right' ? position.x - dimensions.width : position.x,
+      y: position.y - dimensions.height / 2,
+      ...dimensions,
+    }
+    : { ...position, ...dimensions };
   return { element, bounds, ports: placeFBDElementPorts(element, bounds) };
 }
 
@@ -222,52 +295,399 @@ function deduplicateAdjacentPoints(points: readonly FBDPoint[]): FBDPoint[] {
   });
 }
 
+function outerPinPoint(port: FBDPortLayout): FBDPoint {
+  return {
+    x: port.point.x + (port.port.side === 'right' ? FBD_PORT_PIN_EXTENT : -FBD_PORT_PIN_EXTENT),
+    y: port.point.y,
+  };
+}
+
+function outerLeadPoint(port: FBDPortLayout): FBDPoint {
+  const pin = outerPinPoint(port);
+  return {
+    x: pin.x + (port.port.side === 'right' ? FBD_WIRE_OBSTACLE_GAP : -FBD_WIRE_OBSTACLE_GAP),
+    y: pin.y,
+  };
+}
+
+function wireObstacle(bounds: FBDRect): FBDRect {
+  const horizontalPadding = FBD_PORT_PIN_EXTENT + FBD_WIRE_OBSTACLE_GAP;
+  return {
+    x: bounds.x - horizontalPadding,
+    y: bounds.y - FBD_WIRE_OBSTACLE_GAP,
+    width: bounds.width + horizontalPadding * 2,
+    height: bounds.height + FBD_WIRE_OBSTACLE_GAP * 2,
+  };
+}
+
+function segmentClearsRect(from: FBDPoint, to: FBDPoint, rect: FBDRect): boolean {
+  if (from.x === to.x) {
+    if (from.x <= rect.x || from.x >= rect.x + rect.width) return true;
+    const start = Math.min(from.y, to.y);
+    const end = Math.max(from.y, to.y);
+    return end <= rect.y || start >= rect.y + rect.height;
+  }
+  if (from.y === to.y) {
+    if (from.y <= rect.y || from.y >= rect.y + rect.height) return true;
+    const start = Math.min(from.x, to.x);
+    const end = Math.max(from.x, to.x);
+    return end <= rect.x || start >= rect.x + rect.width;
+  }
+  return false;
+}
+
+function routeClearsObstacles(points: readonly FBDPoint[], obstacles: readonly FBDRect[]): boolean {
+  return points.slice(1).every((point, index) => (
+    obstacles.every((obstacle) => segmentClearsRect(points[index], point, obstacle))
+  ));
+}
+
+interface FBDLineSegment {
+  from: FBDPoint;
+  to: FBDPoint;
+}
+
+function pathSegments(points: readonly FBDPoint[]): FBDLineSegment[] {
+  return points.slice(1).map((to, index) => ({ from: points[index], to }));
+}
+
+function projectedOverlap(
+  firstStart: number,
+  firstEnd: number,
+  secondStart: number,
+  secondEnd: number,
+): number {
+  return Math.min(Math.max(firstStart, firstEnd), Math.max(secondStart, secondEnd))
+    - Math.max(Math.min(firstStart, firstEnd), Math.min(secondStart, secondEnd));
+}
+
+function segmentsOverlap(first: FBDLineSegment, second: FBDLineSegment): boolean {
+  const firstHorizontal = first.from.y === first.to.y;
+  const secondHorizontal = second.from.y === second.to.y;
+  if (firstHorizontal !== secondHorizontal) return false;
+  if (firstHorizontal) {
+    return first.from.y === second.from.y
+      && projectedOverlap(first.from.x, first.to.x, second.from.x, second.to.x) > 0;
+  }
+  return first.from.x === second.from.x
+    && projectedOverlap(first.from.y, first.to.y, second.from.y, second.to.y) > 0;
+}
+
+function pathOverlapsSegments(
+  points: readonly FBDPoint[],
+  occupiedSegments: readonly FBDLineSegment[],
+): boolean {
+  return pathSegments(points).some(
+    (candidate) => occupiedSegments.some((occupied) => segmentsOverlap(candidate, occupied)),
+  );
+}
+
+function sortedUnique(values: readonly number[]): number[] {
+  return [...new Set(values)].sort((left, right) => left - right);
+}
+
+type RouteDirection = 0 | 1 | 2;
+
+interface RouteState {
+  nodeIndex: number;
+  direction: RouteDirection;
+  cost: number;
+  priority: number;
+}
+
+function routeStateKey(nodeIndex: number, direction: RouteDirection): number {
+  return nodeIndex * 3 + direction;
+}
+
+class RouteMinHeap {
+  private readonly values: RouteState[] = [];
+
+  get length(): number {
+    return this.values.length;
+  }
+
+  push(value: RouteState): void {
+    this.values.push(value);
+    let index = this.values.length - 1;
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (!RouteMinHeap.precedes(value, this.values[parent])) break;
+      this.values[index] = this.values[parent];
+      index = parent;
+    }
+    this.values[index] = value;
+  }
+
+  pop(): RouteState | undefined {
+    const first = this.values[0];
+    const last = this.values.pop();
+    if (!first || !last || this.values.length === 0) return first;
+    let index = 0;
+    while (index * 2 + 1 < this.values.length) {
+      const left = index * 2 + 1;
+      const right = left + 1;
+      const child = right < this.values.length
+        && RouteMinHeap.precedes(this.values[right], this.values[left])
+        ? right
+        : left;
+      if (!RouteMinHeap.precedes(this.values[child], last)) break;
+      this.values[index] = this.values[child];
+      index = child;
+    }
+    this.values[index] = last;
+    return first;
+  }
+
+  private static precedes(left: RouteState, right: RouteState): boolean {
+    return left.priority < right.priority
+      || (left.priority === right.priority && left.cost < right.cost)
+      || (left.priority === right.priority && left.cost === right.cost
+        && left.nodeIndex < right.nodeIndex)
+      || (left.priority === right.priority && left.cost === right.cost
+        && left.nodeIndex === right.nodeIndex && left.direction < right.direction);
+  }
+}
+
+function simplifyOrthogonalPoints(points: readonly FBDPoint[]): FBDPoint[] {
+  return deduplicateAdjacentPoints(points).filter((point, index, allPoints) => {
+    if (index === 0 || index === allPoints.length - 1) return true;
+    const previous = allPoints[index - 1];
+    const next = allPoints[index + 1];
+    return !(
+      (previous.x === point.x && point.x === next.x)
+      || (previous.y === point.y && point.y === next.y)
+    );
+  });
+}
+
+function routeAroundObstacles(
+  start: FBDPoint,
+  end: FBDPoint,
+  obstacles: readonly FBDRect[],
+  occupiedSegments: readonly FBDLineSegment[],
+): FBDPoint[] {
+  const xs = sortedUnique([
+    start.x,
+    end.x,
+    ...obstacles.flatMap((obstacle) => [obstacle.x, obstacle.x + obstacle.width]),
+    ...occupiedSegments.flatMap((segment) => [
+      segment.from.x,
+      segment.to.x,
+      ...(segment.from.x === segment.to.x
+        ? [segment.from.x - FBD_WIRE_SEPARATION, segment.from.x + FBD_WIRE_SEPARATION]
+        : []),
+    ]),
+  ]);
+  const ys = sortedUnique([
+    start.y,
+    end.y,
+    ...obstacles.flatMap((obstacle) => [obstacle.y, obstacle.y + obstacle.height]),
+    ...occupiedSegments.flatMap((segment) => [
+      segment.from.y,
+      segment.to.y,
+      ...(segment.from.y === segment.to.y
+        ? [segment.from.y - FBD_WIRE_SEPARATION, segment.from.y + FBD_WIRE_SEPARATION]
+        : []),
+    ]),
+  ]);
+  const xIndices = new Map(xs.map((x, index) => [x, index]));
+  const yIndices = new Map(ys.map((y, index) => [y, index]));
+  const gridHeight = ys.length;
+  const nodeIndex = (xIndex: number, yIndex: number) => xIndex * gridHeight + yIndex;
+  const pointBlocked = new Uint8Array(xs.length * ys.length);
+  const horizontalBlocked = new Uint8Array(Math.max(0, xs.length - 1) * ys.length);
+  const verticalBlocked = new Uint8Array(xs.length * Math.max(0, ys.length - 1));
+
+  for (const obstacle of obstacles) {
+    const left = xIndices.get(obstacle.x);
+    const right = xIndices.get(obstacle.x + obstacle.width);
+    const top = yIndices.get(obstacle.y);
+    const bottom = yIndices.get(obstacle.y + obstacle.height);
+    if (left === undefined || right === undefined || top === undefined || bottom === undefined) continue;
+    for (let xIndex = left + 1; xIndex < right; xIndex += 1) {
+      for (let yIndex = top + 1; yIndex < bottom; yIndex += 1) {
+        pointBlocked[nodeIndex(xIndex, yIndex)] = 1;
+      }
+      for (let yIndex = top; yIndex < bottom; yIndex += 1) {
+        verticalBlocked[xIndex * (ys.length - 1) + yIndex] = 1;
+      }
+    }
+    for (let xIndex = left; xIndex < right; xIndex += 1) {
+      for (let yIndex = top + 1; yIndex < bottom; yIndex += 1) {
+        horizontalBlocked[xIndex * ys.length + yIndex] = 1;
+      }
+    }
+  }
+
+  for (const segment of occupiedSegments) {
+    if (segment.from.y === segment.to.y) {
+      const yIndex = yIndices.get(segment.from.y);
+      const first = xIndices.get(Math.min(segment.from.x, segment.to.x));
+      const last = xIndices.get(Math.max(segment.from.x, segment.to.x));
+      if (yIndex === undefined || first === undefined || last === undefined) continue;
+      for (let xIndex = first; xIndex < last; xIndex += 1) {
+        horizontalBlocked[xIndex * ys.length + yIndex] = 1;
+      }
+    } else if (segment.from.x === segment.to.x) {
+      const xIndex = xIndices.get(segment.from.x);
+      const first = yIndices.get(Math.min(segment.from.y, segment.to.y));
+      const last = yIndices.get(Math.max(segment.from.y, segment.to.y));
+      if (xIndex === undefined || first === undefined || last === undefined) continue;
+      for (let yIndex = first; yIndex < last; yIndex += 1) {
+        verticalBlocked[xIndex * (ys.length - 1) + yIndex] = 1;
+      }
+    }
+  }
+
+  const startX = xIndices.get(start.x);
+  const startY = yIndices.get(start.y);
+  const endX = xIndices.get(end.x);
+  const endY = yIndices.get(end.y);
+  if (startX === undefined || startY === undefined || endX === undefined || endY === undefined) {
+    return [start, end];
+  }
+  const startIndex = nodeIndex(startX, startY);
+  const endIndex = nodeIndex(endX, endY);
+  const heuristic = (xIndex: number, yIndex: number) => (
+    Math.abs(xs[xIndex] - end.x) + Math.abs(ys[yIndex] - end.y)
+  );
+  const queue = new RouteMinHeap();
+  queue.push({ nodeIndex: startIndex, direction: 0, cost: 0, priority: heuristic(startX, startY) });
+  const distances = new Map([[routeStateKey(startIndex, 0), 0]]);
+  const previous = new Map<number, number>();
+  let finalKey: number | undefined;
+
+  while (queue.length > 0) {
+    const current = queue.pop();
+    if (!current) break;
+    const currentKey = routeStateKey(current.nodeIndex, current.direction);
+    if (current.cost !== distances.get(currentKey)) continue;
+    if (current.nodeIndex === endIndex) {
+      finalKey = currentKey;
+      break;
+    }
+
+    const xIndex = Math.floor(current.nodeIndex / gridHeight);
+    const yIndex = current.nodeIndex % gridHeight;
+    const candidates: Array<{
+      xIndex: number;
+      yIndex: number;
+      direction: RouteDirection;
+      blocked: boolean;
+    }> = [];
+    if (xIndex > 0) candidates.push({
+      xIndex: xIndex - 1,
+      yIndex,
+      direction: 1,
+      blocked: horizontalBlocked[(xIndex - 1) * ys.length + yIndex] === 1,
+    });
+    if (xIndex + 1 < xs.length) candidates.push({
+      xIndex: xIndex + 1,
+      yIndex,
+      direction: 1,
+      blocked: horizontalBlocked[xIndex * ys.length + yIndex] === 1,
+    });
+    if (yIndex > 0) candidates.push({
+      xIndex,
+      yIndex: yIndex - 1,
+      direction: 2,
+      blocked: verticalBlocked[xIndex * (ys.length - 1) + yIndex - 1] === 1,
+    });
+    if (yIndex + 1 < ys.length) candidates.push({
+      xIndex,
+      yIndex: yIndex + 1,
+      direction: 2,
+      blocked: verticalBlocked[xIndex * (ys.length - 1) + yIndex] === 1,
+    });
+
+    for (const candidate of candidates) {
+      const neighborIndex = nodeIndex(candidate.xIndex, candidate.yIndex);
+      if (candidate.blocked || pointBlocked[neighborIndex] === 1) continue;
+      const distance = Math.abs(xs[xIndex] - xs[candidate.xIndex])
+        + Math.abs(ys[yIndex] - ys[candidate.yIndex]);
+      const bendCost = current.direction !== 0 && current.direction !== candidate.direction
+        ? FBD_ROUTE_BEND_COST
+        : 0;
+      const cost = current.cost + distance + bendCost;
+      const neighborKey = routeStateKey(neighborIndex, candidate.direction);
+      if (cost >= (distances.get(neighborKey) ?? Number.POSITIVE_INFINITY)) continue;
+      distances.set(neighborKey, cost);
+      previous.set(neighborKey, currentKey);
+      queue.push({
+        nodeIndex: neighborIndex,
+        direction: candidate.direction,
+        cost,
+        priority: cost + heuristic(candidate.xIndex, candidate.yIndex),
+      });
+    }
+  }
+
+  if (!finalKey) return [start, end];
+  const route: FBDPoint[] = [];
+  let key: number | undefined = finalKey;
+  while (key !== undefined) {
+    const currentNode = Math.floor(key / 3);
+    const xIndex = Math.floor(currentNode / gridHeight);
+    const yIndex = currentNode % gridHeight;
+    route.push({ x: xs[xIndex], y: ys[yIndex] });
+    key = previous.get(key);
+  }
+  return simplifyOrthogonalPoints(route.reverse());
+}
+
 export function routeFBDConnection(
   source: FBDPortLayout,
   destination: FBDPortLayout,
   connectionKind: 'wire' | 'feedback-wire',
   connectionIndex: number,
   elementBounds: FBDRect,
+  elementObstacles: readonly FBDRect[] = [],
+  occupiedSegments: readonly FBDLineSegment[] = [],
 ): Pick<FBDConnectionLayout, 'points' | 'path' | 'routeKind'> {
   let routeKind: FBDRouteKind;
-  let points: FBDPoint[];
+  const sourcePoint = outerPinPoint(source);
+  const destinationPoint = outerPinPoint(destination);
+  const sourceLead = outerLeadPoint(source);
+  const destinationLead = outerLeadPoint(destination);
+  const obstacles = elementObstacles.map(wireObstacle);
+  let preferredInterior: FBDPoint[];
 
   if (connectionKind === 'feedback-wire') {
     routeKind = 'feedback';
     const laneY = elementBounds.y + elementBounds.height + FBD_BACKWARD_ROUTE_GAP
       + connectionIndex * FBD_ROUTE_LANE_GAP;
-    points = [
-      source.point,
-      { x: source.point.x + FBD_BACKWARD_ROUTE_GAP / 2, y: source.point.y },
-      { x: source.point.x + FBD_BACKWARD_ROUTE_GAP / 2, y: laneY },
-      { x: destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2, y: laneY },
-      { x: destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2, y: destination.point.y },
-      destination.point,
+    preferredInterior = [
+      sourceLead,
+      { x: sourceLead.x, y: laneY },
+      { x: destinationLead.x, y: laneY },
+      destinationLead,
     ];
-  } else if (destination.point.x > source.point.x) {
+  } else if (destinationLead.x > sourceLead.x) {
     routeKind = 'forward';
-    const middleX = source.point.x + (destination.point.x - source.point.x) / 2;
-    points = [
-      source.point,
-      { x: middleX, y: source.point.y },
-      { x: middleX, y: destination.point.y },
-      destination.point,
+    const middleX = sourceLead.x + (destinationLead.x - sourceLead.x) / 2;
+    preferredInterior = [
+      sourceLead,
+      { x: middleX, y: sourceLead.y },
+      { x: middleX, y: destinationLead.y },
+      destinationLead,
     ];
   } else {
     routeKind = 'backward';
     const laneY = elementBounds.y - FBD_BACKWARD_ROUTE_GAP
       - connectionIndex * FBD_ROUTE_LANE_GAP;
-    points = [
-      source.point,
-      { x: source.point.x + FBD_BACKWARD_ROUTE_GAP / 2, y: source.point.y },
-      { x: source.point.x + FBD_BACKWARD_ROUTE_GAP / 2, y: laneY },
-      { x: destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2, y: laneY },
-      { x: destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2, y: destination.point.y },
-      destination.point,
+    preferredInterior = [
+      sourceLead,
+      { x: sourceLead.x, y: laneY },
+      { x: destinationLead.x, y: laneY },
+      destinationLead,
     ];
   }
 
-  const canonicalPoints = deduplicateAdjacentPoints(points);
+  const interior = routeClearsObstacles(preferredInterior, obstacles)
+    && !pathOverlapsSegments(preferredInterior, occupiedSegments)
+    ? preferredInterior
+    : routeAroundObstacles(sourceLead, destinationLead, obstacles, occupiedSegments);
+  const canonicalPoints = simplifyOrthogonalPoints([sourcePoint, ...interior, destinationPoint]);
   return { points: canonicalPoints, path: pointsToPath(canonicalPoints), routeKind };
 }
 
@@ -298,15 +718,28 @@ function resolveEndpoint(
   }
 
   const layout = matches[0];
-  const port = portId === undefined && layout.ports.length === 1
-    ? layout.ports[0]
-    : layout.ports.find((candidate) => candidate.port.id === portId);
+  const matchingPorts = portId === undefined && layout.ports.length === 1
+    ? [layout.ports[0]]
+    : layout.ports.filter((candidate) => candidate.port.id === portId);
+  if (matchingPorts.length > 1) {
+    return {
+      diagnostic: {
+        code: 'FBD_LAYOUT_AMBIGUOUS_PORT',
+        message: `Connection ${connectionIndex} references duplicate port ${portId ?? '(implicit)'} on element ${elementId}.`,
+        elementId,
+        portId,
+        connectionIndex,
+      },
+    };
+  }
+  const port = matchingPorts[0];
   if (!port) {
     return {
       diagnostic: {
         code: 'FBD_LAYOUT_MISSING_PORT',
         message: `Connection ${connectionIndex} references missing port ${portId ?? '(implicit)'} on element ${elementId}.`,
         elementId,
+        portId,
         connectionIndex,
       },
     };
@@ -317,6 +750,7 @@ function resolveEndpoint(
         code: 'FBD_LAYOUT_INVALID_DIRECTION',
         message: `Connection ${connectionIndex} uses ${port.port.id} on element ${elementId} as an ${expectedDirection} port, but it is ${port.port.direction}.`,
         elementId,
+        portId: port.port.id,
         connectionIndex,
       },
     };
@@ -327,13 +761,15 @@ function resolveEndpoint(
 function paddedBounds(
   elements: readonly FBDElementLayout[],
   connections: readonly FBDConnectionLayout[],
+  attachments: readonly FBDAttachmentLayout[],
 ): FBDRect {
   const elementPoints = elements.flatMap((layout) => [
     { x: layout.bounds.x, y: layout.bounds.y },
     { x: layout.bounds.x + layout.bounds.width, y: layout.bounds.y + layout.bounds.height },
   ]);
   const routePoints = connections.flatMap((connection) => connection.points);
-  const extent = unionPoints([...elementPoints, ...routePoints]);
+  const attachmentPoints = attachments.flatMap((attachment) => attachment.points);
+  const extent = unionPoints([...elementPoints, ...routePoints, ...attachmentPoints]);
   return {
     x: extent.x - FBD_SHEET_PADDING,
     y: extent.y - FBD_SHEET_PADDING,
@@ -342,11 +778,88 @@ function paddedBounds(
   };
 }
 
+function duplicatePortIds(layout: FBDElementLayout): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const port of layout.ports) {
+    if (seen.has(port.port.id)) duplicates.add(port.port.id);
+    seen.add(port.port.id);
+  }
+  return [...duplicates];
+}
+
+function attachmentEndpoint(
+  layoutsById: ReadonlyMap<string, FBDElementLayout[]>,
+  elementId: string,
+  attachmentIndex: number,
+): { layout?: FBDElementLayout; diagnostic?: FBDLayoutDiagnostic } {
+  const matches = layoutsById.get(elementId) ?? [];
+  if (matches.length === 0) {
+    return {
+      diagnostic: {
+        code: 'FBD_ATTACHMENT_MISSING_ELEMENT',
+        message: `Attachment ${attachmentIndex} references missing element ${elementId}.`,
+        elementId,
+        attachmentIndex,
+      },
+    };
+  }
+  if (matches.length > 1) {
+    return {
+      diagnostic: {
+        code: 'FBD_ATTACHMENT_AMBIGUOUS_ELEMENT',
+        message: `Attachment ${attachmentIndex} references duplicate element ${elementId}.`,
+        elementId,
+        attachmentIndex,
+      },
+    };
+  }
+  return { layout: matches[0] };
+}
+
+function rectCenter(rect: FBDRect): FBDPoint {
+  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+}
+
+function routeFBDAttachment(from: FBDRect, to: FBDRect): Pick<FBDAttachmentLayout, 'points' | 'path'> {
+  const fromCenter = rectCenter(from);
+  const toCenter = rectCenter(to);
+  const horizontal = Math.abs(toCenter.x - fromCenter.x) >= Math.abs(toCenter.y - fromCenter.y);
+  let points: FBDPoint[];
+
+  if (horizontal) {
+    const movesRight = toCenter.x >= fromCenter.x;
+    const start = { x: movesRight ? from.x + from.width : from.x, y: fromCenter.y };
+    const end = { x: movesRight ? to.x : to.x + to.width, y: toCenter.y };
+    const middleX = start.x + (end.x - start.x) / 2;
+    points = [start, { x: middleX, y: start.y }, { x: middleX, y: end.y }, end];
+  } else {
+    const movesDown = toCenter.y >= fromCenter.y;
+    const start = { x: fromCenter.x, y: movesDown ? from.y + from.height : from.y };
+    const end = { x: toCenter.x, y: movesDown ? to.y : to.y + to.height };
+    const middleY = start.y + (end.y - start.y) / 2;
+    points = [start, { x: start.x, y: middleY }, { x: end.x, y: middleY }, end];
+  }
+
+  const canonicalPoints = deduplicateAdjacentPoints(points);
+  return { points: canonicalPoints, path: pointsToPath(canonicalPoints) };
+}
+
 export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
   const diagnostics: FBDLayoutDiagnostic[] = [];
-  const elements = sheet.elements
-    .map(layoutFBDElement)
-    .filter((layout): layout is FBDElementLayout => layout !== undefined);
+  const elements: FBDElementLayout[] = [];
+  for (const element of sheet.elements) {
+    const layout = layoutFBDElement(element);
+    if (layout) {
+      elements.push(layout);
+    } else {
+      diagnostics.push({
+        code: 'FBD_LAYOUT_UNPLACEABLE_ELEMENT',
+        message: `${element.kind === 'placeholder' ? element.sourceKind : element.kind} element ${'id' in element && element.id !== undefined ? element.id : '(unknown ID)'} has no usable position and was omitted.`,
+        elementId: 'id' in element ? element.id : undefined,
+      });
+    }
+  }
   const layoutsById = new Map<string, FBDElementLayout[]>();
 
   for (const layout of elements) {
@@ -368,8 +881,24 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
     }
   }
 
+  for (const layout of elements) {
+    for (const portId of duplicatePortIds(layout)) {
+      diagnostics.push({
+        code: 'FBD_LAYOUT_DUPLICATE_PORT_ID',
+        message: `Element ${'id' in layout.element ? layout.element.id : '(unknown ID)'} has duplicate port ${portId}; connections to that port are ambiguous.`,
+        elementId: 'id' in layout.element ? layout.element.id : undefined,
+        portId,
+      });
+    }
+  }
+
   const baseBounds = elementExtents(elements);
   const connections: FBDConnectionLayout[] = [];
+  const occupiedRoutes: Array<{
+    sourceKey: string;
+    destinationKey: string;
+    segments: FBDLineSegment[];
+  }> = [];
   sheet.connections.forEach((connection, connectionIndex) => {
     const source = resolveEndpoint(
       layoutsById,
@@ -390,21 +919,73 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
     if (!source.port || !destination.port) {
       return;
     }
+    const sourceKey = `${connection.from.elementId}:${source.port.port.id}`;
+    const destinationKey = `${connection.to.elementId}:${destination.port.port.id}`;
+    const occupiedSegments = occupiedRoutes.flatMap((occupied) => (
+      occupied.segments.filter((_segment, segmentIndex) => (
+        !(occupied.sourceKey === sourceKey && segmentIndex === 0)
+        && !(
+          occupied.destinationKey === destinationKey
+          && segmentIndex === occupied.segments.length - 1
+        )
+      ))
+    ));
     const route = routeFBDConnection(
       source.port,
       destination.port,
       connection.kind,
       connectionIndex,
       baseBounds,
+      elements.map((layout) => layout.bounds),
+      occupiedSegments,
     );
+    occupiedRoutes.push({
+      sourceKey,
+      destinationKey,
+      segments: pathSegments(route.points),
+    });
     connections.push({ connection, source: source.port, destination: destination.port, ...route });
   });
 
-  const bounds = paddedBounds(elements, connections);
+  const attachments: FBDAttachmentLayout[] = [];
+  sheet.attachments.forEach((attachment, attachmentIndex) => {
+    const from = attachmentEndpoint(layoutsById, attachment.fromElementId, attachmentIndex);
+    const to = attachmentEndpoint(layoutsById, attachment.toElementId, attachmentIndex);
+    if (from.diagnostic) diagnostics.push(from.diagnostic);
+    if (to.diagnostic) diagnostics.push(to.diagnostic);
+    if (!from.layout || !to.layout) return;
+    if (from.layout.element.kind !== 'text-box') {
+      diagnostics.push({
+        code: 'FBD_ATTACHMENT_INVALID_SOURCE',
+        message: `Attachment ${attachmentIndex} source ${attachment.fromElementId} is not a text box.`,
+        elementId: attachment.fromElementId,
+        attachmentIndex,
+      });
+      return;
+    }
+    if (to.layout.element.kind === 'text-box' || from.layout === to.layout) {
+      diagnostics.push({
+        code: 'FBD_ATTACHMENT_INVALID_TARGET',
+        message: `Attachment ${attachmentIndex} target ${attachment.toElementId} cannot accept a text attachment.`,
+        elementId: attachment.toElementId,
+        attachmentIndex,
+      });
+      return;
+    }
+    attachments.push({
+      attachment,
+      from: from.layout,
+      to: to.layout,
+      ...routeFBDAttachment(from.layout.bounds, to.layout.bounds),
+    });
+  });
+
+  const bounds = paddedBounds(elements, connections, attachments);
   return {
     sheet,
     elements,
     connections,
+    attachments,
     diagnostics,
     bounds,
     viewBox: `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,
@@ -486,4 +1067,29 @@ export function buildFBDConnectorIndex(sheets: readonly NormalizedFBDSheet[]): F
 
 export function getFBDBlockArrayLabels(block: NormalizedFBDBlock): string[] {
   return block.arrays.map((array) => [array.name, array.operand].filter(Boolean).join(': '));
+}
+
+export function getFBDAOIBindingLabels(
+  element: Extract<NormalizedFBDElement, { kind: 'add-on-instruction' }>,
+): string[] {
+  return element.bindings.map((binding) =>
+    [binding.name, binding.argument].filter(Boolean).join(': ')
+  );
+}
+
+export function getFBDElementFooterLabels(element: NormalizedFBDElement): string[] {
+  if (element.kind === 'block') {
+    const labels = getFBDBlockArrayLabels(element);
+    if (element.instruction === 'PIDE') {
+      labels.push(`AutotuneTag: ${element.autotuneTag ?? ''}`);
+    }
+    return labels;
+  }
+  if (element.kind === 'add-on-instruction') return getFBDAOIBindingLabels(element);
+  if (element.kind !== 'routine-control') return [];
+
+  return [
+    element.inputParameters.length ? `In: ${element.inputParameters.join(', ')}` : undefined,
+    element.returnParameters.length ? `Ret: ${element.returnParameters.join(', ')}` : undefined,
+  ].filter((label): label is string => label !== undefined);
 }

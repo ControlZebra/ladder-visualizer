@@ -1,4 +1,5 @@
 import type {
+  NormalizedFBDAttachment,
   NormalizedFBDConnection,
   NormalizedFBDConnector,
   NormalizedFBDElement,
@@ -46,11 +47,27 @@ export interface FBDConnectionLayout {
   routeKind: FBDRouteKind;
 }
 
+export interface FBDAttachmentLayout {
+  attachment: NormalizedFBDAttachment;
+  from: FBDElementLayout;
+  to: FBDElementLayout;
+  points: FBDPoint[];
+  path: string;
+}
+
 export type FBDLayoutDiagnosticCode =
+  | 'FBD_LAYOUT_UNPLACEABLE_ELEMENT'
   | 'FBD_LAYOUT_DUPLICATE_ELEMENT_ID'
+  | 'FBD_LAYOUT_DUPLICATE_PORT_ID'
+  | 'FBD_LAYOUT_AMBIGUOUS_PORT'
   | 'FBD_LAYOUT_MISSING_ELEMENT'
   | 'FBD_LAYOUT_MISSING_PORT'
   | 'FBD_LAYOUT_INVALID_DIRECTION'
+  | 'FBD_ATTACHMENT_MISSING_ELEMENT'
+  | 'FBD_ATTACHMENT_AMBIGUOUS_ELEMENT'
+  | 'FBD_ATTACHMENT_INVALID_SOURCE'
+  | 'FBD_ATTACHMENT_INVALID_TARGET'
+  | 'FBD_RENDER_SHEET_FAILURE'
   | 'FBD_CONNECTOR_BLANK_NAME'
   | 'FBD_CONNECTOR_AMBIGUOUS_SOURCE'
   | 'FBD_CONNECTOR_UNMATCHED'
@@ -61,7 +78,9 @@ export interface FBDLayoutDiagnostic {
   message: string;
   sheetIndex?: number;
   elementId?: string;
+  portId?: string;
   connectionIndex?: number;
+  attachmentIndex?: number;
   connectorName?: string;
 }
 
@@ -69,6 +88,7 @@ export interface FBDSheetLayout {
   sheet: NormalizedFBDSheet;
   elements: FBDElementLayout[];
   connections: FBDConnectionLayout[];
+  attachments: FBDAttachmentLayout[];
   diagnostics: FBDLayoutDiagnostic[];
   bounds: FBDRect;
   viewBox: string;

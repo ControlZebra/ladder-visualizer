@@ -36,6 +36,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "preview:fbd": "vite --open /preview/fbd.html",
     "build": "npm run typecheck && npm run build:lib",
     "build:lib": "tsup",
     "prepare": "npm run build:lib",
@@ -75,6 +76,7 @@
     "vitest": "^1.0.0"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.6",
     "fast-xml-parser": "^5.3.3",
     "zustand": "^4.4.0"
   }

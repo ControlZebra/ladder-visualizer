@@ -3,6 +3,7 @@ import {
   parseFile,
   parseString,
   VirtualizedLadderDiagram,
+  FBDDiagram,
   InlineDiffRung,
   TagTable,
   ControllerInfo,
@@ -832,17 +833,15 @@ export default function App() {
         if (aoi && routine) {
           const isSTRoutine = routine.type === 'ST';
           const isRLLRoutine = routine.type === 'RLL';
+          const isFBDRoutine = routine.type === 'FBD' && Boolean(routine.fbd);
           
-          // Show unsupported format notice for FBD, SFC, and other non-supported types
-          if (!isSTRoutine && !isRLLRoutine) {
+          if (!isSTRoutine && !isRLLRoutine && !isFBDRoutine) {
             return (
               <div key={`aoi-routine-${tabData.aoiName}-${tabData.routineIndex}`} style={containerStyle}>
                 <div style={styles.emptyState}>
                   <p style={styles.emptyStateTitle}>{routine.type} Visualization Not Supported</p>
                   <p style={styles.emptyStateText}>
-                    {routine.type === 'FBD' 
-                      ? 'Function Block Diagram (FBD) visualization is not yet supported'
-                      : routine.type === 'SFC'
+                    {routine.type === 'SFC'
                         ? 'Sequential Function Chart (SFC) visualization is not yet supported'
                         : `${routine.type} routine visualization is not yet supported`
                     }
@@ -859,6 +858,13 @@ export default function App() {
                   <StructuredTextViewer
                     routine={routine}
                     style={{ width: '100%', height: '100%' }}
+                  />
+                ) : isFBDRoutine && routine.fbd ? (
+                  <FBDDiagram
+                    body={routine.fbd}
+                    width="100%"
+                    height="100%"
+                    showControls
                   />
                 ) : (
                   <VirtualizedLadderDiagram
@@ -881,17 +887,15 @@ export default function App() {
         if (routine) {
           const isSTRoutine = routine.type === 'ST';
           const isRLLRoutine = routine.type === 'RLL';
+          const isFBDRoutine = routine.type === 'FBD' && Boolean(routine.fbd);
           
-          // Show unsupported format notice for FBD, SFC, and other non-supported types
-          if (!isSTRoutine && !isRLLRoutine) {
+          if (!isSTRoutine && !isRLLRoutine && !isFBDRoutine) {
             return (
               <div key={`routine-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
                 <div style={styles.emptyState}>
                   <p style={styles.emptyStateTitle}>{routine.type} Visualization Not Supported</p>
                   <p style={styles.emptyStateText}>
-                    {routine.type === 'FBD' 
-                      ? 'Function Block Diagram (FBD) visualization is not yet supported'
-                      : routine.type === 'SFC'
+                    {routine.type === 'SFC'
                         ? 'Sequential Function Chart (SFC) visualization is not yet supported'
                         : `${routine.type} routine visualization is not yet supported`
                     }
@@ -929,6 +933,13 @@ export default function App() {
                   <StructuredTextViewer
                     routine={routine}
                     style={{ width: '100%', height: '100%' }}
+                  />
+                ) : isFBDRoutine && routine.fbd ? (
+                  <FBDDiagram
+                    body={routine.fbd}
+                    width="100%"
+                    height="100%"
+                    showControls
                   />
                 ) : (
                   <VirtualizedLadderDiagram
