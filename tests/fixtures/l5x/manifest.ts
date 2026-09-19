@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.8.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.9.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -1897,6 +1897,38 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       'AB-Samples event task regression',
       'version matrix',
     ],
+  },
+  {
+    id: 'program-navigator-tasks-v35',
+    file: 'program-navigator-tasks-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'task-scheduling',
+    profiles: ['rockwell-controller-rll'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      programs: 2,
+      routines: 2,
+      rungs: 1,
+      stLines: 1,
+      tasks: 2,
+      scheduledPrograms: 1,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 2,
+        routines: 2,
+        rungs: 1,
+        stLines: 1,
+        tasks: 2,
+        scheduledPrograms: 1,
+      },
+    },
+    coverage: ['task scheduling', 'program navigator', 'unscheduled program'],
   },
   {
     id: 'task-numeric-overflow-v35',
