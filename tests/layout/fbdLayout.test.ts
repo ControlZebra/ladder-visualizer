@@ -165,7 +165,47 @@ describe('FBD layout', () => {
     const layout = layoutFBDElement(block);
     expect(FBD_GRID_TO_SVG_SCALE).toBe(1);
     expect(layout?.bounds).toMatchObject({ x: 300, y: 100 });
-    expect(measureFBDElement(block).width).toBeGreaterThanOrEqual(140);
+    expect(measureFBDElement(block).width).toBeGreaterThanOrEqual(70);
+  });
+
+  it('uses a compact minimum width and center separator gap for instruction nodes', () => {
+    const compact = measureFBDElement({
+      kind: 'routine-control',
+      operation: 'JSR',
+      id: 'compact',
+      position: { x: '10', y: '10' },
+      inputParameters: [],
+      returnParameters: [],
+    });
+    const pairedLabels = measureFBDElement({
+      kind: 'function',
+      instruction: 'F',
+      id: 'paired-labels',
+      position: { x: '10', y: '10' },
+      ports: [
+        {
+          id: 'In',
+          label: 'Input',
+          direction: 'input',
+          side: 'left',
+          order: 0,
+          defaultVisible: true,
+          visible: true,
+        },
+        {
+          id: 'Out',
+          label: 'Output',
+          direction: 'output',
+          side: 'right',
+          order: 0,
+          defaultVisible: true,
+          visible: true,
+        },
+      ],
+    });
+
+    expect(compact.width).toBe(70);
+    expect(pairedLabels.width).toBe('Input'.length * 7 + 'Output'.length * 7 + 36);
   });
 
   it('places explicit ports deterministically on their declared sides and order', () => {

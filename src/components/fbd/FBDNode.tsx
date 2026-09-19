@@ -81,7 +81,7 @@ function PortHandles({ layout, theme, showLabels = true }: {
         const side = port.port.side === 'left' ? Position.Left : Position.Right;
         const top = port.point.y - layout.bounds.y;
         const labelStyle: CSSProperties = {
-          color: theme.boxTextColor,
+          color: theme.addressColor,
           top,
           [port.port.side === 'left' ? 'left' : 'right']: 10,
           transform: 'translateY(-50%)',
@@ -139,7 +139,9 @@ function TerminalNode({ layout, theme }: FBDFlowNodeData) {
     <div className="fbd-terminal-node">
       <PortHandles layout={layout} theme={theme} showLabels={false} />
       <div className={`fbd-terminal-shape ${kindClass}`}>
-        <span className="fbd-terminal-label">{terminalLabel(element)}</span>
+        <span className="fbd-terminal-label" style={{ color: theme.addressColor }}>
+          {terminalLabel(element)}
+        </span>
       </div>
     </div>
   );

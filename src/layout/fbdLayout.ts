@@ -32,7 +32,8 @@ export const FBD_WIRE_SEPARATION = 4;
 
 const CHARACTER_WIDTH = 7;
 const REFERENCE_HEIGHT = 32;
-const MIN_BLOCK_WIDTH = 140;
+const MIN_BLOCK_WIDTH = 70;
+const BLOCK_LABEL_SEPARATOR_GAP = 36;
 const FBD_ROUTE_BEND_COST = 8;
 
 function textWidth(value: string | undefined): number {
@@ -177,7 +178,7 @@ export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 
       titleWidth,
       operandWidth,
       footerWidth,
-      leftLabelWidth + rightLabelWidth + 72,
+      leftLabelWidth + rightLabelWidth + BLOCK_LABEL_SEPARATOR_GAP,
     ),
     height: Math.max(
       64,

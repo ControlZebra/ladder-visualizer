@@ -62,6 +62,7 @@ describe('FBDDiagram', () => {
     expect(model.edges.filter((edge) => edge.data && 'endpoints' in edge.data)).toHaveLength(0);
     expect(markup).toContain('StorageArray');
     expect(markup).toContain('DEDT_01array');
+    expect(markup).toContain('class="fbd-port-label" style="color:#666666');
     expect(markup).toContain('--fbd-node-background:color-mix(in srgb, #f0f0f0 50%, #ffffff)');
     expect(markup).toContain('background:var(--fbd-node-background)');
     expect(markup).toContain('data-connector-relationship-count="1"');
@@ -134,6 +135,9 @@ describe('FBDDiagram', () => {
     expect(referenceMarkup).toContain('fbd-reference-shape');
     expect(connectorMarkup).toContain('fbd-terminal-node');
     expect(connectorMarkup).toContain('fbd-connector-shape fbd-connector-target');
+    expect(connectorMarkup).toContain(
+      '<span class="fbd-terminal-label" style="color:#666666">TankLevel</span>',
+    );
     const inputConnectorMarkup = renderToStaticMarkup(createElement(FBDDiagram, {
       body: levelControlBody(),
       sheetIndex: 1,
