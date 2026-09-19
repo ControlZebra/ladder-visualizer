@@ -2,14 +2,14 @@
 
 A React and TypeScript library for parsing, comparing, and rendering
 Allen-Bradley/Rockwell PLC controller exports. It provides normalized controller
-data, SVG ladder-diagram components, inspection tables, and controller/rung diff
+data, ladder-diagram components, inspection tables, and controller/rung diff
 utilities.
 
 ## Features
 
 - Parse Rockwell JSON and L5X controller exports into a normalized domain model.
 - Render virtualized SVG ladder diagrams, including parallel branches.
-- Render deterministic, read-only SVG Function Block Diagram sheets.
+- Render read-only Function Block Diagram sheets with React Flow custom nodes and orthogonal edges.
 - Browse controller metadata, tags, modules, data types, AOIs, and structured text.
 - Compare controllers and render inline, rung-level diffs.
 - Customize the UI with CSS custom properties or typed light/dark theme objects.
@@ -55,9 +55,13 @@ import { FBDDiagram } from 'ladder-visualizer';
 const fbd = result.data.programs[0]?.routines.find((routine) => routine.type === 'FBD')?.fbd;
 
 export function FunctionBlockRoutine() {
-  return fbd ? <FBDDiagram body={fbd} sheetIndex={0} /> : null;
+  return fbd ? <FBDDiagram body={fbd} sheetIndex={0} showControls /> : null;
 }
 ```
+
+Run `npm run preview:fbd` to open the dedicated FBD previewer. It includes the
+topology and element-family fixtures, sheet selection, light/dark themes, grid
+and minimap toggles, viewport controls, and renderer diagnostics.
 
 Use `parseFile()` for browser file uploads and `parseBuffer()` for an
 `ArrayBuffer`. Parsers are registered automatically when importing from the

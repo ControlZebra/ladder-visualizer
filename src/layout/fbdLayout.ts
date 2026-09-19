@@ -696,7 +696,13 @@ export function getFBDAOIBindingLabels(
 }
 
 export function getFBDElementFooterLabels(element: NormalizedFBDElement): string[] {
-  if (element.kind === 'block') return getFBDBlockArrayLabels(element);
+  if (element.kind === 'block') {
+    const labels = getFBDBlockArrayLabels(element);
+    if (element.instruction === 'PIDE') {
+      labels.push(`AutotuneTag: ${element.autotuneTag ?? ''}`);
+    }
+    return labels;
+  }
   if (element.kind === 'add-on-instruction') return getFBDAOIBindingLabels(element);
   if (element.kind !== 'routine-control') return [];
 

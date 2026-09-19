@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { FBDDiagram } from '../../src/components';
 import { parseString } from '../../src/parsers';
 import { DARK_THEME, DEFAULT_THEME } from '../../src/types';
+import '../../src/styles/index.css';
 import levelControlFixture from '../fixtures/l5x/fbd-level-control-v35.L5X?raw';
 import elementFixture from '../fixtures/l5x/fbd-render-elements-v35.L5X?raw';
 import { withFunctionElement } from '../fixtures/fbdRenderElements';
