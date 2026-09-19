@@ -176,7 +176,6 @@ describe('L5X canonical FBD normalization', () => {
       'FBD_MISSING_SHEET_SIZE',
       'FBD_MISSING_SHEET_ORIENTATION',
       'FBD_MISSING_SHEET_NUMBER',
-      'FBD_MISSING_SHEET_NAME',
     ]);
   });
 

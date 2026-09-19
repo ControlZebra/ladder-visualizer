@@ -65,7 +65,7 @@ export interface FBDDiagramProps {
   interactive?: boolean;
   /** Render only viewport-visible elements. Disabled until a workload-specific benchmark opts in. */
   onlyRenderVisibleElements?: boolean;
-  /** Receives parser, connector, and selected-sheet layout diagnostics in stable order. */
+  /** Receives parser, connector, and selected-sheet layout diagnostics for the host warning log. */
   onDiagnostics?: (diagnostics: readonly FBDDiagramDiagnostic[]) => void;
 }
 
@@ -137,13 +137,6 @@ function boundedSheetIndex(sheetIndex: number | undefined, sheetCount: number): 
   if (sheetCount === 0) return 0;
   if (!Number.isInteger(sheetIndex)) return 0;
   return Math.max(0, Math.min(sheetIndex ?? 0, sheetCount - 1));
-}
-
-function sheetAccessibleName(name: string, number: string): string {
-  const numberLabel = `Sheet ${number}`;
-  return name.trim().toLocaleLowerCase() === numberLabel.toLocaleLowerCase()
-    ? numberLabel
-    : `${numberLabel}: ${name}`;
 }
 
 function inferredColorMode(background: string): 'light' | 'dark' {
@@ -411,13 +404,10 @@ export function FBDDiagram({
   const layout = state.layout;
   const activeTabId = `${idPrefix}-tab-${activeSheetIndex}`;
   const summaryId = `${idPrefix}-summary-${activeSheetIndex}`;
-  const accessibleName = sheetAccessibleName(sheet.name.value, sheet.number.value);
+  const accessibleName = `Sheet ${activeSheetIndex + 1}`;
   const summary = layout
     ? `${layout.elements.length} elements and ${layout.connections.length} connections.`
     : 'Diagram unavailable.';
-  const diagnosticSummary = state.diagnostics.length === 0
-    ? 'No diagnostics.'
-    : `${state.diagnostics.length} ${state.diagnostics.length === 1 ? 'diagnostic' : 'diagnostics'}.`;
   const fallbackHeight = layout ? layout.bounds.height + 76 : 172;
   const fallbackWidth = layout?.bounds.width ?? 420;
 
@@ -437,7 +427,6 @@ export function FBDDiagram({
         '--fbd-text': theme.boxTextColor,
         '--fbd-muted': theme.addressColor,
         '--fbd-focus': theme.powerRailColor,
-        '--fbd-diagnostic': theme.contactNCColor,
         '--fbd-wire': theme.wireColor,
         ...style,
       } as CSSProperties}
@@ -466,11 +455,7 @@ export function FBDDiagram({
               onClick={() => selectSheet(index)}
               onKeyDown={(event) => handleTabKeyDown(event, index)}
             >
-              <span className="fbd-sheet-tab-number">Sheet {candidate.number.value}</span>
-              {candidate.name.value.trim().toLocaleLowerCase()
-                !== `Sheet ${candidate.number.value}`.toLocaleLowerCase() && (
-                <span className="fbd-sheet-tab-name">{candidate.name.value}</span>
-              )}
+              <span className="fbd-sheet-tab-number">Sheet {index + 1}</span>
             </button>
           );
         })}
@@ -501,14 +486,6 @@ export function FBDDiagram({
           >
             <div id={summaryId} className="fbd-sheet-summary">
               <span>{accessibleName}. {summary}</span>
-              {state.diagnostics.length === 0 ? (
-                <span className="fbd-diagnostic-summary">{diagnosticSummary}</span>
-              ) : (
-                <span className="fbd-diagnostic-summary fbd-diagnostic-summary-warning">
-                  <span aria-hidden="true">&#9888; </span>
-                  Warning: {diagnosticSummary}
-                </span>
-              )}
             </div>
             {!layout || state.failure ? (
               renderFailure(
@@ -520,7 +497,7 @@ export function FBDDiagram({
                 theme,
               )
             ) : (
-              <div className="fbd-react-flow" aria-label={`Function block diagram: ${sheet.name.value}`}>
+              <div className="fbd-react-flow" aria-label={`Function block diagram: ${accessibleName}`}>
                 <ReactFlow<FBDFlowNode, FBDFlowEdge>
                   key={`${activeSheetIndex}-${sheet.number.value}-${layout.viewBox}`}
                   nodes={model.nodes}
