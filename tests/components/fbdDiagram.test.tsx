@@ -63,6 +63,15 @@ describe('FBDDiagram', () => {
     expect(markup).toContain('StorageArray');
     expect(markup).toContain('DEDT_01array');
     expect(markup).toContain('class="fbd-port-label" style="color:#666666');
+    expect(markup).toContain(
+      '<span class="fbd-binding-value" style="color:#000000">DEDT_01array</span>',
+    );
+    expect(markup).toContain(
+      '<strong class="fbd-instruction-title" style="color:#000000">DEDT</strong>',
+    );
+    expect(markup).toContain(
+      '<span class="fbd-instruction-subtitle" style="color:#000000">DEDT_01</span>',
+    );
     expect(markup).toContain('--fbd-node-background:color-mix(in srgb, #f0f0f0 50%, #ffffff)');
     expect(markup).toContain('background:var(--fbd-node-background)');
     expect(markup).toContain('data-connector-relationship-count="1"');
@@ -122,7 +131,7 @@ describe('FBDDiagram', () => {
     expect(markup).toContain('unsupported semantics');
   });
 
-  it('uses distinct reference and connector silhouettes from the source element types', () => {
+  it('uses distinct terminal silhouettes and primary operand text for every terminal type', () => {
     const referenceMarkup = renderToStaticMarkup(createElement(FBDDiagram, {
       body: fixtureBody('fbd-v35.L5X', 'FBDLogic'),
     }));
@@ -133,16 +142,25 @@ describe('FBDDiagram', () => {
 
     expect(referenceMarkup).toContain('fbd-terminal-node');
     expect(referenceMarkup).toContain('fbd-reference-shape');
+    expect(referenceMarkup).toContain(
+      '<span class="fbd-terminal-label" style="color:#000000">Input</span>',
+    );
+    expect(referenceMarkup).toContain(
+      '<span class="fbd-terminal-label" style="color:#000000">Output</span>',
+    );
     expect(connectorMarkup).toContain('fbd-terminal-node');
     expect(connectorMarkup).toContain('fbd-connector-shape fbd-connector-target');
     expect(connectorMarkup).toContain(
-      '<span class="fbd-terminal-label" style="color:#666666">TankLevel</span>',
+      '<span class="fbd-terminal-label" style="color:#000000">TankLevel</span>',
     );
     const inputConnectorMarkup = renderToStaticMarkup(createElement(FBDDiagram, {
       body: levelControlBody(),
       sheetIndex: 1,
     }));
     expect(inputConnectorMarkup).toContain('fbd-connector-shape fbd-connector-source');
+    expect(inputConnectorMarkup).toContain(
+      '<span class="fbd-terminal-label" style="color:#000000">TankLevel</span>',
+    );
   });
 
   it('keeps malformed and unknown positioned raw elements visible as canonical placeholders', () => {

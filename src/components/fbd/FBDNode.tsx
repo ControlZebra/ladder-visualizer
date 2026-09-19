@@ -139,7 +139,7 @@ function TerminalNode({ layout, theme }: FBDFlowNodeData) {
     <div className="fbd-terminal-node">
       <PortHandles layout={layout} theme={theme} showLabels={false} />
       <div className={`fbd-terminal-shape ${kindClass}`}>
-        <span className="fbd-terminal-label" style={{ color: theme.addressColor }}>
+        <span className="fbd-terminal-label" style={{ color: theme.boxTextColor }}>
           {terminalLabel(element)}
         </span>
       </div>
@@ -167,7 +167,9 @@ function InstructionFrame({ layout, theme, title, subtitle, footerLines = [] }: 
             borderColor: theme.boxBorderColor,
           }}
         >
-          <strong className="fbd-instruction-title">{title}</strong>
+          <strong className="fbd-instruction-title" style={{ color: theme.boxTextColor }}>
+            {title}
+          </strong>
           <span className="fbd-instruction-menu" aria-hidden="true">•••</span>
         </div>
         {subtitle && (
@@ -184,7 +186,9 @@ function InstructionFrame({ layout, theme, title, subtitle, footerLines = [] }: 
                 <span className="fbd-binding" key={`${line}-${index}`}>
                   <span>{label}</span>
                   {value ? (
-                    <span className="fbd-binding-value">{value}</span>
+                    <span className="fbd-binding-value" style={{ color: theme.boxTextColor }}>
+                      {value}
+                    </span>
                   ) : (
                     <span className="fbd-instruction-help" aria-label="No source value">?</span>
                   )}
