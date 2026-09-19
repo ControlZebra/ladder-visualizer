@@ -100,6 +100,38 @@ function port(
   };
 }
 
+function positiveCollinearOverlap(
+  first: readonly [{ x: number; y: number }, { x: number; y: number }],
+  second: readonly [{ x: number; y: number }, { x: number; y: number }],
+): boolean {
+  const [firstStart, firstEnd] = first;
+  const [secondStart, secondEnd] = second;
+  const cross = (point: { x: number; y: number }) =>
+    (firstEnd.x - firstStart.x) * (point.y - firstStart.y)
+      - (firstEnd.y - firstStart.y) * (point.x - firstStart.x);
+  if (cross(secondStart) !== 0 || cross(secondEnd) !== 0) return false;
+  const useX = Math.abs(firstEnd.x - firstStart.x) >= Math.abs(firstEnd.y - firstStart.y);
+  const firstValues = useX ? [firstStart.x, firstEnd.x] : [firstStart.y, firstEnd.y];
+  const secondValues = useX ? [secondStart.x, secondEnd.x] : [secondStart.y, secondEnd.y];
+  return Math.min(Math.max(...firstValues), Math.max(...secondValues))
+    - Math.max(Math.min(...firstValues), Math.min(...secondValues)) > 0;
+}
+
+function expectNoWireOverlap(layout: ReturnType<typeof buildFBDSheetLayout>) {
+  const segments = layout.connections.map((connection) => connection.points.slice(1).map(
+    (point, index) => [connection.points[index], point] as const,
+  ));
+  segments.forEach((wire, wireIndex) => {
+    segments.slice(wireIndex + 1).forEach((otherWire) => {
+      wire.forEach((segment) => {
+        otherWire.forEach((otherSegment) => {
+          expect(positiveCollinearOverlap(segment, otherSegment)).toBe(false);
+        });
+      });
+    });
+  });
+}
+
 describe('FBD layout', () => {
   it('uses one documented grid unit per SVG unit and preserves source anchors', () => {
     const block = levelControlBody().sheets[0].elements.find(
@@ -155,7 +187,40 @@ describe('FBD layout', () => {
       expect(layout.ports[0].point.x).toBe(emitsValue
         ? layout.bounds.x + layout.bounds.width
         : layout.bounds.x);
+      expect(layout.ports[0].point).toEqual({
+        x: Number(terminal.position?.x),
+        y: Number(terminal.position?.y),
+      });
     }
+  });
+
+  it('treats IREF, OREF, ICON, and OCON source coordinates as their pin anchors', () => {
+    const terminals: NormalizedFBDElement[] = [
+      {
+        kind: 'reference', referenceType: 'input', id: '1', operand: 'IREF',
+        position: { x: '160', y: '100' }, ports: ['value'],
+      },
+      {
+        kind: 'reference', referenceType: 'output', id: '2', operand: 'OREF',
+        position: { x: '520', y: '140' }, ports: ['value'],
+      },
+      {
+        kind: 'connector', connectorType: 'input', id: '3', name: 'ICON',
+        position: { x: '160', y: '180' }, ports: ['value'],
+      },
+      {
+        kind: 'connector', connectorType: 'output', id: '4', name: 'OCON',
+        position: { x: '520', y: '220' }, ports: ['value'],
+      },
+    ];
+
+    terminals.forEach((terminal) => {
+      const layout = layoutFBDElement(terminal);
+      expect(layout?.ports[0].point).toEqual({
+        x: Number(terminal.position?.x),
+        y: Number(terminal.position?.y),
+      });
+    });
   });
 
   it('lays out and routes the complete two-sheet level-control fixture', () => {
@@ -257,6 +322,18 @@ describe('FBD layout', () => {
         expect(point.x === previous.x || point.y === previous.y).toBe(true);
       });
     }
+  });
+
+  it('assigns distinct lanes when wires would otherwise share line segments', () => {
+    const source = levelControlBody().sheets[0];
+    const repeatedConnection = source.connections[1];
+    const layout = buildFBDSheetLayout({
+      ...source,
+      connections: [repeatedConnection, repeatedConnection, ...source.connections],
+    });
+
+    expect(layout.connections).toHaveLength(source.connections.length + 2);
+    expectNoWireOverlap(layout);
   });
 
   it('omits connections that reference ambiguous duplicate element IDs', () => {

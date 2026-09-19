@@ -184,11 +184,13 @@ export function buildFBDFlowModel(
       targetHandle: portHandleId('input', connection.destination.port.id),
       type: 'fbdWire',
       className: `fbd-connection fbd-connection-${connection.connection.kind}`,
-      data: { path: connection.path },
+      data: {
+        path: connection.path,
+        endpoints: [connection.points[0], connection.points[connection.points.length - 1]],
+      },
       style: {
         stroke: theme.wireColor,
         strokeWidth: 1.5,
-        strokeDasharray: connection.connection.kind === 'feedback-wire' ? '6 4' : undefined,
       },
       selectable: false,
       focusable: false,

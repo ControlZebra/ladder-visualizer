@@ -101,11 +101,18 @@ function PortHandles({ layout, theme, showLabels = true }: {
               className="fbd-port-handle"
               style={{
                 top,
-                width: 8,
-                height: 8,
+                width: 1,
+                height: 1,
+                opacity: 0,
+              }}
+            />
+            <span
+              aria-hidden="true"
+              className={`fbd-port-pin fbd-port-pin-${port.port.side}`}
+              style={{
+                top,
                 background: theme.boxBgColor,
                 borderColor: theme.boxBorderColor,
-                borderRadius: 0,
               }}
             />
             {showLabels && (

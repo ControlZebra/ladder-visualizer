@@ -26,6 +26,7 @@ export const FBD_BLOCK_HEADER_HEIGHT = 42;
 export const FBD_TEXT_LINE_HEIGHT = 16;
 export const FBD_BACKWARD_ROUTE_GAP = 28;
 export const FBD_ROUTE_LANE_GAP = 12;
+export const FBD_WIRE_SEPARATION = 4;
 
 const CHARACTER_WIDTH = 7;
 const REFERENCE_HEIGHT = 32;
@@ -248,7 +249,14 @@ export function layoutFBDElement(element: NormalizedFBDElement): FBDElementLayou
     return undefined;
   }
   const dimensions = measureFBDElement(element);
-  const bounds = { ...position, ...dimensions };
+  const terminal = implicitTerminal(element);
+  const bounds = terminal
+    ? {
+      x: terminal.side === 'right' ? position.x - dimensions.width : position.x,
+      y: position.y - dimensions.height / 2,
+      ...dimensions,
+    }
+    : { ...position, ...dimensions };
   return { element, bounds, ports: placeFBDElementPorts(element, bounds) };
 }
 
@@ -283,12 +291,63 @@ function deduplicateAdjacentPoints(points: readonly FBDPoint[]): FBDPoint[] {
   });
 }
 
+interface FBDLineSegment {
+  from: FBDPoint;
+  to: FBDPoint;
+}
+
+function pathSegments(points: readonly FBDPoint[]): FBDLineSegment[] {
+  return points.slice(1).map((to, index) => ({ from: points[index], to }));
+}
+
+function crossProduct(first: FBDPoint, second: FBDPoint, third: FBDPoint): number {
+  return (second.x - first.x) * (third.y - first.y)
+    - (second.y - first.y) * (third.x - first.x);
+}
+
+function projectedOverlap(
+  firstStart: number,
+  firstEnd: number,
+  secondStart: number,
+  secondEnd: number,
+): number {
+  return Math.min(Math.max(firstStart, firstEnd), Math.max(secondStart, secondEnd))
+    - Math.max(Math.min(firstStart, firstEnd), Math.min(secondStart, secondEnd));
+}
+
+function segmentsOverlap(first: FBDLineSegment, second: FBDLineSegment): boolean {
+  if (crossProduct(first.from, first.to, second.from) !== 0
+    || crossProduct(first.from, first.to, second.to) !== 0) {
+    return false;
+  }
+  const useX = Math.abs(first.to.x - first.from.x) >= Math.abs(first.to.y - first.from.y);
+  return useX
+    ? projectedOverlap(first.from.x, first.to.x, second.from.x, second.to.x) > 0
+    : projectedOverlap(first.from.y, first.to.y, second.from.y, second.to.y) > 0;
+}
+
+function pathOverlaps(
+  points: readonly FBDPoint[],
+  occupiedSegments: readonly FBDLineSegment[],
+): boolean {
+  return pathSegments(points).some(
+    (candidate) => occupiedSegments.some((occupied) => segmentsOverlap(candidate, occupied)),
+  );
+}
+
+function laneOffset(attempt: number): number {
+  if (attempt === 0) return 0;
+  const magnitude = Math.ceil(attempt / 2) * FBD_WIRE_SEPARATION;
+  return attempt % 2 === 1 ? magnitude : -magnitude;
+}
+
 export function routeFBDConnection(
   source: FBDPortLayout,
   destination: FBDPortLayout,
   connectionKind: 'wire' | 'feedback-wire',
   connectionIndex: number,
   elementBounds: FBDRect,
+  offset = 0,
 ): Pick<FBDConnectionLayout, 'points' | 'path' | 'routeKind'> {
   let routeKind: FBDRouteKind;
   let points: FBDPoint[];
@@ -296,34 +355,40 @@ export function routeFBDConnection(
   if (connectionKind === 'feedback-wire') {
     routeKind = 'feedback';
     const laneY = elementBounds.y + elementBounds.height + FBD_BACKWARD_ROUTE_GAP
-      + connectionIndex * FBD_ROUTE_LANE_GAP;
+      + connectionIndex * FBD_ROUTE_LANE_GAP + offset;
+    const sourceLead = source.point.x + FBD_BACKWARD_ROUTE_GAP / 2 + offset;
+    const destinationLead = destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2 + offset;
     points = [
       source.point,
-      { x: source.point.x + FBD_BACKWARD_ROUTE_GAP / 2, y: source.point.y },
-      { x: source.point.x + FBD_BACKWARD_ROUTE_GAP / 2, y: laneY },
-      { x: destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2, y: laneY },
-      { x: destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2, y: destination.point.y },
+      { x: sourceLead, y: source.point.y + offset },
+      { x: sourceLead, y: laneY },
+      { x: destinationLead, y: laneY },
+      { x: destinationLead, y: destination.point.y + offset },
       destination.point,
     ];
   } else if (destination.point.x > source.point.x) {
     routeKind = 'forward';
-    const middleX = source.point.x + (destination.point.x - source.point.x) / 2;
+    const middleX = source.point.x + (destination.point.x - source.point.x) / 2 + offset;
     points = [
       source.point,
-      { x: middleX, y: source.point.y },
-      { x: middleX, y: destination.point.y },
+      { x: source.point.x + FBD_WIRE_SEPARATION, y: source.point.y + offset },
+      { x: middleX, y: source.point.y + offset },
+      { x: middleX, y: destination.point.y + offset },
+      { x: destination.point.x - FBD_WIRE_SEPARATION, y: destination.point.y + offset },
       destination.point,
     ];
   } else {
     routeKind = 'backward';
     const laneY = elementBounds.y - FBD_BACKWARD_ROUTE_GAP
-      - connectionIndex * FBD_ROUTE_LANE_GAP;
+      - connectionIndex * FBD_ROUTE_LANE_GAP + offset;
+    const sourceLead = source.point.x + FBD_BACKWARD_ROUTE_GAP / 2 + offset;
+    const destinationLead = destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2 + offset;
     points = [
       source.point,
-      { x: source.point.x + FBD_BACKWARD_ROUTE_GAP / 2, y: source.point.y },
-      { x: source.point.x + FBD_BACKWARD_ROUTE_GAP / 2, y: laneY },
-      { x: destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2, y: laneY },
-      { x: destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2, y: destination.point.y },
+      { x: sourceLead, y: source.point.y + offset },
+      { x: sourceLead, y: laneY },
+      { x: destinationLead, y: laneY },
+      { x: destinationLead, y: destination.point.y + offset },
       destination.point,
     ];
   }
@@ -535,6 +600,7 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
 
   const baseBounds = elementExtents(elements);
   const connections: FBDConnectionLayout[] = [];
+  const occupiedWireSegments: FBDLineSegment[] = [];
   sheet.connections.forEach((connection, connectionIndex) => {
     const source = resolveEndpoint(
       layoutsById,
@@ -555,13 +621,26 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
     if (!source.port || !destination.port) {
       return;
     }
-    const route = routeFBDConnection(
+    let route = routeFBDConnection(
       source.port,
       destination.port,
       connection.kind,
       connectionIndex,
       baseBounds,
     );
+    let attempt = 1;
+    while (pathOverlaps(route.points, occupiedWireSegments)) {
+      route = routeFBDConnection(
+        source.port,
+        destination.port,
+        connection.kind,
+        connectionIndex,
+        baseBounds,
+        laneOffset(attempt),
+      );
+      attempt += 1;
+    }
+    occupiedWireSegments.push(...pathSegments(route.points));
     connections.push({ connection, source: source.port, destination: destination.port, ...route });
   });
 

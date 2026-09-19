@@ -55,9 +55,13 @@ describe('FBDDiagram', () => {
     const model = flowModel(body);
 
     expect(markup.match(/class="fbd-element fbd-element-block"/g)).toHaveLength(7);
+    expect(markup.match(/class="fbd-port-pin /g)?.length).toBeGreaterThan(0);
     expect(model.edges.filter((edge) => edge.className === 'fbd-connection fbd-connection-wire')).toHaveLength(8);
     expect(model.edges.filter((edge) => edge.className === 'fbd-connection fbd-connection-feedback-wire')).toHaveLength(2);
-    expect(model.edges.filter((edge) => edge.style?.strokeDasharray === '6 4')).toHaveLength(2);
+    expect(model.edges.filter((edge) => edge.style?.strokeDasharray !== undefined)).toHaveLength(0);
+    expect(model.edges.filter((edge) => edge.className?.includes('fbd-connection')).every(
+      (edge) => edge.data?.endpoints?.length === 2,
+    )).toBe(true);
     expect(markup).toContain('StorageArray');
     expect(markup).toContain('DEDT_01array');
     expect(markup).toContain('data-connector-relationship-count="1"');
