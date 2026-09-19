@@ -205,7 +205,19 @@ describe('FBD layout', () => {
     });
 
     expect(compact.width).toBe(70);
-    expect(pairedLabels.width).toBe('Input'.length * 7 + 'Output'.length * 7 + 36);
+    expect(pairedLabels.width).toBe(Math.max('Input'.length, 'Output'.length) * 7 * 2 + 36);
+  });
+
+  it('allocates a full half-width lane to the longest port label', () => {
+    const hll = levelControlBody().sheets[0].elements.find(
+      (element) => element.kind === 'block' && element.instruction === 'HLL',
+    );
+    if (!hll || hll.kind !== 'block') throw new Error('expected HLL block');
+
+    const longestPortLabelWidth = Math.max(...hll.ports.map((port) => port.label.length * 7));
+    const measured = measureFBDElement(hll);
+
+    expect(measured.width).toBeGreaterThanOrEqual(longestPortLabelWidth * 2 + 36);
   });
 
   it('places explicit ports deterministically on their declared sides and order', () => {

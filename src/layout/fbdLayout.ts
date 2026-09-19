@@ -178,7 +178,7 @@ export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 
       titleWidth,
       operandWidth,
       footerWidth,
-      leftLabelWidth + rightLabelWidth + BLOCK_LABEL_SEPARATOR_GAP,
+      Math.max(leftLabelWidth, rightLabelWidth) * 2 + BLOCK_LABEL_SEPARATOR_GAP,
     ),
     height: Math.max(
       64,
