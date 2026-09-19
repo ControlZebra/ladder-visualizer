@@ -47,7 +47,9 @@ export function ControllerRoutine() {
 }
 ```
 
-For a normalized FBD routine, render one source-ordered sheet with `FBDDiagram`:
+For a normalized FBD routine, render its source-ordered sheets with `FBDDiagram`.
+The viewer provides accessible sheet tabs and React Flow's native zoom, fit, and
+pan interactions; only the active sheet is mounted:
 
 ```tsx
 import { FBDDiagram } from 'ladder-visualizer';
@@ -55,12 +57,16 @@ import { FBDDiagram } from 'ladder-visualizer';
 const fbd = result.data.programs[0]?.routines.find((routine) => routine.type === 'FBD')?.fbd;
 
 export function FunctionBlockRoutine() {
-  return fbd ? <FBDDiagram body={fbd} sheetIndex={0} showControls /> : null;
+  return fbd ? <FBDDiagram body={fbd} /> : null;
 }
 ```
 
+Use `sheetIndex` to select a sheet from external application state and
+`onSheetIndexChange` to observe tab navigation. Controls are shown by default;
+`showControls={false}` hides them without replacing React Flow's viewport model.
+
 Run `npm run preview:fbd` to open the dedicated FBD previewer. It includes the
-topology and element-family fixtures, sheet selection, light/dark themes, grid
+topology and element-family fixtures, accessible sheet tabs, light/dark themes, grid
 and minimap toggles, viewport controls, and renderer diagnostics.
 
 Use `parseFile()` for browser file uploads and `parseBuffer()` for an

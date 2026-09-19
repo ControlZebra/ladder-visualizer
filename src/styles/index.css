@@ -40,10 +40,102 @@
 }
 
 /* Function Block Diagram (React Flow) */
+.fbd-routine {
+  display: flex;
+  min-width: 64px;
+  min-height: 120px;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--fbd-text);
+  background: var(--fbd-background);
+  border: 1px solid var(--fbd-border-subtle);
+}
+
+.fbd-sheet-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 5px 5px 0;
+  overflow-x: auto;
+  background: var(--fbd-surface);
+  border-bottom: 1px solid var(--fbd-border-subtle);
+}
+
+.fbd-sheet-tab {
+  display: inline-flex;
+  min-width: max-content;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 11px 7px;
+  color: var(--fbd-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.fbd-sheet-tab:hover {
+  color: var(--fbd-text);
+  background: color-mix(in srgb, var(--fbd-background) 65%, transparent);
+}
+
+.fbd-sheet-tab[aria-selected='true'] {
+  color: var(--fbd-text);
+  background: var(--fbd-background);
+  border-color: var(--fbd-border-subtle);
+  border-bottom-color: var(--fbd-focus);
+}
+
+.fbd-sheet-tab-number {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fbd-sheet-tab-name {
+  font-size: 10px;
+}
+
+.fbd-sheet-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  outline: none;
+}
+
+.fbd-sheet-summary {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 25px;
+  padding: 4px 9px;
+  color: var(--fbd-muted);
+  background: var(--fbd-background);
+  border-bottom: 1px solid var(--fbd-border-subtle);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.fbd-diagnostic-summary {
+  font-weight: 600;
+}
+
+.fbd-diagnostic-summary-warning {
+  color: var(--fbd-diagnostic);
+}
+
 .fbd-react-flow {
   position: relative;
   min-width: 64px;
   min-height: 64px;
+  flex: 1 1 auto;
   overflow: hidden;
   color: var(--fbd-text);
   background: var(--fbd-background);
@@ -361,6 +453,24 @@
   border-color: var(--fbd-border);
 }
 
+.fbd-react-flow .react-flow__controls-button:hover {
+  background: var(--fbd-surface);
+}
+
+.fbd-sheet-tab:focus-visible,
+.fbd-sheet-panel:focus-visible,
+.fbd-react-flow .react-flow__controls-button:focus-visible {
+  position: relative;
+  z-index: 2;
+  outline: 3px solid var(--fbd-focus);
+  outline-offset: -3px;
+}
+
+.fbd-react-flow .react-flow__minimap {
+  background: var(--fbd-background);
+  border: 1px solid var(--fbd-border);
+}
+
 .fbd-diagram-failed {
   display: flex;
   flex-direction: column;
@@ -374,4 +484,17 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-size: 10px;
   text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fbd-routine *,
+  .fbd-routine *::before,
+  .fbd-routine *::after {
+    scroll-behavior: auto !important;
+    transition-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

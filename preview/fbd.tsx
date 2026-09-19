@@ -24,7 +24,6 @@ function fixtureBody(fixture: FixtureId): NormalizedFBDBody {
 
 function Preview() {
   const [fixture, setFixture] = useState<FixtureId>('level-control');
-  const [sheetIndex, setSheetIndex] = useState(0);
   const [themeId, setThemeId] = useState<ThemeId>('light');
   const [showGrid, setShowGrid] = useState(true);
   const [showMiniMap, setShowMiniMap] = useState(false);
@@ -34,11 +33,6 @@ function Preview() {
   const handleDiagnostics = useCallback((next: readonly FBDDiagramDiagnostic[]) => {
     setDiagnostics(next);
   }, []);
-
-  const selectFixture = (next: FixtureId) => {
-    setFixture(next);
-    setSheetIndex(0);
-  };
 
   return (
     <main className="preview-shell">
@@ -50,19 +44,9 @@ function Preview() {
         <div className="preview-controls">
           <label className="preview-field">
             Fixture
-            <select value={fixture} onChange={(event) => selectFixture(event.target.value as FixtureId)}>
+            <select value={fixture} onChange={(event) => setFixture(event.target.value as FixtureId)}>
               <option value="level-control">Level control topology</option>
               <option value="elements">Element families</option>
-            </select>
-          </label>
-          <label className="preview-field">
-            Sheet
-            <select value={sheetIndex} onChange={(event) => setSheetIndex(Number(event.target.value))}>
-              {body.sheets.map((sheet, index) => (
-                <option key={`${sheet.number.value}-${index}`} value={index}>
-                  {`${index + 1}: ${sheet.name.value}`}
-                </option>
-              ))}
             </select>
           </label>
           <label className="preview-field">
@@ -85,8 +69,8 @@ function Preview() {
       <div className="preview-workspace">
         <section className="preview-canvas">
           <FBDDiagram
+            key={fixture}
             body={body}
-            sheetIndex={sheetIndex}
             width="100%"
             height="100%"
             theme={theme}
