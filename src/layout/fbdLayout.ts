@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import type {
   FBDConnectionLayout,
+  FBDAttachmentLayout,
   FBDConnectorIndex,
   FBDConnectorLocation,
   FBDElementLayout,
@@ -22,6 +23,7 @@ export const FBD_GRID_TO_SVG_SCALE = 1;
 export const FBD_SHEET_PADDING = 32;
 export const FBD_PORT_SPACING = 24;
 export const FBD_BLOCK_HEADER_HEIGHT = 42;
+export const FBD_TEXT_LINE_HEIGHT = 16;
 export const FBD_BACKWARD_ROUTE_GAP = 28;
 export const FBD_ROUTE_LANE_GAP = 12;
 
@@ -31,6 +33,43 @@ const MIN_BLOCK_WIDTH = 140;
 
 function textWidth(value: string | undefined): number {
   return (value?.length ?? 0) * CHARACTER_WIDTH;
+}
+
+function wrapToken(token: string, maxCharacters: number): string[] {
+  if (token.length <= maxCharacters) return [token];
+  const chunks: string[] = [];
+  for (let index = 0; index < token.length; index += maxCharacters) {
+    chunks.push(token.slice(index, index + maxCharacters));
+  }
+  return chunks;
+}
+
+/** Deterministically wraps FBD text using the same width estimate as measurement. */
+export function wrapFBDText(text: string | undefined, width: number): string[] {
+  const maxCharacters = Math.max(1, Math.floor((width - 24) / CHARACTER_WIDTH));
+  const paragraphs = (text ?? '').split(/\r?\n/);
+  const lines: string[] = [];
+
+  for (const paragraph of paragraphs) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean)
+      .flatMap((word) => wrapToken(word, maxCharacters));
+    if (words.length === 0) {
+      lines.push('');
+      continue;
+    }
+    let line = words[0];
+    for (const word of words.slice(1)) {
+      if (`${line} ${word}`.length <= maxCharacters) {
+        line = `${line} ${word}`;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    }
+    lines.push(line);
+  }
+
+  return lines.length ? lines : [''];
 }
 
 function sourceCoordinate(value: string | undefined): number | undefined {
@@ -80,8 +119,13 @@ function elementPorts(element: NormalizedFBDElement): NormalizedFBDPort[] {
   return [];
 }
 
-function blockArrayRows(element: NormalizedFBDElement): number {
-  return element.kind === 'block' ? element.arrays.length : 0;
+function elementFooterRows(element: NormalizedFBDElement): number {
+  if (element.kind === 'block') return element.arrays.length;
+  if (element.kind === 'add-on-instruction') return element.bindings.length;
+  if (element.kind === 'routine-control') {
+    return Number(element.inputParameters.length > 0) + Number(element.returnParameters.length > 0);
+  }
+  return 0;
 }
 
 export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 'width' | 'height'> {
@@ -94,9 +138,11 @@ export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 
 
   if (element.kind === 'text-box') {
     const declaredWidth = sourceCoordinate(element.width);
+    const width = declaredWidth ?? Math.max(120, textWidth(element.text) + 24);
+    const lines = wrapFBDText(element.text, width);
     return {
-      width: declaredWidth ?? Math.max(120, textWidth(element.text) + 24),
-      height: 56,
+      width,
+      height: Math.max(56, lines.length * FBD_TEXT_LINE_HEIGHT + 24),
     };
   }
 
@@ -113,11 +159,11 @@ export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 
       ? element.routine
       : undefined;
   const operandWidth = textWidth(operand) + 28;
-  const arrayRows = blockArrayRows(element);
+  const footerRows = elementFooterRows(element);
 
   return {
     width: Math.max(MIN_BLOCK_WIDTH, titleWidth, operandWidth, leftLabelWidth + rightLabelWidth + 72),
-    height: Math.max(64, FBD_BLOCK_HEADER_HEIGHT + portRows * FBD_PORT_SPACING + arrayRows * 18),
+    height: Math.max(64, FBD_BLOCK_HEADER_HEIGHT + portRows * FBD_PORT_SPACING + footerRows * 18),
   };
 }
 
@@ -165,7 +211,7 @@ export function placeFBDElementPorts(
     if (ordered.length === 0) {
       return [];
     }
-    const footerHeight = blockArrayRows(element) * 18;
+    const footerHeight = elementFooterRows(element) * 18;
     const availableHeight = Math.max(
       bounds.height - FBD_BLOCK_HEADER_HEIGHT - footerHeight,
       FBD_PORT_SPACING,
@@ -298,15 +344,28 @@ function resolveEndpoint(
   }
 
   const layout = matches[0];
-  const port = portId === undefined && layout.ports.length === 1
-    ? layout.ports[0]
-    : layout.ports.find((candidate) => candidate.port.id === portId);
+  const matchingPorts = portId === undefined && layout.ports.length === 1
+    ? [layout.ports[0]]
+    : layout.ports.filter((candidate) => candidate.port.id === portId);
+  if (matchingPorts.length > 1) {
+    return {
+      diagnostic: {
+        code: 'FBD_LAYOUT_AMBIGUOUS_PORT',
+        message: `Connection ${connectionIndex} references duplicate port ${portId ?? '(implicit)'} on element ${elementId}.`,
+        elementId,
+        portId,
+        connectionIndex,
+      },
+    };
+  }
+  const port = matchingPorts[0];
   if (!port) {
     return {
       diagnostic: {
         code: 'FBD_LAYOUT_MISSING_PORT',
         message: `Connection ${connectionIndex} references missing port ${portId ?? '(implicit)'} on element ${elementId}.`,
         elementId,
+        portId,
         connectionIndex,
       },
     };
@@ -317,6 +376,7 @@ function resolveEndpoint(
         code: 'FBD_LAYOUT_INVALID_DIRECTION',
         message: `Connection ${connectionIndex} uses ${port.port.id} on element ${elementId} as an ${expectedDirection} port, but it is ${port.port.direction}.`,
         elementId,
+        portId: port.port.id,
         connectionIndex,
       },
     };
@@ -327,13 +387,15 @@ function resolveEndpoint(
 function paddedBounds(
   elements: readonly FBDElementLayout[],
   connections: readonly FBDConnectionLayout[],
+  attachments: readonly FBDAttachmentLayout[],
 ): FBDRect {
   const elementPoints = elements.flatMap((layout) => [
     { x: layout.bounds.x, y: layout.bounds.y },
     { x: layout.bounds.x + layout.bounds.width, y: layout.bounds.y + layout.bounds.height },
   ]);
   const routePoints = connections.flatMap((connection) => connection.points);
-  const extent = unionPoints([...elementPoints, ...routePoints]);
+  const attachmentPoints = attachments.flatMap((attachment) => attachment.points);
+  const extent = unionPoints([...elementPoints, ...routePoints, ...attachmentPoints]);
   return {
     x: extent.x - FBD_SHEET_PADDING,
     y: extent.y - FBD_SHEET_PADDING,
@@ -342,11 +404,88 @@ function paddedBounds(
   };
 }
 
+function duplicatePortIds(layout: FBDElementLayout): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const port of layout.ports) {
+    if (seen.has(port.port.id)) duplicates.add(port.port.id);
+    seen.add(port.port.id);
+  }
+  return [...duplicates];
+}
+
+function attachmentEndpoint(
+  layoutsById: ReadonlyMap<string, FBDElementLayout[]>,
+  elementId: string,
+  attachmentIndex: number,
+): { layout?: FBDElementLayout; diagnostic?: FBDLayoutDiagnostic } {
+  const matches = layoutsById.get(elementId) ?? [];
+  if (matches.length === 0) {
+    return {
+      diagnostic: {
+        code: 'FBD_ATTACHMENT_MISSING_ELEMENT',
+        message: `Attachment ${attachmentIndex} references missing element ${elementId}.`,
+        elementId,
+        attachmentIndex,
+      },
+    };
+  }
+  if (matches.length > 1) {
+    return {
+      diagnostic: {
+        code: 'FBD_ATTACHMENT_AMBIGUOUS_ELEMENT',
+        message: `Attachment ${attachmentIndex} references duplicate element ${elementId}.`,
+        elementId,
+        attachmentIndex,
+      },
+    };
+  }
+  return { layout: matches[0] };
+}
+
+function rectCenter(rect: FBDRect): FBDPoint {
+  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+}
+
+function routeFBDAttachment(from: FBDRect, to: FBDRect): Pick<FBDAttachmentLayout, 'points' | 'path'> {
+  const fromCenter = rectCenter(from);
+  const toCenter = rectCenter(to);
+  const horizontal = Math.abs(toCenter.x - fromCenter.x) >= Math.abs(toCenter.y - fromCenter.y);
+  let points: FBDPoint[];
+
+  if (horizontal) {
+    const movesRight = toCenter.x >= fromCenter.x;
+    const start = { x: movesRight ? from.x + from.width : from.x, y: fromCenter.y };
+    const end = { x: movesRight ? to.x : to.x + to.width, y: toCenter.y };
+    const middleX = start.x + (end.x - start.x) / 2;
+    points = [start, { x: middleX, y: start.y }, { x: middleX, y: end.y }, end];
+  } else {
+    const movesDown = toCenter.y >= fromCenter.y;
+    const start = { x: fromCenter.x, y: movesDown ? from.y + from.height : from.y };
+    const end = { x: toCenter.x, y: movesDown ? to.y : to.y + to.height };
+    const middleY = start.y + (end.y - start.y) / 2;
+    points = [start, { x: start.x, y: middleY }, { x: end.x, y: middleY }, end];
+  }
+
+  const canonicalPoints = deduplicateAdjacentPoints(points);
+  return { points: canonicalPoints, path: pointsToPath(canonicalPoints) };
+}
+
 export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
   const diagnostics: FBDLayoutDiagnostic[] = [];
-  const elements = sheet.elements
-    .map(layoutFBDElement)
-    .filter((layout): layout is FBDElementLayout => layout !== undefined);
+  const elements: FBDElementLayout[] = [];
+  for (const element of sheet.elements) {
+    const layout = layoutFBDElement(element);
+    if (layout) {
+      elements.push(layout);
+    } else {
+      diagnostics.push({
+        code: 'FBD_LAYOUT_UNPLACEABLE_ELEMENT',
+        message: `${element.kind === 'placeholder' ? element.sourceKind : element.kind} element ${'id' in element && element.id !== undefined ? element.id : '(unknown ID)'} has no usable position and was omitted.`,
+        elementId: 'id' in element ? element.id : undefined,
+      });
+    }
+  }
   const layoutsById = new Map<string, FBDElementLayout[]>();
 
   for (const layout of elements) {
@@ -364,6 +503,17 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
         code: 'FBD_LAYOUT_DUPLICATE_ELEMENT_ID',
         message: `Element ID ${elementId} occurs ${matches.length} times; its connections are ambiguous.`,
         elementId,
+      });
+    }
+  }
+
+  for (const layout of elements) {
+    for (const portId of duplicatePortIds(layout)) {
+      diagnostics.push({
+        code: 'FBD_LAYOUT_DUPLICATE_PORT_ID',
+        message: `Element ${'id' in layout.element ? layout.element.id : '(unknown ID)'} has duplicate port ${portId}; connections to that port are ambiguous.`,
+        elementId: 'id' in layout.element ? layout.element.id : undefined,
+        portId,
       });
     }
   }
@@ -400,11 +550,45 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
     connections.push({ connection, source: source.port, destination: destination.port, ...route });
   });
 
-  const bounds = paddedBounds(elements, connections);
+  const attachments: FBDAttachmentLayout[] = [];
+  sheet.attachments.forEach((attachment, attachmentIndex) => {
+    const from = attachmentEndpoint(layoutsById, attachment.fromElementId, attachmentIndex);
+    const to = attachmentEndpoint(layoutsById, attachment.toElementId, attachmentIndex);
+    if (from.diagnostic) diagnostics.push(from.diagnostic);
+    if (to.diagnostic) diagnostics.push(to.diagnostic);
+    if (!from.layout || !to.layout) return;
+    if (from.layout.element.kind !== 'text-box') {
+      diagnostics.push({
+        code: 'FBD_ATTACHMENT_INVALID_SOURCE',
+        message: `Attachment ${attachmentIndex} source ${attachment.fromElementId} is not a text box.`,
+        elementId: attachment.fromElementId,
+        attachmentIndex,
+      });
+      return;
+    }
+    if (to.layout.element.kind === 'text-box' || from.layout === to.layout) {
+      diagnostics.push({
+        code: 'FBD_ATTACHMENT_INVALID_TARGET',
+        message: `Attachment ${attachmentIndex} target ${attachment.toElementId} cannot accept a text attachment.`,
+        elementId: attachment.toElementId,
+        attachmentIndex,
+      });
+      return;
+    }
+    attachments.push({
+      attachment,
+      from: from.layout,
+      to: to.layout,
+      ...routeFBDAttachment(from.layout.bounds, to.layout.bounds),
+    });
+  });
+
+  const bounds = paddedBounds(elements, connections, attachments);
   return {
     sheet,
     elements,
     connections,
+    attachments,
     diagnostics,
     bounds,
     viewBox: `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,
@@ -486,4 +670,12 @@ export function buildFBDConnectorIndex(sheets: readonly NormalizedFBDSheet[]): F
 
 export function getFBDBlockArrayLabels(block: NormalizedFBDBlock): string[] {
   return block.arrays.map((array) => [array.name, array.operand].filter(Boolean).join(': '));
+}
+
+export function getFBDAOIBindingLabels(
+  element: Extract<NormalizedFBDElement, { kind: 'add-on-instruction' }>,
+): string[] {
+  return element.bindings.map((binding) =>
+    [binding.name, binding.argument].filter(Boolean).join(': ')
+  );
 }

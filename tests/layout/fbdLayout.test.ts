@@ -14,16 +14,43 @@ import { parseString } from '../../src/parsers';
 import type {
   NormalizedFBDConnector,
   NormalizedFBDBody,
+  NormalizedFBDElement,
   NormalizedFBDSheet,
 } from '../../src/types';
+import { withFunctionElement } from '../fixtures/fbdRenderElements';
 
 const fixturePath = join(__dirname, '../fixtures/l5x/fbd-level-control-v35.L5X');
+
+function fixtureBody(fixture: string, routineName: string): NormalizedFBDBody {
+  const result = parseString(
+    readFileSync(join(__dirname, `../fixtures/l5x/${fixture}`), 'utf8'),
+    'l5x',
+  );
+  const body = result.data?.programs[0]?.routines.find(
+    (routine) => routine.name === routineName,
+  )?.fbd;
+  if (!body) throw new Error(`expected normalized ${routineName} FBD body`);
+  return body;
+}
 
 function levelControlBody(): NormalizedFBDBody {
   const result = parseString(readFileSync(fixturePath, 'utf8'), 'l5x');
   expect(result).toMatchObject({ success: true, status: 'complete' });
   const body = result.data?.programs[0]?.routines.find((routine) => routine.name === 'MainFBD')?.fbd;
   if (!body) throw new Error('expected normalized level-control FBD body');
+  return body;
+}
+
+function renderElementsBody(): NormalizedFBDBody {
+  const source = withFunctionElement(readFileSync(
+    join(__dirname, '../fixtures/l5x/fbd-render-elements-v35.L5X'),
+    'utf8',
+  ));
+  const result = parseString(source, 'l5x');
+  const body = result.data?.programs[0]?.routines.find(
+    (routine) => routine.name === 'Elements',
+  )?.fbd;
+  if (!body) throw new Error('expected normalized Elements FBD body');
   return body;
 }
 
@@ -151,6 +178,34 @@ describe('FBD layout', () => {
     ).toMatchObject({ arrays: [{ name: 'StorageArray', operand: 'DEDT_01array' }] });
   });
 
+  it('lays out every extended element family and a valid text attachment', () => {
+    const sheet = renderElementsBody().sheets[0];
+    const layout = buildFBDSheetLayout(sheet);
+
+    expect(sheet.elements.map((element) => element.kind)).toEqual([
+      'reference',
+      'reference',
+      'reference',
+      'function',
+      'add-on-instruction',
+      'placeholder',
+      'routine-control',
+      'routine-control',
+      'routine-control',
+      'text-box',
+    ]);
+    expect(layout.elements).toHaveLength(10);
+    expect(layout.connections).toHaveLength(5);
+    expect(layout.attachments).toHaveLength(1);
+    expect(layout.attachments[0]).toMatchObject({
+      attachment: { fromElementId: '10', toElementId: '4' },
+      from: { element: { kind: 'text-box', id: '10' } },
+      to: { element: { kind: 'add-on-instruction', id: '4' } },
+    });
+    expect(layout.attachments[0].path).toMatch(/^M /);
+    expect(layout.diagnostics).toEqual([]);
+  });
+
   it('routes forward, backward, crossing, and feedback connections with deterministic orthogonal paths', () => {
     const bounds = { x: 40, y: 60, width: 900, height: 500 };
     const forward = routeFBDConnection(port(100, 100, 'output'), port(400, 200, 'input'), 'wire', 0, bounds);
@@ -196,6 +251,119 @@ describe('FBD layout', () => {
       code: 'FBD_LAYOUT_DUPLICATE_ELEMENT_ID',
       elementId: input.id,
     }));
+  });
+
+  it('diagnoses unplaceable elements and duplicate ports in stable source order', () => {
+    const source = renderElementsBody().sheets[0];
+    const functionElement = source.elements.find(
+      (element) => element.kind === 'function',
+    );
+    const placeholder = source.elements.find(
+      (element) => element.kind === 'placeholder',
+    );
+    if (!functionElement || !placeholder) throw new Error('expected renderer fixture elements');
+    const duplicatePort: NormalizedFBDElement = {
+      ...functionElement,
+      ports: [...functionElement.ports, { ...functionElement.ports[0], order: 2 }],
+    };
+    const unplaceable: NormalizedFBDElement = {
+      ...placeholder,
+      id: '99',
+      position: { x: '20' },
+      reasonCodes: ['missing-position'],
+    };
+    const sheet: NormalizedFBDSheet = {
+      ...source,
+      elements: [unplaceable, duplicatePort],
+      connections: [],
+      attachments: [],
+    };
+
+    const layout = buildFBDSheetLayout(sheet);
+    expect(layout.elements.map((element) => element.element.kind)).toEqual(['function']);
+    expect(layout.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+      'FBD_LAYOUT_UNPLACEABLE_ELEMENT',
+      'FBD_LAYOUT_DUPLICATE_PORT_ID',
+    ]);
+    expect(layout.diagnostics).toEqual([
+      expect.objectContaining({ elementId: '99' }),
+      expect.objectContaining({ elementId: '3', portId: 'SourceA' }),
+    ]);
+  });
+
+  it('omits only unsafe connections and reports endpoint failures in connection order', () => {
+    const source = renderElementsBody().sheets[0];
+    const input = source.elements.find(
+      (element) => element.kind === 'reference' && element.referenceType === 'input',
+    );
+    const functionElement = source.elements.find((element) => element.kind === 'function');
+    if (!input || !functionElement) throw new Error('expected renderer fixture endpoints');
+    const sheet: NormalizedFBDSheet = {
+      ...source,
+      elements: [input, functionElement],
+      connections: [
+        {
+          kind: 'wire',
+          from: { elementId: '404', port: 'value' },
+          to: { elementId: '3', port: 'SourceA' },
+        },
+        {
+          kind: 'wire',
+          from: { elementId: '1', port: 'value' },
+          to: { elementId: '3', port: 'Missing' },
+        },
+        {
+          kind: 'wire',
+          from: { elementId: '3', port: 'SourceA' },
+          to: { elementId: '3', port: 'SourceB' },
+        },
+      ],
+      attachments: [],
+    };
+
+    const layout = buildFBDSheetLayout(sheet);
+    expect(layout.connections).toEqual([]);
+    expect(layout.diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.connectionIndex]))
+      .toEqual([
+        ['FBD_LAYOUT_MISSING_ELEMENT', 0],
+        ['FBD_LAYOUT_MISSING_PORT', 1],
+        ['FBD_LAYOUT_INVALID_DIRECTION', 2],
+      ]);
+  });
+
+  it('keeps neighboring topology while rejecting invalid attachment sources and targets', () => {
+    const source = renderElementsBody().sheets[0];
+    const input = source.elements.find(
+      (element) => element.kind === 'reference' && element.referenceType === 'input',
+    );
+    const target = source.elements.find((element) => element.kind === 'add-on-instruction');
+    const note = source.elements.find((element) => element.kind === 'text-box');
+    if (!input || !target || !note) throw new Error('expected attachment fixture elements');
+    const secondNote: NormalizedFBDElement = {
+      ...note,
+      id: '11',
+      position: { x: '560', y: '420' },
+    };
+    const sheet: NormalizedFBDSheet = {
+      ...source,
+      elements: [input, target, note, secondNote],
+      connections: [],
+      attachments: [
+        { fromElementId: note.id, toElementId: target.id },
+        { fromElementId: input.id, toElementId: target.id },
+        { fromElementId: note.id, toElementId: '404' },
+        { fromElementId: note.id, toElementId: secondNote.id },
+      ],
+    };
+
+    const layout = buildFBDSheetLayout(sheet);
+    expect(layout.attachments).toHaveLength(1);
+    expect(layout.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+      'FBD_ATTACHMENT_INVALID_SOURCE',
+      'FBD_ATTACHMENT_MISSING_ELEMENT',
+      'FBD_ATTACHMENT_INVALID_TARGET',
+    ]);
+    expect(layout.elements).toHaveLength(4);
   });
 
   it('builds one exact, case-sensitive routine connector relationship without a cross-sheet route', () => {

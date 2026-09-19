@@ -1,6 +1,6 @@
 // Virtualized Ladder Diagram (React SVG with windowed rendering)
 export { VirtualizedLadderDiagram, type VirtualizedLadderDiagramProps } from './svg';
-export { FBDDiagram, type FBDDiagramProps } from './svg';
+export { FBDDiagram, type FBDDiagramDiagnostic, type FBDDiagramProps } from './svg';
 
 // SVG Symbol Components
 export {
