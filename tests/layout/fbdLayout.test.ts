@@ -206,6 +206,22 @@ describe('FBD layout', () => {
     expect(layout.diagnostics).toEqual([]);
   });
 
+  it('auto-sizes Rockwell text boxes whose declared width is zero', () => {
+    const textBox: NormalizedFBDElement = {
+      kind: 'text-box',
+      id: '21',
+      position: { x: '280', y: '20' },
+      width: '0',
+      text: 'Calculate the\nincremental net flow\ninto/out of the tank.',
+    };
+    const autoSized = measureFBDElement(textBox);
+    const omittedWidth = measureFBDElement({ ...textBox, width: undefined });
+
+    expect(autoSized).toEqual(omittedWidth);
+    expect(autoSized.width).toBeGreaterThanOrEqual(120);
+    expect(autoSized.height).toBe(72);
+  });
+
   it('routes forward, backward, crossing, and feedback connections with deterministic orthogonal paths', () => {
     const bounds = { x: 40, y: 60, width: 900, height: 500 };
     const forward = routeFBDConnection(port(100, 100, 'output'), port(400, 200, 'input'), 'wire', 0, bounds);

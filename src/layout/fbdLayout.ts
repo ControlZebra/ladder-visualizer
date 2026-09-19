@@ -35,6 +35,14 @@ function textWidth(value: string | undefined): number {
   return (value?.length ?? 0) * CHARACTER_WIDTH;
 }
 
+function autoTextBoxWidth(value: string | undefined): number {
+  const longestLineWidth = Math.max(
+    0,
+    ...(value ?? '').split(/\r?\n/).map((line) => textWidth(line.trim())),
+  );
+  return Math.max(120, longestLineWidth + 24);
+}
+
 function wrapToken(token: string, maxCharacters: number): string[] {
   if (token.length <= maxCharacters) return [token];
   const chunks: string[] = [];
@@ -138,7 +146,9 @@ export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 
 
   if (element.kind === 'text-box') {
     const declaredWidth = sourceCoordinate(element.width);
-    const width = declaredWidth ?? Math.max(120, textWidth(element.text) + 24);
+    const width = declaredWidth !== undefined && declaredWidth > 0
+      ? declaredWidth
+      : autoTextBoxWidth(element.text);
     const lines = wrapFBDText(element.text, width);
     return {
       width,
