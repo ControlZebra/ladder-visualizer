@@ -12,3 +12,17 @@ for (const sheet of [0, 1]) {
     });
   }
 }
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`extended element families ${theme}`, async ({ page }) => {
+    await page.goto(`/tests/visual/fbd.html?fixture=elements&theme=${theme}`);
+    const stage = page.locator('#stage');
+    await expect(stage.locator('.fbd-element-function')).toHaveCount(1);
+    await expect(stage.locator('.fbd-element-add-on-instruction')).toHaveCount(1);
+    await expect(stage.locator('.fbd-element-routine-control')).toHaveCount(3);
+    await expect(stage.locator('.fbd-element-placeholder')).toHaveCount(1);
+    await expect(stage).toHaveScreenshot(`fbd-element-families-${theme}.png`, {
+      animations: 'disabled',
+    });
+  });
+}
