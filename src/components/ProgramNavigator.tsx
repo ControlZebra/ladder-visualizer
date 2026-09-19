@@ -119,6 +119,7 @@ function programsToDisplay(programs: NormalizedProgram[]): DisplayProgram[] {
   }));
 }
 
+/** Group source-ordered programs by explicit task schedules; everything else is unscheduled. */
 function buildTaskSchedule(
   controller: NormalizedController | undefined,
   programs: readonly NormalizedProgram[],
@@ -393,7 +394,7 @@ export interface ProgramNavigatorFilter {
   showPrograms?: (program: NormalizedProgram, programIndex: number) => boolean;
   showProgramTags?: (program: NormalizedProgram, programIndex: number) => boolean;
   showRoutine?: (program: NormalizedProgram, programIndex: number, routine: NormalizedRoutine, routineIndex: number) => boolean;
-  /** Show the Unscheduled grouping. When hidden, its programs remain directly beneath Tasks. */
+  /** @deprecated The Unscheduled folder is always shown. */
   showUnscheduled?: boolean;
   showMotionGroups?: boolean;
   showAOIs?: boolean;
@@ -644,6 +645,15 @@ export function ProgramNavigator({
     routine: NormalizedRoutine,
     routineIndex: number,
   ) => filter?.showRoutine?.(program, programIndex, routine, routineIndex) ?? true;
+  const visibleProgramIndices = (programIndices: readonly number[]) => programIndices.filter(
+    (programIndex) => {
+      const program = sourcePrograms[programIndex];
+      return program ? shouldShowProgram(program, programIndex) : false;
+    },
+  );
+  const visibleUnscheduledProgramIndices = visibleProgramIndices(
+    taskSchedule.unscheduledProgramIndices,
+  );
 
   // Helper to get original data type for callback
   const getOriginalDataType = (name: string): NormalizedDataType | undefined => {
@@ -827,46 +837,34 @@ export function ProgramNavigator({
           <>
             {taskSchedule.tasks.map(({ name, taskIndex, programIndices }) => {
               const taskKey = `task-${taskIndex}`;
-              const visibleProgramIndices = programIndices.filter((programIndex) => {
-                const program = sourcePrograms[programIndex];
-                return program ? shouldShowProgram(program, programIndex) : false;
-              });
+              const taskProgramIndices = visibleProgramIndices(programIndices);
               return (
                 <React.Fragment key={taskKey}>
                   <TreeItem
                     icon={expanded.has(taskKey) ? Icons.taskOpen : Icons.task}
                     label={name}
                     depth={1}
-                    isExpandable={visibleProgramIndices.length > 0}
+                    isExpandable={taskProgramIndices.length > 0}
                     isExpanded={expanded.has(taskKey)}
                     onToggle={() => toggleExpanded(taskKey)}
                   />
-                  {expanded.has(taskKey) && visibleProgramIndices.map((programIndex) =>
+                  {expanded.has(taskKey) && taskProgramIndices.map((programIndex) =>
                     renderProgramNode(programIndex, taskKey)
                   )}
                 </React.Fragment>
               );
             })}
 
-            {filter?.showUnscheduled !== false ? (
-              <>
-                <TreeItem
-                  icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
-                  label="Unscheduled"
-                  depth={1}
-                  isExpandable={taskSchedule.unscheduledProgramIndices.some((programIndex) => {
-                    const program = sourcePrograms[programIndex];
-                    return program ? shouldShowProgram(program, programIndex) : false;
-                  })}
-                  isExpanded={expanded.has('unscheduled')}
-                  onToggle={() => toggleExpanded('unscheduled')}
-                />
-                {expanded.has('unscheduled') && taskSchedule.unscheduledProgramIndices.map(
-                  (programIndex) => renderProgramNode(programIndex, 'unscheduled')
-                )}
-              </>
-            ) : taskSchedule.unscheduledProgramIndices.map(
-              (programIndex) => renderProgramNode(programIndex, 'tasks')
+            <TreeItem
+              icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
+              label="Unscheduled"
+              depth={1}
+              isExpandable={visibleUnscheduledProgramIndices.length > 0}
+              isExpanded={expanded.has('unscheduled')}
+              onToggle={() => toggleExpanded('unscheduled')}
+            />
+            {expanded.has('unscheduled') && visibleUnscheduledProgramIndices.map(
+              (programIndex) => renderProgramNode(programIndex, 'unscheduled')
             )}
           </>
         )}

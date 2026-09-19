@@ -62,7 +62,7 @@ describe('ProgramNavigator task scheduling', () => {
     expect(markup.indexOf('ProcessSimulation')).toBeLessThan(markup.indexOf('UnscheduledProgram'));
   });
 
-  it('keeps taskless programs visible when the Unscheduled grouping is hidden', () => {
+  it('always shows the Unscheduled folder even when a legacy filter requests hiding it', () => {
     const parsed = fixtureController('program-navigator-tasks-v35.L5X');
     const controller = { ...parsed, tasks: [] };
     const markup = renderToStaticMarkup(
@@ -70,13 +70,34 @@ describe('ProgramNavigator task scheduling', () => {
         controller={controller}
         programs={controller.programs}
         filter={{ showUnscheduled: false }}
-        initialExpanded={new Set(['tasks'])}
+        initialExpanded={new Set(['tasks', 'unscheduled'])}
       />,
     );
 
-    expect(markup).not.toContain('Unscheduled</span>');
+    expect(labelCount(markup, 'Unscheduled')).toBe(1);
     expect(labelCount(markup, 'ProcessSimulation')).toBe(1);
     expect(labelCount(markup, 'UnscheduledProgram')).toBe(1);
+  });
+
+  it('shows an empty Unscheduled folder when every program is scheduled', () => {
+    const parsed = fixtureController('program-navigator-tasks-v35.L5X');
+    const controller = {
+      ...parsed,
+      programs: [parsed.programs[0]],
+      tasks: [parsed.tasks[0]],
+    };
+    const markup = renderToStaticMarkup(
+      <ProgramNavigator
+        controller={controller}
+        programs={controller.programs}
+        initialExpanded={new Set(['tasks', 'task-0', 'unscheduled'])}
+      />,
+    );
+
+    expect(labelCount(markup, 'Periodic100msec')).toBe(1);
+    expect(labelCount(markup, 'ProcessSimulation')).toBe(1);
+    expect(labelCount(markup, 'Unscheduled')).toBe(1);
+    expect(labelCount(markup, 'UnscheduledProgram')).toBe(0);
   });
 
   it('deduplicates repeated references, ignores missing programs, and preserves cross-task conflicts', () => {
