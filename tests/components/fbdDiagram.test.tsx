@@ -121,7 +121,19 @@ describe('FBDDiagram', () => {
   });
 
   it('renders source-ordered accessible tabs with one active sheet and native controls', () => {
-    const markup = renderToStaticMarkup(<FBDDiagram body={levelControlBody()} />);
+    const body = levelControlBody();
+    const namedBody = {
+      ...body,
+      sheets: body.sheets.map((sheet, index) => ({
+        ...sheet,
+        number: { value: String(index + 7), source: 'declared' as const },
+        name: {
+          value: index === 0 ? 'SourceCustomOne' : 'SourceCustomTwo',
+          source: 'declared' as const,
+        },
+      })),
+    };
+    const markup = renderToStaticMarkup(<FBDDiagram body={namedBody} />);
 
     expect(markup.match(/role="tab"/g)).toHaveLength(2);
     expect(markup.indexOf('Sheet 1')).toBeLessThan(markup.indexOf('Sheet 2'));
@@ -131,7 +143,9 @@ describe('FBDDiagram', () => {
     expect(markup.match(/role="tabpanel"/g)).toHaveLength(2);
     expect(markup.match(/role="tabpanel"[^>]*hidden=""/g)).toHaveLength(1);
     expect(markup).toContain('9 elements and 10 connections.');
-    expect(markup).toContain('Warning: 1 diagnostic.');
+    expect(markup).not.toContain('Warning:');
+    expect(markup).not.toContain('SourceCustomOne');
+    expect(markup).not.toContain('SourceCustomTwo');
     expect(markup).not.toContain('TankAgitator');
 
     expect(markup.match(/react-flow__controls-zoomin/g)).toHaveLength(1);
@@ -217,7 +231,24 @@ describe('FBDDiagram', () => {
   });
 
   it('switches a changed sheetIndex before publishing diagnostics', async () => {
-    const body = levelControlBody();
+    const sourceBody = levelControlBody();
+    const body: NormalizedFBDBody = {
+      ...sourceBody,
+      diagnostics: [
+        {
+          code: 'FBD_UNKNOWN_INSTRUCTION',
+          message: 'First sheet diagnostic.',
+          severity: 'warning',
+          sheetIndex: 0,
+        },
+        {
+          code: 'FBD_UNKNOWN_INSTRUCTION',
+          message: 'Second sheet diagnostic.',
+          severity: 'warning',
+          sheetIndex: 1,
+        },
+      ],
+    };
     const firstDiagnostics = vi.fn();
     const changedDiagnostics = vi.fn();
     const container = document.createElement('div');
@@ -296,12 +327,11 @@ describe('FBDDiagram', () => {
     await act(async () => root.unmount());
   });
 
-  it('labels diagnostic feedback with text and an icon instead of color alone', () => {
+  it('keeps diagnostics out of the visualizer banner', () => {
     const markup = renderToStaticMarkup(<FBDDiagram body={renderElementsBody()} />);
 
-    expect(markup).toContain('fbd-diagnostic-summary-warning');
-    expect(markup).toContain('aria-hidden="true">⚠');
-    expect(markup).toContain('Warning: 2 diagnostics.');
+    expect(markup).not.toContain('fbd-diagnostic-summary');
+    expect(markup).not.toContain('Warning:');
   });
 
   it('defines visible focus and reduced-motion styles for tabs and native controls', () => {
@@ -444,7 +474,6 @@ describe('FBDDiagram', () => {
     expect(onDiagnostics).toHaveBeenCalledTimes(1);
     expect(onDiagnostics.mock.calls[0][0].map((diagnostic: { code: string }) => diagnostic.code))
       .toEqual([
-        'FBD_MISSING_SHEET_NAME',
         'FBD_PLACEHOLDER_ELEMENT',
         'FBD_LAYOUT_MISSING_ELEMENT',
       ]);

@@ -123,14 +123,6 @@
   line-height: 1.4;
 }
 
-.fbd-diagnostic-summary {
-  font-weight: 600;
-}
-
-.fbd-diagnostic-summary-warning {
-  color: var(--fbd-diagnostic);
-}
-
 .fbd-react-flow {
   position: relative;
   min-width: 64px;

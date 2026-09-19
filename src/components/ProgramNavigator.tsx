@@ -46,6 +46,17 @@ interface DisplayController {
   aoiCount: number;
 }
 
+interface DisplayTaskGroup {
+  name: string;
+  taskIndex: number;
+  programIndices: number[];
+}
+
+interface DisplayTaskSchedule {
+  tasks: DisplayTaskGroup[];
+  unscheduledProgramIndices: number[];
+}
+
 /**
  * Convert NormalizedController to display format
  */
@@ -106,6 +117,42 @@ function programsToDisplay(programs: NormalizedProgram[]): DisplayProgram[] {
     })),
     tagCount: p.tags.length,
   }));
+}
+
+/** Group source-ordered programs by explicit task schedules; everything else is unscheduled. */
+function buildTaskSchedule(
+  controller: NormalizedController | undefined,
+  programs: readonly NormalizedProgram[],
+): DisplayTaskSchedule {
+  const programIndexByName = new Map<string, number>();
+  programs.forEach((program, index) => {
+    if (!programIndexByName.has(program.name)) {
+      programIndexByName.set(program.name, index);
+    }
+  });
+
+  const scheduledProgramIndices = new Set<number>();
+  const tasks = (controller?.tasks ?? []).map((task, taskIndex) => {
+    const taskProgramIndices = new Set<number>();
+    for (const programName of task.scheduledProgramNames) {
+      const programIndex = programIndexByName.get(programName);
+      if (programIndex === undefined || taskProgramIndices.has(programIndex)) continue;
+      taskProgramIndices.add(programIndex);
+      scheduledProgramIndices.add(programIndex);
+    }
+    return {
+      name: task.name,
+      taskIndex,
+      programIndices: [...taskProgramIndices],
+    };
+  });
+
+  return {
+    tasks,
+    unscheduledProgramIndices: programs
+      .map((_, index) => index)
+      .filter((index) => !scheduledProgramIndices.has(index)),
+  };
 }
 
 // ============================================================================
@@ -347,6 +394,7 @@ export interface ProgramNavigatorFilter {
   showPrograms?: (program: NormalizedProgram, programIndex: number) => boolean;
   showProgramTags?: (program: NormalizedProgram, programIndex: number) => boolean;
   showRoutine?: (program: NormalizedProgram, programIndex: number, routine: NormalizedRoutine, routineIndex: number) => boolean;
+  /** @deprecated The Unscheduled folder is always shown. */
   showUnscheduled?: boolean;
   showMotionGroups?: boolean;
   showAOIs?: boolean;
@@ -532,6 +580,8 @@ export function ProgramNavigator({
   selectedItemId,
   initialExpanded,
 }: ProgramNavigatorProps) {
+  const sourcePrograms = controller?.programs ?? programs;
+
   // Convert to display format if provided
   const displayController = useMemo<DisplayController | null>(() => {
     if (!controller) return null;
@@ -540,15 +590,25 @@ export function ProgramNavigator({
 
   // Convert programs to display format
   const displayPrograms = useMemo<DisplayProgram[]>(() => {
-    if (displayController) {
-      return displayController.programs;
-    }
-    return programsToDisplay(programs);
-  }, [displayController, programs]);
+    return programsToDisplay(sourcePrograms);
+  }, [sourcePrograms]);
+
+  const taskSchedule = useMemo(
+    () => buildTaskSchedule(controller, sourcePrograms),
+    [controller, sourcePrograms],
+  );
 
   // Expansion state for tree nodes - use initialExpanded if provided, otherwise open all top-level folders
   const [expanded, setExpanded] = useState<Set<string>>(
-    () => initialExpanded ?? new Set(['controller', 'tasks', 'mainTask', 'aois', 'dataTypes', 'io'])
+    () => initialExpanded ?? new Set([
+      'controller',
+      'tasks',
+      'unscheduled',
+      'aois',
+      'dataTypes',
+      'io',
+      ...taskSchedule.tasks.map(({ taskIndex }) => `task-${taskIndex}`),
+    ])
   );
 
   // Internal selection state for non-routine items
@@ -570,7 +630,7 @@ export function ProgramNavigator({
 
   // Helper to get original routine for callback
   const getOriginalRoutine = (programIndex: number, routineIndex: number): NormalizedRoutine | undefined => {
-    const program = programs[programIndex];
+    const program = sourcePrograms[programIndex];
     if (!program) return undefined;
     return program.routines[routineIndex];
   };
@@ -585,6 +645,15 @@ export function ProgramNavigator({
     routine: NormalizedRoutine,
     routineIndex: number,
   ) => filter?.showRoutine?.(program, programIndex, routine, routineIndex) ?? true;
+  const visibleProgramIndices = (programIndices: readonly number[]) => programIndices.filter(
+    (programIndex) => {
+      const program = sourcePrograms[programIndex];
+      return program ? shouldShowProgram(program, programIndex) : false;
+    },
+  );
+  const visibleUnscheduledProgramIndices = visibleProgramIndices(
+    taskSchedule.unscheduledProgramIndices,
+  );
 
   // Helper to get original data type for callback
   const getOriginalDataType = (name: string): NormalizedDataType | undefined => {
@@ -594,6 +663,90 @@ export function ProgramNavigator({
 
   // Get data type categories from display controller
   const dataTypeCategories = displayController?.dataTypes ?? null;
+
+  const renderProgramNode = (programIndex: number, parentKey: string) => {
+    const program = displayPrograms[programIndex];
+    const originalProgram = sourcePrograms[programIndex];
+    if (!program || !originalProgram || !shouldShowProgram(originalProgram, programIndex)) {
+      return null;
+    }
+
+    const programKey = `program-${programIndex}`;
+    const visibleRoutines = [...program.routines]
+      .map((routine, originalIdx) => ({ routine, originalIdx }))
+      .filter(({ originalIdx }) => {
+        const originalRoutine = originalProgram.routines[originalIdx];
+        return originalRoutine
+          ? shouldShowRoutine(originalProgram, programIndex, originalRoutine, originalIdx)
+          : false;
+      })
+      .sort((a, b) => a.routine.name.localeCompare(b.routine.name));
+    const showProgramTags = shouldShowProgramTags(originalProgram, programIndex);
+    const isProgramExpandable = showProgramTags || visibleRoutines.length > 0;
+
+    return (
+      <React.Fragment key={`${parentKey}-${programKey}`}>
+        <TreeItem
+          icon={expanded.has(programKey) ? Icons.programOpen : Icons.program}
+          label={program.name}
+          depth={2}
+          isExpandable={isProgramExpandable}
+          isExpanded={expanded.has(programKey)}
+          onToggle={() => toggleExpanded(programKey)}
+        />
+
+        {expanded.has(programKey) && (
+          <>
+            {showProgramTags ? (
+              <TreeItem
+                icon={Icons.tags}
+                label="Program Tags"
+                depth={3}
+                badge={badges?.programTags?.(originalProgram, programIndex)}
+                isSelected={activeSelectedItem === `program-tags-${programIndex}`}
+                onClick={() => {
+                  setSelectedItem(`program-tags-${programIndex}`);
+                  onProgramTagsSelect?.(programIndex);
+                }}
+              />
+            ) : null}
+
+            {visibleRoutines.map(({ routine, originalIdx }) => {
+              const isRoutineSelected =
+                selectedRoutine?.programIndex === programIndex &&
+                selectedRoutine?.routineIndex === originalIdx;
+
+              return (
+                <TreeItem
+                  key={routine.name}
+                  icon={getRoutineIcon(routine.type)}
+                  label={routine.name}
+                  depth={3}
+                  badge={badges?.routine?.(
+                    originalProgram,
+                    programIndex,
+                    originalProgram.routines[originalIdx],
+                    originalIdx,
+                  )}
+                  isSelected={
+                    isRoutineSelected ||
+                    activeSelectedItem === `routine-${programIndex}-${originalIdx}`
+                  }
+                  onClick={() => {
+                    setSelectedItem(`routine-${programIndex}-${originalIdx}`);
+                    const originalRoutine = getOriginalRoutine(programIndex, originalIdx);
+                    if (originalRoutine) {
+                      onRoutineSelect?.(programIndex, originalIdx, originalRoutine);
+                    }
+                  }}
+                />
+              );
+            })}
+          </>
+        )}
+      </React.Fragment>
+    );
+  };
 
   const containerStyle: React.CSSProperties = {
     backgroundColor: `var(--navigator-bg, ${navigatorDefaults.bg})`,
@@ -682,101 +835,37 @@ export function ProgramNavigator({
 
         {expanded.has('tasks') && (
           <>
-            {/* MainTask */}
-            <TreeItem
-              icon={expanded.has('mainTask') ? Icons.taskOpen : Icons.task}
-              label="MainTask"
-              depth={1}
-              isExpandable={true}
-              isExpanded={expanded.has('mainTask')}
-              onToggle={() => toggleExpanded('mainTask')}
-            />
-
-            {expanded.has('mainTask') && displayPrograms.map((program, pIdx) => {
-              const originalProgram = programs[pIdx];
-              if (!originalProgram || !shouldShowProgram(originalProgram, pIdx)) {
-                return null;
-              }
-
-              const programKey = `program-${pIdx}`;
-              const programName = program.name;
-              const visibleRoutines = [...program.routines]
-                .map((routine, originalIdx) => ({ routine, originalIdx }))
-                .filter(({ originalIdx }) => {
-                  const originalRoutine = originalProgram.routines[originalIdx];
-                  return originalRoutine ? shouldShowRoutine(originalProgram, pIdx, originalRoutine, originalIdx) : false;
-                })
-                .sort((a, b) => a.routine.name.localeCompare(b.routine.name));
-              const showProgramTags = shouldShowProgramTags(originalProgram, pIdx);
-              const isProgramExpandable = showProgramTags || visibleRoutines.length > 0;
-
+            {taskSchedule.tasks.map(({ name, taskIndex, programIndices }) => {
+              const taskKey = `task-${taskIndex}`;
+              const taskProgramIndices = visibleProgramIndices(programIndices);
               return (
-                <React.Fragment key={programKey}>
+                <React.Fragment key={taskKey}>
                   <TreeItem
-                    icon={expanded.has(programKey) ? Icons.programOpen : Icons.program}
-                    label={programName}
-                    depth={2}
-                    isExpandable={isProgramExpandable}
-                    isExpanded={expanded.has(programKey)}
-                    onToggle={() => toggleExpanded(programKey)}
+                    icon={expanded.has(taskKey) ? Icons.taskOpen : Icons.task}
+                    label={name}
+                    depth={1}
+                    isExpandable={taskProgramIndices.length > 0}
+                    isExpanded={expanded.has(taskKey)}
+                    onToggle={() => toggleExpanded(taskKey)}
                   />
-
-                  {expanded.has(programKey) && (
-                    <>
-                      {/* Program Tags */}
-                      {showProgramTags ? (
-                        <TreeItem
-                          icon={Icons.tags}
-                          label="Program Tags"
-                          depth={3}
-                          badge={badges?.programTags?.(originalProgram, pIdx)}
-                          isSelected={activeSelectedItem === `program-tags-${pIdx}`}
-                          onClick={() => {
-                            setSelectedItem(`program-tags-${pIdx}`);
-                            onProgramTagsSelect?.(pIdx);
-                          }}
-                        />
-                      ) : null}
-
-                      {/* Routines (sorted alphabetically) */}
-                      {visibleRoutines.map(({ routine, originalIdx }) => {
-                        const isRoutineSelected =
-                          selectedRoutine?.programIndex === pIdx &&
-                          selectedRoutine?.routineIndex === originalIdx;
-
-                        return (
-                          <TreeItem
-                            key={routine.name}
-                            icon={getRoutineIcon(routine.type)}
-                            label={routine.name}
-                            depth={3}
-                            badge={badges?.routine?.(originalProgram, pIdx, originalProgram.routines[originalIdx], originalIdx)}
-                            isSelected={isRoutineSelected || activeSelectedItem === `routine-${pIdx}-${originalIdx}`}
-                            onClick={() => {
-                              setSelectedItem(`routine-${pIdx}-${originalIdx}`);
-                              const originalRoutine = getOriginalRoutine(pIdx, originalIdx);
-                              if (originalRoutine) {
-                                onRoutineSelect?.(pIdx, originalIdx, originalRoutine);
-                              }
-                            }}
-                          />
-                        );
-                      })}
-                    </>
+                  {expanded.has(taskKey) && taskProgramIndices.map((programIndex) =>
+                    renderProgramNode(programIndex, taskKey)
                   )}
                 </React.Fragment>
               );
             })}
 
-            {/* Unscheduled Programs */}
-            {filter?.showUnscheduled !== false ? (
-              <TreeItem
-                icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
-                label="Unscheduled"
-                depth={1}
-                isExpandable={false}
-              />
-            ) : null}
+            <TreeItem
+              icon={expanded.has('unscheduled') ? Icons.folderOpen : Icons.folder}
+              label="Unscheduled"
+              depth={1}
+              isExpandable={visibleUnscheduledProgramIndices.length > 0}
+              isExpanded={expanded.has('unscheduled')}
+              onToggle={() => toggleExpanded('unscheduled')}
+            />
+            {expanded.has('unscheduled') && visibleUnscheduledProgramIndices.map(
+              (programIndex) => renderProgramNode(programIndex, 'unscheduled')
+            )}
           </>
         )}
 

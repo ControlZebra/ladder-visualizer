@@ -15,7 +15,7 @@
 
 ## Canonical fallback policy
 
-The normalized model keeps fallback provenance next to each value. Missing sheet size becomes `Unspecified`, missing or invalid orientation becomes `Landscape`, missing or invalid sheet number becomes the one-based source sheet index, and missing sheet name becomes `Sheet <number>`. These values are deterministic display metadata, not claims that the source declared them.
+The normalized model keeps fallback provenance next to each value. Missing sheet size becomes `Unspecified`, missing or invalid orientation becomes `Landscape`, missing or invalid sheet number becomes the one-based source sheet index, and a missing sheet name is retained as the non-diagnostic fallback `Sheet <source order>`. Sheet navigation always uses `Sheet 1`, `Sheet 2`, and so on in source order, so consumers do not depend on optional source names or declared numbers. These values are deterministic display metadata, not claims that the source declared them.
 
 IDs, coordinates, sheet numbers, connection endpoints, and attachment endpoints remain decimal strings so valid `xs:unsignedLong` values are not rounded by JavaScript. Required positioned-element fields are checked against the full unsigned-long range. A recoverable node with missing or invalid fields becomes a placeholder with stable reason codes.
 

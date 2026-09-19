@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="ProgramNavigatorTasks" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="ProgramNavigatorTasks">
+    <Programs>
+      <Program Name="ProcessSimulation" ExecutingTaskName="Periodic100msec">
+        <Routines>
+          <Routine Name="SimulateProcess" Type="RLL">
+            <RLLContent><Rung Number="0" Type="N"><Text><![CDATA[XIC(SimulationEnabled)OTE(SimulationRunning);]]></Text></Rung></RLLContent>
+          </Routine>
+        </Routines>
+      </Program>
+      <Program Name="UnscheduledProgram">
+        <Routines>
+          <Routine Name="IdleRoutine" Type="ST"><STContent><Line Number="0"><![CDATA[Idle := TRUE;]]></Line></STContent></Routine>
+        </Routines>
+      </Program>
+    </Programs>
+    <Tasks>
+      <Task Name="Periodic100msec" Type="PERIODIC" Rate="100" Priority="10" Watchdog="500" DisableUpdateOutputs="false" InhibitTask="false">
+        <ScheduledPrograms>
+          <ScheduledProgram Name="ProcessSimulation"/>
+        </ScheduledPrograms>
+      </Task>
+      <Task Name="EmptyTask" Type="CONTINUOUS">
+        <ScheduledPrograms />
+      </Task>
+    </Tasks>
+  </Controller>
+</RSLogix5000Content>

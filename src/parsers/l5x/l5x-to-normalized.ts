@@ -917,15 +917,6 @@ function normalizeFBDSheet(
       sheetIndex,
     });
   }
-  if (declaredName === undefined) {
-    diagnostics.push({
-      code: 'FBD_MISSING_SHEET_NAME',
-      message: `FBD sheet ${sheetIndex + 1} has no Name; using Sheet ${number}.`,
-      severity: 'info',
-      sheetIndex,
-    });
-  }
-
   const elements: NormalizedFBDElement[] = [];
   const pendingConnections: Array<{ kind: 'wire' | 'feedback-wire'; value: L5XFBDWire }> = [];
   const pendingAttachments: L5XFBDAttachment[] = [];
@@ -1084,7 +1075,7 @@ function normalizeFBDSheet(
   return {
     number: { value: number, source: validNumber ? 'declared' : 'fallback' },
     name: {
-      value: declaredName ?? `Sheet ${number}`,
+      value: declaredName ?? `Sheet ${sheetIndex + 1}`,
       source: declaredName === undefined ? 'fallback' : 'declared',
     },
     descriptions: ensureArray(sheet.Description)
