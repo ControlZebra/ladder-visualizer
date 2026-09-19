@@ -220,6 +220,53 @@ describe('version-aware FBD instruction metadata', () => {
     );
   });
 
+  it('rejects a required DEDT array whose binding operand is absent', () => {
+    const source = read('fbd-v35').replace(
+      /<Sheet Number="1">[\s\S]*<\/Sheet>/,
+      `<Sheet Number="1">
+        <Block Type="DEDT" ID="10" X="20" Y="20" VisiblePins="In Out">
+          <Array Name="StorageArray" />
+        </Block>
+      </Sheet>`
+    );
+    const { result, routine: parsed } = routine(source, 'FBDLogic');
+
+    expect(result.status).toBe('partial');
+    expect(parsed?.fbd?.sheets[0]?.elements[0]).toMatchObject({
+      kind: 'placeholder',
+      sourceKind: 'Block',
+      ports: [],
+      reasonCodes: ['unresolved-metadata'],
+    });
+    expect(parsed?.fbd?.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: 'FBD_MISSING_REQUIRED_ARRAY',
+        message: expect.stringContaining('StorageArray'),
+      })
+    );
+  });
+
+  it('uses port defaults only when VisiblePins is absent, not when it is explicitly empty', () => {
+    const source = read('fbd-v35').replace(
+      /<Sheet Number="1">[\s\S]*<\/Sheet>/,
+      `<Sheet Number="1">
+        <Block Type="ADD" ID="10" X="20" Y="20" />
+        <Block Type="ADD" ID="11" X="20" Y="80" VisiblePins="" />
+      </Sheet>`
+    );
+    const { result, routine: parsed } = routine(source, 'FBDLogic');
+    const blocks = parsed?.fbd?.sheets[0]?.elements.filter(
+      (element) => element.kind === 'block'
+    );
+
+    expect(result.status).toBe('complete');
+    expect(blocks?.map((block) => block.ports.map((port) => port.id))).toEqual([
+      ['SourceA', 'SourceB', 'Dest'],
+      [],
+    ]);
+    expect(blocks?.map((block) => block.visiblePins)).toEqual([[], []]);
+  });
+
   it('accepts complete external metadata and diagnoses duplicate or unresolved port definitions', () => {
     const complete: FBDInstructionMetadata = {
       mnemonic: 'FUTURE',

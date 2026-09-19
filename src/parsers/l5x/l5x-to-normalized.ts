@@ -1142,7 +1142,8 @@ function normalizeFBDBlock(
   diagnostics: NormalizedFBDDiagnostic[],
   sheetIndex: number
 ): NormalizedFBDElement {
-  const visiblePins = splitTokens(node['@_VisiblePins']);
+  const visiblePinsSource = node['@_VisiblePins'];
+  const visiblePins = splitTokens(visiblePinsSource);
   const mnemonic = node['@_Type'] ?? '';
   const resolution = resolveBuiltInFBDInstructionMetadata({
     mnemonic,
@@ -1159,6 +1160,7 @@ function normalizeFBDBlock(
   const ports = selectFBDPorts(
     resolution.metadata.ports,
     visiblePins,
+    visiblePinsSource !== undefined,
     diagnostics,
     sheetIndex,
     'Block',
@@ -1170,7 +1172,10 @@ function normalizeFBDBlock(
   }));
   const missingArrays = resolution.metadata.arrays.filter(
     (requirement) =>
-      requirement.required && !arrays.some((array) => array.name === requirement.id)
+      requirement.required &&
+      !arrays.some(
+        (array) => array.name === requirement.id && Boolean(array.operand?.trim())
+      )
   );
   for (const requirement of missingArrays) {
     diagnostics.push({
@@ -1209,7 +1214,8 @@ function normalizeFBDAOI(
   diagnostics: NormalizedFBDDiagnostic[],
   sheetIndex: number
 ): NormalizedFBDElement {
-  const visiblePins = splitTokens(node['@_VisiblePins']);
+  const visiblePinsSource = node['@_VisiblePins'];
+  const visiblePins = splitTokens(visiblePinsSource);
   const bindings = ensureArray(node.InOutParameter).map((binding) => ({
     ...(binding['@_Name'] !== undefined ? { name: binding['@_Name'] } : {}),
     ...(binding['@_Argument'] !== undefined ? { argument: binding['@_Argument'] } : {}),
@@ -1273,6 +1279,7 @@ function normalizeFBDAOI(
     : selectFBDPorts(
         portMetadata,
         visiblePins,
+        visiblePinsSource !== undefined,
         diagnostics,
         sheetIndex,
         'AddOnInstruction',
@@ -1324,10 +1331,12 @@ function normalizeFBDFunction(
       []
     );
   }
-  const visiblePins = splitTokens(node['@_VisiblePins']);
+  const visiblePinsSource = stringValue(node['@_VisiblePins']);
+  const visiblePins = splitTokens(visiblePinsSource);
   const ports = selectFBDPorts(
     resolution.metadata.ports,
     visiblePins,
+    node['@_VisiblePins'] !== undefined,
     diagnostics,
     sheetIndex,
     'Function',
@@ -1353,12 +1362,13 @@ function normalizeFBDFunction(
 function selectFBDPorts(
   metadata: FBDPortMetadata[],
   visiblePins: string[],
+  visiblePinsDeclared: boolean,
   diagnostics: NormalizedFBDDiagnostic[],
   sheetIndex: number,
   sourceKind: string,
   mnemonic: string
 ): NormalizedFBDPort[] | undefined {
-  const selectedIds = visiblePins.length
+  const selectedIds = visiblePinsDeclared
     ? new Set(visiblePins)
     : new Set(metadata.filter((port) => port.defaultVisible).map((port) => port.id));
   const knownIds = new Set(metadata.map((port) => port.id));
