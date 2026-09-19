@@ -7,6 +7,7 @@ import {
   FBD_GRID_TO_SVG_SCALE,
   FBD_PORT_PIN_EXTENT,
   FBD_WIRE_OBSTACLE_GAP,
+  FBD_WIRE_SEPARATION,
   getFBDElementFooterLabels,
   layoutFBDElement,
   measureFBDElement,
@@ -100,6 +101,58 @@ function port(
     },
     point: { x, y },
   };
+}
+
+function positiveCollinearOverlap(
+  first: readonly [{ x: number; y: number }, { x: number; y: number }],
+  second: readonly [{ x: number; y: number }, { x: number; y: number }],
+): boolean {
+  const [firstStart, firstEnd] = first;
+  const [secondStart, secondEnd] = second;
+  const firstHorizontal = firstStart.y === firstEnd.y;
+  const secondHorizontal = secondStart.y === secondEnd.y;
+  if (firstHorizontal !== secondHorizontal) return false;
+  if (firstHorizontal) {
+    return firstStart.y === secondStart.y
+      && Math.min(Math.max(firstStart.x, firstEnd.x), Math.max(secondStart.x, secondEnd.x))
+        - Math.max(Math.min(firstStart.x, firstEnd.x), Math.min(secondStart.x, secondEnd.x)) > 0;
+  }
+  return firstStart.x === secondStart.x
+    && Math.min(Math.max(firstStart.y, firstEnd.y), Math.max(secondStart.y, secondEnd.y))
+      - Math.max(Math.min(firstStart.y, firstEnd.y), Math.min(secondStart.y, secondEnd.y)) > 0;
+}
+
+function expectNoWireOverlapExceptSharedConnectorStubs(
+  layout: ReturnType<typeof buildFBDSheetLayout>,
+) {
+  layout.connections.forEach((connection, connectionIndex) => {
+    const segments = connection.points.slice(1).map(
+      (point, index) => [connection.points[index], point] as const,
+    );
+    layout.connections.slice(connectionIndex + 1).forEach((otherConnection) => {
+      const otherSegments = otherConnection.points.slice(1).map(
+        (point, index) => [otherConnection.points[index], point] as const,
+      );
+      const sharedSource = connection.connection.from.elementId
+          === otherConnection.connection.from.elementId
+        && connection.source.port.id === otherConnection.source.port.id;
+      const sharedDestination = connection.connection.to.elementId
+          === otherConnection.connection.to.elementId
+        && connection.destination.port.id === otherConnection.destination.port.id;
+
+      segments.forEach((segment, segmentIndex) => {
+        otherSegments.forEach((otherSegment, otherSegmentIndex) => {
+          const sharedSourceStub = sharedSource && segmentIndex === 0 && otherSegmentIndex === 0;
+          const sharedDestinationStub = sharedDestination
+            && segmentIndex === segments.length - 1
+            && otherSegmentIndex === otherSegments.length - 1;
+          if (!sharedSourceStub && !sharedDestinationStub) {
+            expect(positiveCollinearOverlap(segment, otherSegment)).toBe(false);
+          }
+        });
+      });
+    });
+  });
 }
 
 describe('FBD layout', () => {
@@ -375,6 +428,23 @@ describe('FBD layout', () => {
         });
       }
     }
+  });
+
+  it('separates coincident wire segments except at a shared D-connector stub', () => {
+    for (const sheet of levelControlBody().sheets) {
+      expectNoWireOverlapExceptSharedConnectorStubs(buildFBDSheetLayout(sheet));
+    }
+
+    const source = levelControlBody().sheets[0];
+    const repeatedConnection = source.connections[1];
+    const repeatedLayout = buildFBDSheetLayout({
+      ...source,
+      connections: [repeatedConnection, repeatedConnection, ...source.connections],
+    });
+    expectNoWireOverlapExceptSharedConnectorStubs(repeatedLayout);
+    const repeatedRoutes = repeatedLayout.connections.slice(0, 2);
+    expect(repeatedRoutes[0].points).not.toEqual(repeatedRoutes[1].points);
+    expect(FBD_WIRE_SEPARATION).toBeGreaterThan(0);
   });
 
   it('omits connections that reference ambiguous duplicate element IDs', () => {

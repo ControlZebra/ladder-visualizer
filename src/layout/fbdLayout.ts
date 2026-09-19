@@ -28,6 +28,7 @@ export const FBD_BACKWARD_ROUTE_GAP = 28;
 export const FBD_ROUTE_LANE_GAP = 12;
 export const FBD_PORT_PIN_EXTENT = 9;
 export const FBD_WIRE_OBSTACLE_GAP = 8;
+export const FBD_WIRE_SEPARATION = 4;
 
 const CHARACTER_WIDTH = 7;
 const REFERENCE_HEIGHT = 32;
@@ -347,6 +348,46 @@ function routeClearsObstacles(points: readonly FBDPoint[], obstacles: readonly F
   ));
 }
 
+interface FBDLineSegment {
+  from: FBDPoint;
+  to: FBDPoint;
+}
+
+function pathSegments(points: readonly FBDPoint[]): FBDLineSegment[] {
+  return points.slice(1).map((to, index) => ({ from: points[index], to }));
+}
+
+function projectedOverlap(
+  firstStart: number,
+  firstEnd: number,
+  secondStart: number,
+  secondEnd: number,
+): number {
+  return Math.min(Math.max(firstStart, firstEnd), Math.max(secondStart, secondEnd))
+    - Math.max(Math.min(firstStart, firstEnd), Math.min(secondStart, secondEnd));
+}
+
+function segmentsOverlap(first: FBDLineSegment, second: FBDLineSegment): boolean {
+  const firstHorizontal = first.from.y === first.to.y;
+  const secondHorizontal = second.from.y === second.to.y;
+  if (firstHorizontal !== secondHorizontal) return false;
+  if (firstHorizontal) {
+    return first.from.y === second.from.y
+      && projectedOverlap(first.from.x, first.to.x, second.from.x, second.to.x) > 0;
+  }
+  return first.from.x === second.from.x
+    && projectedOverlap(first.from.y, first.to.y, second.from.y, second.to.y) > 0;
+}
+
+function pathOverlapsSegments(
+  points: readonly FBDPoint[],
+  occupiedSegments: readonly FBDLineSegment[],
+): boolean {
+  return pathSegments(points).some(
+    (candidate) => occupiedSegments.some((occupied) => segmentsOverlap(candidate, occupied)),
+  );
+}
+
 function sortedUnique(values: readonly number[]): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
 }
@@ -379,16 +420,31 @@ function routeAroundObstacles(
   start: FBDPoint,
   end: FBDPoint,
   obstacles: readonly FBDRect[],
+  occupiedSegments: readonly FBDLineSegment[],
 ): FBDPoint[] {
   const xs = sortedUnique([
     start.x,
     end.x,
     ...obstacles.flatMap((obstacle) => [obstacle.x, obstacle.x + obstacle.width]),
+    ...occupiedSegments.flatMap((segment) => [
+      segment.from.x,
+      segment.to.x,
+      ...(segment.from.x === segment.to.x
+        ? [segment.from.x - FBD_WIRE_SEPARATION, segment.from.x + FBD_WIRE_SEPARATION]
+        : []),
+    ]),
   ]);
   const ys = sortedUnique([
     start.y,
     end.y,
     ...obstacles.flatMap((obstacle) => [obstacle.y, obstacle.y + obstacle.height]),
+    ...occupiedSegments.flatMap((segment) => [
+      segment.from.y,
+      segment.to.y,
+      ...(segment.from.y === segment.to.y
+        ? [segment.from.y - FBD_WIRE_SEPARATION, segment.from.y + FBD_WIRE_SEPARATION]
+        : []),
+    ]),
   ]);
   const nodes = xs.flatMap((x) => ys.map((y) => ({ x, y })))
     .filter((point) => obstacles.every((obstacle) => !pointInsideRect(point, obstacle)));
@@ -409,6 +465,7 @@ function routeAroundObstacles(
     indices.slice(1).forEach((right, index) => {
       const left = indices[index];
       if (!routeClearsObstacles([nodes[left], nodes[right]], obstacles)) return;
+      if (pathOverlapsSegments([nodes[left], nodes[right]], occupiedSegments)) return;
       neighbors.set(left, [...(neighbors.get(left) ?? []), right]);
       neighbors.set(right, [...(neighbors.get(right) ?? []), left]);
     });
@@ -474,6 +531,7 @@ export function routeFBDConnection(
   connectionIndex: number,
   elementBounds: FBDRect,
   elementObstacles: readonly FBDRect[] = [],
+  occupiedSegments: readonly FBDLineSegment[] = [],
 ): Pick<FBDConnectionLayout, 'points' | 'path' | 'routeKind'> {
   let routeKind: FBDRouteKind;
   const sourcePoint = outerPinPoint(source);
@@ -515,8 +573,9 @@ export function routeFBDConnection(
   }
 
   const interior = routeClearsObstacles(preferredInterior, obstacles)
+    && !pathOverlapsSegments(preferredInterior, occupiedSegments)
     ? preferredInterior
-    : routeAroundObstacles(sourceLead, destinationLead, obstacles);
+    : routeAroundObstacles(sourceLead, destinationLead, obstacles, occupiedSegments);
   const canonicalPoints = simplifyOrthogonalPoints([sourcePoint, ...interior, destinationPoint]);
   return { points: canonicalPoints, path: pointsToPath(canonicalPoints), routeKind };
 }
@@ -724,6 +783,11 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
 
   const baseBounds = elementExtents(elements);
   const connections: FBDConnectionLayout[] = [];
+  const occupiedRoutes: Array<{
+    sourceKey: string;
+    destinationKey: string;
+    segments: FBDLineSegment[];
+  }> = [];
   sheet.connections.forEach((connection, connectionIndex) => {
     const source = resolveEndpoint(
       layoutsById,
@@ -744,6 +808,17 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
     if (!source.port || !destination.port) {
       return;
     }
+    const sourceKey = `${connection.from.elementId}:${source.port.port.id}`;
+    const destinationKey = `${connection.to.elementId}:${destination.port.port.id}`;
+    const occupiedSegments = occupiedRoutes.flatMap((occupied) => (
+      occupied.segments.filter((_segment, segmentIndex) => (
+        !(occupied.sourceKey === sourceKey && segmentIndex === 0)
+        && !(
+          occupied.destinationKey === destinationKey
+          && segmentIndex === occupied.segments.length - 1
+        )
+      ))
+    ));
     const route = routeFBDConnection(
       source.port,
       destination.port,
@@ -751,7 +826,13 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
       connectionIndex,
       baseBounds,
       elements.map((layout) => layout.bounds),
+      occupiedSegments,
     );
+    occupiedRoutes.push({
+      sourceKey,
+      destinationKey,
+      segments: pathSegments(route.points),
+    });
     connections.push({ connection, source: source.port, destination: destination.port, ...route });
   });
 
