@@ -312,6 +312,7 @@ export function FBDDiagram({
         background: theme.bgPrimary,
         '--fbd-background': theme.bgPrimary,
         '--fbd-border': theme.boxBorderColor,
+        '--fbd-node-background': `color-mix(in srgb, ${theme.rungNumberBg} 50%, ${theme.boxBgColor})`,
         '--fbd-text': theme.boxTextColor,
         '--fbd-wire': theme.wireColor,
         ...style,

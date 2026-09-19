@@ -62,6 +62,8 @@ describe('FBDDiagram', () => {
     expect(model.edges.filter((edge) => edge.data && 'endpoints' in edge.data)).toHaveLength(0);
     expect(markup).toContain('StorageArray');
     expect(markup).toContain('DEDT_01array');
+    expect(markup).toContain('--fbd-node-background:color-mix(in srgb, #f0f0f0 50%, #ffffff)');
+    expect(markup).toContain('background:var(--fbd-node-background)');
     expect(markup).toContain('data-connector-relationship-count="1"');
     expect(markup).toContain('class="react-flow');
   });

@@ -111,7 +111,7 @@ function PortHandles({ layout, theme, showLabels = true }: {
               className={`fbd-port-pin fbd-port-pin-${port.port.side}`}
               style={{
                 top,
-                background: theme.boxBgColor,
+                background: 'var(--fbd-element-background)',
                 borderColor: theme.boxBorderColor,
               }}
             />
@@ -294,6 +294,10 @@ function FBDNodeComponent({ data }: NodeProps<FBDFlowNode>) {
       content = <PlaceholderNode layout={layout} theme={theme} />;
       break;
   }
+  const usesNodeSurface = element.kind !== 'text-box' && element.kind !== 'placeholder';
+  const elementBackground = usesNodeSurface
+    ? 'var(--fbd-node-background)'
+    : theme.boxBgColor;
 
   return (
     <div
@@ -302,8 +306,9 @@ function FBDNodeComponent({ data }: NodeProps<FBDFlowNode>) {
         width: layout.bounds.width,
         height: layout.bounds.height,
         color: theme.boxTextColor,
-        background: theme.boxBgColor,
-      }}
+        background: elementBackground,
+        '--fbd-element-background': elementBackground,
+      } as CSSProperties}
       data-element-id={elementId(element)}
       data-element-kind={element.kind}
       data-terminal-type={
