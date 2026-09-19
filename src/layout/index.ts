@@ -91,6 +91,7 @@ export {
   buildFBDConnectorIndex,
   getFBDBlockArrayLabels,
   getFBDAOIBindingLabels,
+  getFBDElementFooterLabels,
   wrapFBDText,
 } from './fbdLayout';
 

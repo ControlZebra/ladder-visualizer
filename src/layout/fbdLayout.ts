@@ -128,12 +128,7 @@ function elementPorts(element: NormalizedFBDElement): NormalizedFBDPort[] {
 }
 
 function elementFooterRows(element: NormalizedFBDElement): number {
-  if (element.kind === 'block') return element.arrays.length;
-  if (element.kind === 'add-on-instruction') return element.bindings.length;
-  if (element.kind === 'routine-control') {
-    return Number(element.inputParameters.length > 0) + Number(element.returnParameters.length > 0);
-  }
-  return 0;
+  return getFBDElementFooterLabels(element).length;
 }
 
 export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 'width' | 'height'> {
@@ -169,11 +164,21 @@ export function measureFBDElement(element: NormalizedFBDElement): Pick<FBDRect, 
       ? element.routine
       : undefined;
   const operandWidth = textWidth(operand) + 28;
-  const footerRows = elementFooterRows(element);
+  const footerLabels = getFBDElementFooterLabels(element);
+  const footerWidth = Math.max(0, ...footerLabels.map((label) => textWidth(label) + 24));
 
   return {
-    width: Math.max(MIN_BLOCK_WIDTH, titleWidth, operandWidth, leftLabelWidth + rightLabelWidth + 72),
-    height: Math.max(64, FBD_BLOCK_HEADER_HEIGHT + portRows * FBD_PORT_SPACING + footerRows * 18),
+    width: Math.max(
+      MIN_BLOCK_WIDTH,
+      titleWidth,
+      operandWidth,
+      footerWidth,
+      leftLabelWidth + rightLabelWidth + 72,
+    ),
+    height: Math.max(
+      64,
+      FBD_BLOCK_HEADER_HEIGHT + portRows * FBD_PORT_SPACING + footerLabels.length * 18,
+    ),
   };
 }
 
@@ -688,4 +693,15 @@ export function getFBDAOIBindingLabels(
   return element.bindings.map((binding) =>
     [binding.name, binding.argument].filter(Boolean).join(': ')
   );
+}
+
+export function getFBDElementFooterLabels(element: NormalizedFBDElement): string[] {
+  if (element.kind === 'block') return getFBDBlockArrayLabels(element);
+  if (element.kind === 'add-on-instruction') return getFBDAOIBindingLabels(element);
+  if (element.kind !== 'routine-control') return [];
+
+  return [
+    element.inputParameters.length ? `In: ${element.inputParameters.join(', ')}` : undefined,
+    element.returnParameters.length ? `Ret: ${element.returnParameters.join(', ')}` : undefined,
+  ].filter((label): label is string => label !== undefined);
 }

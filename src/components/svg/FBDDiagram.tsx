@@ -4,8 +4,7 @@ import {
   buildFBDSheetLayout,
   FBD_BLOCK_HEADER_HEIGHT,
   FBD_TEXT_LINE_HEIGHT,
-  getFBDAOIBindingLabels,
-  getFBDBlockArrayLabels,
+  getFBDElementFooterLabels,
   wrapFBDText,
   type FBDElementLayout,
   type FBDLayoutDiagnostic,
@@ -205,7 +204,7 @@ function renderInstruction(
     return renderInstructionFrame(layout, theme, {
       title: element.instruction ?? 'Block',
       subtitle: element.operand,
-      footerLines: getFBDBlockArrayLabels(element),
+      footerLines: getFBDElementFooterLabels(element),
     });
   }
   if (element.kind === 'function') {
@@ -215,7 +214,7 @@ function renderInstruction(
     return renderInstructionFrame(layout, theme, {
       title: element.name ?? 'Add-On Instruction',
       subtitle: element.operand,
-      footerLines: getFBDAOIBindingLabels(element),
+      footerLines: getFBDElementFooterLabels(element),
     });
   }
   return null;
@@ -227,14 +226,10 @@ function renderRoutineControl(
 ): ReactNode {
   const element = layout.element;
   if (element.kind !== 'routine-control') return null;
-  const parameterLines = [
-    element.inputParameters.length ? `In: ${element.inputParameters.join(', ')}` : undefined,
-    element.returnParameters.length ? `Ret: ${element.returnParameters.join(', ')}` : undefined,
-  ].filter((line): line is string => line !== undefined);
   return renderInstructionFrame(layout, theme, {
     title: element.operation,
     subtitle: element.routine,
-    footerLines: parameterLines,
+    footerLines: getFBDElementFooterLabels(element),
   });
 }
 

@@ -5,6 +5,7 @@ import {
   buildFBDConnectorIndex,
   buildFBDSheetLayout,
   FBD_GRID_TO_SVG_SCALE,
+  getFBDElementFooterLabels,
   layoutFBDElement,
   measureFBDElement,
   routeFBDConnection,
@@ -220,6 +221,20 @@ describe('FBD layout', () => {
     expect(autoSized).toEqual(omittedWidth);
     expect(autoSized.width).toBeGreaterThanOrEqual(120);
     expect(autoSized.height).toBe(72);
+  });
+
+  it('sizes instruction frames for their longest rendered footer label', () => {
+    const source = renderElementsBody().sheets[0];
+    const footerElements = source.elements.filter(
+      (element) => element.kind === 'add-on-instruction' || element.kind === 'routine-control',
+    );
+
+    for (const element of footerElements) {
+      const longestFooter = Math.max(
+        ...getFBDElementFooterLabels(element).map((label) => label.length * 7 + 24),
+      );
+      expect(measureFBDElement(element).width).toBeGreaterThanOrEqual(longestFooter);
+    }
   });
 
   it('routes forward, backward, crossing, and feedback connections with deterministic orthogonal paths', () => {
