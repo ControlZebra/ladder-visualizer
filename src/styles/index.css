@@ -67,6 +67,7 @@
 }
 
 .fbd-terminal-shape,
+.fbd-instruction-node,
 .fbd-instruction-frame,
 .fbd-text-box,
 .fbd-placeholder {
@@ -75,6 +76,10 @@
   height: 100%;
   box-sizing: border-box;
   background: inherit;
+}
+
+.fbd-instruction-node {
+  isolation: isolate;
 }
 
 .fbd-terminal-shape {
@@ -134,6 +139,7 @@
 }
 
 .fbd-instruction-frame {
+  z-index: 1;
   border: 1.5px solid;
   border-radius: 3px;
 }
@@ -229,6 +235,7 @@
 
 .fbd-port-label {
   position: absolute;
+  z-index: 2;
   max-width: calc(50% - 14px);
   overflow: hidden;
   font-size: 10px;
@@ -265,17 +272,21 @@
   border-radius: 0 999px 999px 0;
 }
 
-.fbd-instruction-frame .fbd-port-pin-left {
+.fbd-instruction-node .fbd-port-pin {
+  z-index: 0;
+}
+
+.fbd-instruction-node .fbd-port-pin-left {
   border-right-width: 1.5px;
   border-right-style: solid;
 }
 
-.fbd-instruction-frame .fbd-port-pin-right {
+.fbd-instruction-node .fbd-port-pin-right {
   border-left-width: 1.5px;
   border-left-style: solid;
 }
 
-.fbd-instruction-frame .fbd-port-pin::after {
+.fbd-instruction-node .fbd-port-pin::after {
   position: absolute;
   top: 50%;
   left: 50%;

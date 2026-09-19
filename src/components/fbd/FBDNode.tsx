@@ -153,41 +153,43 @@ interface InstructionFrameProps {
 
 function InstructionFrame({ layout, theme, title, subtitle, footerLines = [] }: InstructionFrameProps) {
   return (
-    <div className="fbd-instruction-frame" style={{ borderColor: theme.boxBorderColor }}>
-      <div
-        className="fbd-instruction-header"
-        style={{
-          background: theme.rungNumberBg,
-          borderColor: theme.boxBorderColor,
-        }}
-      >
-        <strong className="fbd-instruction-title">{title}</strong>
-        <span className="fbd-instruction-menu" aria-hidden="true">•••</span>
-      </div>
-      {subtitle && (
-        <span className="fbd-instruction-subtitle" style={{ color: theme.boxTextColor }}>
-          {subtitle}
-        </span>
-      )}
-      {footerLines.length > 0 && (
-        <div className="fbd-instruction-footer" style={{ color: theme.addressColor }}>
-          {footerLines.map((line, index) => {
-            const [label, ...valueParts] = line.split(': ');
-            const value = valueParts.join(': ');
-            return (
-              <span className="fbd-binding" key={`${line}-${index}`}>
-                <span>{label}</span>
-                {value ? (
-                  <span className="fbd-binding-value">{value}</span>
-                ) : (
-                  <span className="fbd-instruction-help" aria-label="No source value">?</span>
-                )}
-              </span>
-            );
-          })}
-        </div>
-      )}
+    <div className="fbd-instruction-node">
       <PortHandles layout={layout} theme={theme} />
+      <div className="fbd-instruction-frame" style={{ borderColor: theme.boxBorderColor }}>
+        <div
+          className="fbd-instruction-header"
+          style={{
+            background: theme.rungNumberBg,
+            borderColor: theme.boxBorderColor,
+          }}
+        >
+          <strong className="fbd-instruction-title">{title}</strong>
+          <span className="fbd-instruction-menu" aria-hidden="true">•••</span>
+        </div>
+        {subtitle && (
+          <span className="fbd-instruction-subtitle" style={{ color: theme.boxTextColor }}>
+            {subtitle}
+          </span>
+        )}
+        {footerLines.length > 0 && (
+          <div className="fbd-instruction-footer" style={{ color: theme.addressColor }}>
+            {footerLines.map((line, index) => {
+              const [label, ...valueParts] = line.split(': ');
+              const value = valueParts.join(': ');
+              return (
+                <span className="fbd-binding" key={`${line}-${index}`}>
+                  <span>{label}</span>
+                  {value ? (
+                    <span className="fbd-binding-value">{value}</span>
+                  ) : (
+                    <span className="fbd-instruction-help" aria-label="No source value">?</span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
