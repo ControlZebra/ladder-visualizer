@@ -393,6 +393,7 @@ export interface ProgramNavigatorFilter {
   showPrograms?: (program: NormalizedProgram, programIndex: number) => boolean;
   showProgramTags?: (program: NormalizedProgram, programIndex: number) => boolean;
   showRoutine?: (program: NormalizedProgram, programIndex: number, routine: NormalizedRoutine, routineIndex: number) => boolean;
+  /** Show the Unscheduled grouping. When hidden, its programs remain directly beneath Tasks. */
   showUnscheduled?: boolean;
   showMotionGroups?: boolean;
   showAOIs?: boolean;
@@ -864,7 +865,9 @@ export function ProgramNavigator({
                   (programIndex) => renderProgramNode(programIndex, 'unscheduled')
                 )}
               </>
-            ) : null}
+            ) : taskSchedule.unscheduledProgramIndices.map(
+              (programIndex) => renderProgramNode(programIndex, 'tasks')
+            )}
           </>
         )}
 

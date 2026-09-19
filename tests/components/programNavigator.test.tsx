@@ -62,6 +62,23 @@ describe('ProgramNavigator task scheduling', () => {
     expect(markup.indexOf('ProcessSimulation')).toBeLessThan(markup.indexOf('UnscheduledProgram'));
   });
 
+  it('keeps taskless programs visible when the Unscheduled grouping is hidden', () => {
+    const parsed = fixtureController('program-navigator-tasks-v35.L5X');
+    const controller = { ...parsed, tasks: [] };
+    const markup = renderToStaticMarkup(
+      <ProgramNavigator
+        controller={controller}
+        programs={controller.programs}
+        filter={{ showUnscheduled: false }}
+        initialExpanded={new Set(['tasks'])}
+      />,
+    );
+
+    expect(markup).not.toContain('Unscheduled</span>');
+    expect(labelCount(markup, 'ProcessSimulation')).toBe(1);
+    expect(labelCount(markup, 'UnscheduledProgram')).toBe(1);
+  });
+
   it('deduplicates repeated references, ignores missing programs, and preserves cross-task conflicts', () => {
     const controller = fixtureController('task-relationships-invalid-v35.L5X');
     const markup = renderToStaticMarkup(
