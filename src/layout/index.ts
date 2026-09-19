@@ -84,6 +84,7 @@ export {
   FBD_BACKWARD_ROUTE_GAP,
   FBD_ROUTE_LANE_GAP,
   FBD_PORT_PIN_EXTENT,
+  FBD_WIRE_OBSTACLE_GAP,
   measureFBDElement,
   placeFBDElementPorts,
   layoutFBDElement,

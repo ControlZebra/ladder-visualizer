@@ -27,10 +27,12 @@ export const FBD_TEXT_LINE_HEIGHT = 16;
 export const FBD_BACKWARD_ROUTE_GAP = 28;
 export const FBD_ROUTE_LANE_GAP = 12;
 export const FBD_PORT_PIN_EXTENT = 9;
+export const FBD_WIRE_OBSTACLE_GAP = 8;
 
 const CHARACTER_WIDTH = 7;
 const REFERENCE_HEIGHT = 32;
 const MIN_BLOCK_WIDTH = 140;
+const FBD_ROUTE_BEND_COST = 8;
 
 function textWidth(value: string | undefined): number {
   return (value?.length ?? 0) * CHARACTER_WIDTH;
@@ -298,58 +300,224 @@ function outerPinPoint(port: FBDPortLayout): FBDPoint {
   };
 }
 
+function outerLeadPoint(port: FBDPortLayout): FBDPoint {
+  const pin = outerPinPoint(port);
+  return {
+    x: pin.x + (port.port.side === 'right' ? FBD_WIRE_OBSTACLE_GAP : -FBD_WIRE_OBSTACLE_GAP),
+    y: pin.y,
+  };
+}
+
+function wireObstacle(bounds: FBDRect): FBDRect {
+  const horizontalPadding = FBD_PORT_PIN_EXTENT + FBD_WIRE_OBSTACLE_GAP;
+  return {
+    x: bounds.x - horizontalPadding,
+    y: bounds.y - FBD_WIRE_OBSTACLE_GAP,
+    width: bounds.width + horizontalPadding * 2,
+    height: bounds.height + FBD_WIRE_OBSTACLE_GAP * 2,
+  };
+}
+
+function pointInsideRect(point: FBDPoint, rect: FBDRect): boolean {
+  return point.x > rect.x
+    && point.x < rect.x + rect.width
+    && point.y > rect.y
+    && point.y < rect.y + rect.height;
+}
+
+function segmentClearsRect(from: FBDPoint, to: FBDPoint, rect: FBDRect): boolean {
+  if (from.x === to.x) {
+    if (from.x <= rect.x || from.x >= rect.x + rect.width) return true;
+    const start = Math.min(from.y, to.y);
+    const end = Math.max(from.y, to.y);
+    return end <= rect.y || start >= rect.y + rect.height;
+  }
+  if (from.y === to.y) {
+    if (from.y <= rect.y || from.y >= rect.y + rect.height) return true;
+    const start = Math.min(from.x, to.x);
+    const end = Math.max(from.x, to.x);
+    return end <= rect.x || start >= rect.x + rect.width;
+  }
+  return false;
+}
+
+function routeClearsObstacles(points: readonly FBDPoint[], obstacles: readonly FBDRect[]): boolean {
+  return points.slice(1).every((point, index) => (
+    obstacles.every((obstacle) => segmentClearsRect(points[index], point, obstacle))
+  ));
+}
+
+function sortedUnique(values: readonly number[]): number[] {
+  return [...new Set(values)].sort((left, right) => left - right);
+}
+
+type RouteDirection = 'horizontal' | 'vertical';
+
+interface RouteState {
+  nodeIndex: number;
+  direction?: RouteDirection;
+  cost: number;
+}
+
+function routeStateKey(nodeIndex: number, direction?: RouteDirection): string {
+  return `${nodeIndex}:${direction ?? 'start'}`;
+}
+
+function simplifyOrthogonalPoints(points: readonly FBDPoint[]): FBDPoint[] {
+  return deduplicateAdjacentPoints(points).filter((point, index, allPoints) => {
+    if (index === 0 || index === allPoints.length - 1) return true;
+    const previous = allPoints[index - 1];
+    const next = allPoints[index + 1];
+    return !(
+      (previous.x === point.x && point.x === next.x)
+      || (previous.y === point.y && point.y === next.y)
+    );
+  });
+}
+
+function routeAroundObstacles(
+  start: FBDPoint,
+  end: FBDPoint,
+  obstacles: readonly FBDRect[],
+): FBDPoint[] {
+  const xs = sortedUnique([
+    start.x,
+    end.x,
+    ...obstacles.flatMap((obstacle) => [obstacle.x, obstacle.x + obstacle.width]),
+  ]);
+  const ys = sortedUnique([
+    start.y,
+    end.y,
+    ...obstacles.flatMap((obstacle) => [obstacle.y, obstacle.y + obstacle.height]),
+  ]);
+  const nodes = xs.flatMap((x) => ys.map((y) => ({ x, y })))
+    .filter((point) => obstacles.every((obstacle) => !pointInsideRect(point, obstacle)));
+  const nodeIndex = new Map(nodes.map((point, index) => [`${point.x}:${point.y}`, index]));
+  const startIndex = nodeIndex.get(`${start.x}:${start.y}`);
+  const endIndex = nodeIndex.get(`${end.x}:${end.y}`);
+  if (startIndex === undefined || endIndex === undefined) return [start, end];
+
+  const neighbors = new Map<number, number[]>();
+  const rows = new Map<number, number[]>();
+  const columns = new Map<number, number[]>();
+  nodes.forEach((point, index) => {
+    rows.set(point.y, [...(rows.get(point.y) ?? []), index]);
+    columns.set(point.x, [...(columns.get(point.x) ?? []), index]);
+  });
+  const connectAdjacent = (indices: number[], coordinate: 'x' | 'y') => {
+    indices.sort((left, right) => nodes[left][coordinate] - nodes[right][coordinate]);
+    indices.slice(1).forEach((right, index) => {
+      const left = indices[index];
+      if (!routeClearsObstacles([nodes[left], nodes[right]], obstacles)) return;
+      neighbors.set(left, [...(neighbors.get(left) ?? []), right]);
+      neighbors.set(right, [...(neighbors.get(right) ?? []), left]);
+    });
+  };
+
+  for (const indices of rows.values()) connectAdjacent(indices, 'x');
+  for (const indices of columns.values()) connectAdjacent(indices, 'y');
+
+  const queue: RouteState[] = [{ nodeIndex: startIndex, cost: 0 }];
+  const distances = new Map([[routeStateKey(startIndex), 0]]);
+  const previous = new Map<string, string>();
+  let finalKey: string | undefined;
+
+  while (queue.length > 0) {
+    queue.sort((left, right) => (
+      left.cost - right.cost
+      || left.nodeIndex - right.nodeIndex
+      || (left.direction ?? '').localeCompare(right.direction ?? '')
+    ));
+    const current = queue.shift();
+    if (!current) break;
+    const currentKey = routeStateKey(current.nodeIndex, current.direction);
+    if (current.cost !== distances.get(currentKey)) continue;
+    if (current.nodeIndex === endIndex) {
+      finalKey = currentKey;
+      break;
+    }
+
+    for (const neighborIndex of neighbors.get(current.nodeIndex) ?? []) {
+      const currentPoint = nodes[current.nodeIndex];
+      const neighborPoint = nodes[neighborIndex];
+      const direction: RouteDirection = currentPoint.x === neighborPoint.x
+        ? 'vertical'
+        : 'horizontal';
+      const distance = Math.abs(currentPoint.x - neighborPoint.x)
+        + Math.abs(currentPoint.y - neighborPoint.y);
+      const bendCost = current.direction && current.direction !== direction
+        ? FBD_ROUTE_BEND_COST
+        : 0;
+      const cost = current.cost + distance + bendCost;
+      const neighborKey = routeStateKey(neighborIndex, direction);
+      if (cost >= (distances.get(neighborKey) ?? Number.POSITIVE_INFINITY)) continue;
+      distances.set(neighborKey, cost);
+      previous.set(neighborKey, currentKey);
+      queue.push({ nodeIndex: neighborIndex, direction, cost });
+    }
+  }
+
+  if (!finalKey) return [start, end];
+  const route: FBDPoint[] = [];
+  let key: string | undefined = finalKey;
+  while (key) {
+    route.push(nodes[Number(key.split(':', 1)[0])]);
+    key = previous.get(key);
+  }
+  return simplifyOrthogonalPoints(route.reverse());
+}
+
 export function routeFBDConnection(
   source: FBDPortLayout,
   destination: FBDPortLayout,
   connectionKind: 'wire' | 'feedback-wire',
   connectionIndex: number,
   elementBounds: FBDRect,
+  elementObstacles: readonly FBDRect[] = [],
 ): Pick<FBDConnectionLayout, 'points' | 'path' | 'routeKind'> {
   let routeKind: FBDRouteKind;
-  let points: FBDPoint[];
   const sourcePoint = outerPinPoint(source);
   const destinationPoint = outerPinPoint(destination);
+  const sourceLead = outerLeadPoint(source);
+  const destinationLead = outerLeadPoint(destination);
+  const obstacles = elementObstacles.map(wireObstacle);
+  let preferredInterior: FBDPoint[];
 
   if (connectionKind === 'feedback-wire') {
     routeKind = 'feedback';
     const laneY = elementBounds.y + elementBounds.height + FBD_BACKWARD_ROUTE_GAP
       + connectionIndex * FBD_ROUTE_LANE_GAP;
-    const sourceLead = sourcePoint.x + FBD_BACKWARD_ROUTE_GAP / 2;
-    const destinationLead = destinationPoint.x - FBD_BACKWARD_ROUTE_GAP / 2;
-    points = [
-      sourcePoint,
-      { x: sourceLead, y: sourcePoint.y },
-      { x: sourceLead, y: laneY },
-      { x: destinationLead, y: laneY },
-      { x: destinationLead, y: destinationPoint.y },
-      destinationPoint,
+    preferredInterior = [
+      sourceLead,
+      { x: sourceLead.x, y: laneY },
+      { x: destinationLead.x, y: laneY },
+      destinationLead,
     ];
-  } else if (destinationPoint.x > sourcePoint.x) {
+  } else if (destinationLead.x > sourceLead.x) {
     routeKind = 'forward';
-    const middleX = sourcePoint.x + (destinationPoint.x - sourcePoint.x) / 2;
-    points = [
-      sourcePoint,
-      { x: middleX, y: sourcePoint.y },
-      { x: middleX, y: destinationPoint.y },
-      destinationPoint,
+    const middleX = sourceLead.x + (destinationLead.x - sourceLead.x) / 2;
+    preferredInterior = [
+      sourceLead,
+      { x: middleX, y: sourceLead.y },
+      { x: middleX, y: destinationLead.y },
+      destinationLead,
     ];
   } else {
     routeKind = 'backward';
     const laneY = elementBounds.y - FBD_BACKWARD_ROUTE_GAP
       - connectionIndex * FBD_ROUTE_LANE_GAP;
-    const sourceLead = sourcePoint.x + FBD_BACKWARD_ROUTE_GAP / 2;
-    const destinationLead = destinationPoint.x - FBD_BACKWARD_ROUTE_GAP / 2;
-    points = [
-      sourcePoint,
-      { x: sourceLead, y: sourcePoint.y },
-      { x: sourceLead, y: laneY },
-      { x: destinationLead, y: laneY },
-      { x: destinationLead, y: destinationPoint.y },
-      destinationPoint,
+    preferredInterior = [
+      sourceLead,
+      { x: sourceLead.x, y: laneY },
+      { x: destinationLead.x, y: laneY },
+      destinationLead,
     ];
   }
 
-  const canonicalPoints = deduplicateAdjacentPoints(points);
+  const interior = routeClearsObstacles(preferredInterior, obstacles)
+    ? preferredInterior
+    : routeAroundObstacles(sourceLead, destinationLead, obstacles);
+  const canonicalPoints = simplifyOrthogonalPoints([sourcePoint, ...interior, destinationPoint]);
   return { points: canonicalPoints, path: pointsToPath(canonicalPoints), routeKind };
 }
 
@@ -582,6 +750,7 @@ export function buildFBDSheetLayout(sheet: NormalizedFBDSheet): FBDSheetLayout {
       connection.kind,
       connectionIndex,
       baseBounds,
+      elements.map((layout) => layout.bounds),
     );
     connections.push({ connection, source: source.port, destination: destination.port, ...route });
   });

@@ -6,6 +6,7 @@ import {
   buildFBDSheetLayout,
   FBD_GRID_TO_SVG_SCALE,
   FBD_PORT_PIN_EXTENT,
+  FBD_WIRE_OBSTACLE_GAP,
   getFBDElementFooterLabels,
   layoutFBDElement,
   measureFBDElement,
@@ -298,6 +299,81 @@ describe('FBD layout', () => {
         const previous = route.points[index];
         expect(point.x === previous.x || point.y === previous.y).toBe(true);
       });
+    }
+  });
+
+  it('routes around expanded node bounds including decorative D-shaped pins', () => {
+    const blocker = { x: 250, y: 40, width: 100, height: 120 };
+    const expandedBlocker = {
+      x: blocker.x - FBD_PORT_PIN_EXTENT - FBD_WIRE_OBSTACLE_GAP,
+      y: blocker.y - FBD_WIRE_OBSTACLE_GAP,
+      width: blocker.width + (FBD_PORT_PIN_EXTENT + FBD_WIRE_OBSTACLE_GAP) * 2,
+      height: blocker.height + FBD_WIRE_OBSTACLE_GAP * 2,
+    };
+    const route = routeFBDConnection(
+      port(100, 100, 'output'),
+      port(500, 100, 'input'),
+      'wire',
+      0,
+      { x: 80, y: 40, width: 440, height: 120 },
+      [blocker],
+    );
+
+    expect(route.points.some((point) => (
+      point.y === expandedBlocker.y
+      || point.y === expandedBlocker.y + expandedBlocker.height
+    ))).toBe(true);
+    route.points.slice(2, -1).forEach((point, index) => {
+      const previous = route.points[index + 1];
+      if (previous.y === point.y && point.y > expandedBlocker.y
+        && point.y < expandedBlocker.y + expandedBlocker.height) {
+        const segmentStart = Math.min(previous.x, point.x);
+        const segmentEnd = Math.max(previous.x, point.x);
+        expect(segmentEnd <= expandedBlocker.x
+          || segmentStart >= expandedBlocker.x + expandedBlocker.width).toBe(true);
+      }
+      if (previous.x === point.x && point.x > expandedBlocker.x
+        && point.x < expandedBlocker.x + expandedBlocker.width) {
+        const segmentStart = Math.min(previous.y, point.y);
+        const segmentEnd = Math.max(previous.y, point.y);
+        expect(segmentEnd <= expandedBlocker.y
+          || segmentStart >= expandedBlocker.y + expandedBlocker.height).toBe(true);
+      }
+    });
+  });
+
+  it('keeps every level-control wire clear of every expanded element obstacle', () => {
+    for (const sheet of levelControlBody().sheets) {
+      const layout = buildFBDSheetLayout(sheet);
+      const obstacles = layout.elements.map(({ bounds }) => ({
+        x: bounds.x - FBD_PORT_PIN_EXTENT - FBD_WIRE_OBSTACLE_GAP,
+        y: bounds.y - FBD_WIRE_OBSTACLE_GAP,
+        width: bounds.width + (FBD_PORT_PIN_EXTENT + FBD_WIRE_OBSTACLE_GAP) * 2,
+        height: bounds.height + FBD_WIRE_OBSTACLE_GAP * 2,
+      }));
+
+      for (const connection of layout.connections) {
+        const interior = connection.points.slice(1, -1);
+        interior.slice(1).forEach((point, index) => {
+          const previous = interior[index];
+          for (const obstacle of obstacles) {
+            if (previous.y === point.y && point.y > obstacle.y
+              && point.y < obstacle.y + obstacle.height) {
+              const segmentStart = Math.min(previous.x, point.x);
+              const segmentEnd = Math.max(previous.x, point.x);
+              expect(segmentEnd <= obstacle.x
+                || segmentStart >= obstacle.x + obstacle.width).toBe(true);
+            }
+            if (previous.x === point.x && point.x > obstacle.x
+              && point.x < obstacle.x + obstacle.width) {
+              const segmentStart = Math.min(previous.y, point.y);
+              const segmentEnd = Math.max(previous.y, point.y);
+              expect(segmentEnd <= obstacle.y
+                || segmentStart >= obstacle.y + obstacle.height).toBe(true);
+            }
+          }
+        });
+      }
     }
   });
 
