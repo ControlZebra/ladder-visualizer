@@ -266,11 +266,13 @@
 }
 
 .fbd-port-pin-left {
-  left: -5px;
+  left: 0;
+  transform: translate(-50%, -50%);
 }
 
 .fbd-port-pin-right {
-  right: -5px;
+  right: 0;
+  transform: translate(50%, -50%);
 }
 
 .fbd-text-box {

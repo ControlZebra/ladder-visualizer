@@ -83,6 +83,8 @@ export {
   FBD_TEXT_LINE_HEIGHT,
   FBD_BACKWARD_ROUTE_GAP,
   FBD_ROUTE_LANE_GAP,
+  FBD_WIRE_SEPARATION,
+  FBD_PORT_PIN_RADIUS,
   measureFBDElement,
   placeFBDElementPorts,
   layoutFBDElement,

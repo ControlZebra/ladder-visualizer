@@ -27,6 +27,7 @@ export const FBD_TEXT_LINE_HEIGHT = 16;
 export const FBD_BACKWARD_ROUTE_GAP = 28;
 export const FBD_ROUTE_LANE_GAP = 12;
 export const FBD_WIRE_SEPARATION = 4;
+export const FBD_PORT_PIN_RADIUS = 4.5;
 
 const CHARACTER_WIDTH = 7;
 const REFERENCE_HEIGHT = 32;
@@ -341,6 +342,13 @@ function laneOffset(attempt: number): number {
   return attempt % 2 === 1 ? magnitude : -magnitude;
 }
 
+function outerPinPoint(port: FBDPortLayout): FBDPoint {
+  return {
+    x: port.point.x + (port.port.side === 'right' ? FBD_PORT_PIN_RADIUS : -FBD_PORT_PIN_RADIUS),
+    y: port.point.y,
+  };
+}
+
 export function routeFBDConnection(
   source: FBDPortLayout,
   destination: FBDPortLayout,
@@ -351,45 +359,47 @@ export function routeFBDConnection(
 ): Pick<FBDConnectionLayout, 'points' | 'path' | 'routeKind'> {
   let routeKind: FBDRouteKind;
   let points: FBDPoint[];
+  const sourcePoint = outerPinPoint(source);
+  const destinationPoint = outerPinPoint(destination);
 
   if (connectionKind === 'feedback-wire') {
     routeKind = 'feedback';
     const laneY = elementBounds.y + elementBounds.height + FBD_BACKWARD_ROUTE_GAP
       + connectionIndex * FBD_ROUTE_LANE_GAP + offset;
-    const sourceLead = source.point.x + FBD_BACKWARD_ROUTE_GAP / 2 + offset;
-    const destinationLead = destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2 + offset;
+    const sourceLead = sourcePoint.x + FBD_BACKWARD_ROUTE_GAP / 2 + offset;
+    const destinationLead = destinationPoint.x - FBD_BACKWARD_ROUTE_GAP / 2 + offset;
     points = [
-      source.point,
-      { x: sourceLead, y: source.point.y + offset },
+      sourcePoint,
+      { x: sourceLead, y: sourcePoint.y + offset },
       { x: sourceLead, y: laneY },
       { x: destinationLead, y: laneY },
-      { x: destinationLead, y: destination.point.y + offset },
-      destination.point,
+      { x: destinationLead, y: destinationPoint.y + offset },
+      destinationPoint,
     ];
-  } else if (destination.point.x > source.point.x) {
+  } else if (destinationPoint.x > sourcePoint.x) {
     routeKind = 'forward';
-    const middleX = source.point.x + (destination.point.x - source.point.x) / 2 + offset;
+    const middleX = sourcePoint.x + (destinationPoint.x - sourcePoint.x) / 2 + offset;
     points = [
-      source.point,
-      { x: source.point.x + FBD_WIRE_SEPARATION, y: source.point.y + offset },
-      { x: middleX, y: source.point.y + offset },
-      { x: middleX, y: destination.point.y + offset },
-      { x: destination.point.x - FBD_WIRE_SEPARATION, y: destination.point.y + offset },
-      destination.point,
+      sourcePoint,
+      { x: sourcePoint.x + FBD_WIRE_SEPARATION, y: sourcePoint.y + offset },
+      { x: middleX, y: sourcePoint.y + offset },
+      { x: middleX, y: destinationPoint.y + offset },
+      { x: destinationPoint.x - FBD_WIRE_SEPARATION, y: destinationPoint.y + offset },
+      destinationPoint,
     ];
   } else {
     routeKind = 'backward';
     const laneY = elementBounds.y - FBD_BACKWARD_ROUTE_GAP
       - connectionIndex * FBD_ROUTE_LANE_GAP + offset;
-    const sourceLead = source.point.x + FBD_BACKWARD_ROUTE_GAP / 2 + offset;
-    const destinationLead = destination.point.x - FBD_BACKWARD_ROUTE_GAP / 2 + offset;
+    const sourceLead = sourcePoint.x + FBD_BACKWARD_ROUTE_GAP / 2 + offset;
+    const destinationLead = destinationPoint.x - FBD_BACKWARD_ROUTE_GAP / 2 + offset;
     points = [
-      source.point,
-      { x: sourceLead, y: source.point.y + offset },
+      sourcePoint,
+      { x: sourceLead, y: sourcePoint.y + offset },
       { x: sourceLead, y: laneY },
       { x: destinationLead, y: laneY },
-      { x: destinationLead, y: destination.point.y + offset },
-      destination.point,
+      { x: destinationLead, y: destinationPoint.y + offset },
+      destinationPoint,
     ];
   }
 

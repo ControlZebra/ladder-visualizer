@@ -5,6 +5,7 @@ import {
   buildFBDConnectorIndex,
   buildFBDSheetLayout,
   FBD_GRID_TO_SVG_SCALE,
+  FBD_PORT_PIN_RADIUS,
   getFBDElementFooterLabels,
   layoutFBDElement,
   measureFBDElement,
@@ -312,6 +313,8 @@ describe('FBD layout', () => {
     expect([forward.routeKind, crossing.routeKind, backward.routeKind, feedback.routeKind]).toEqual([
       'forward', 'forward', 'backward', 'feedback',
     ]);
+    expect(forward.points[0]).toEqual({ x: 100 + FBD_PORT_PIN_RADIUS, y: 100 });
+    expect(forward.points.at(-1)).toEqual({ x: 400 - FBD_PORT_PIN_RADIUS, y: 200 });
     expect(forward.points[1].x).toBe(crossing.points[1].x);
     expect(forward.points[1].y).not.toBe(crossing.points[1].y);
     expect(backward.points.some((point) => point.y < bounds.y)).toBe(true);
