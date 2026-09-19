@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { buildFBDSheetLayout } from '../../src/layout';
 import { parseString } from '../../src/parsers';
 import {
   FBD_INSTRUCTION_METADATA,
@@ -53,9 +54,10 @@ describe('version-aware FBD instruction metadata', () => {
       'D2SD',
       'GRT',
     ]);
-    expect(blockEntries.every((entry) => entry.softwareMajorVersions.join() === '33,34,35')).toBe(
-      true
-    );
+    expect(blockEntries.every(
+      (entry) => entry.softwareMajorVersions.join() ===
+        Array.from({ length: 19 }, (_, index) => index + 17).join()
+    )).toBe(true);
     expect(blockEntries.every((entry) => entry.ports.every((port) =>
       port.id.length > 0 &&
       port.label.length > 0 &&
@@ -120,6 +122,52 @@ describe('version-aware FBD instruction metadata', () => {
     });
   });
 
+  it('resolves the public level-control sample in its original v17 controller context', () => {
+    const source = read('fbd-level-control-v35')
+      .replace('SoftwareRevision="35.01"', 'SoftwareRevision="17.00"')
+      .replace('ProcessorType="1756-L85E"', 'ProcessorType="1756-L63"');
+    const { result, routine: parsed } = routine(source, 'MainFBD');
+    const sheets = parsed?.fbd?.sheets ?? [];
+
+    expect(result.status).toBe('complete');
+    expect(sheets.flatMap((sheet) => sheet.elements)
+      .filter((element) => element.kind === 'block')
+      .map((block) => block.instruction)).toEqual([
+      'ADD', 'DEDT', 'HLL', 'LDLG', 'MUL', 'PIDE', 'SUB', 'D2SD', 'GRT',
+    ]);
+    expect(sheets.flatMap((sheet) => sheet.elements)
+      .some((element) => element.kind === 'placeholder')).toBe(false);
+    expect(sheets.map((sheet) => buildFBDSheetLayout(sheet).diagnostics)).toEqual([[], []]);
+  });
+
+  it.each([17, 35])('resolves existing Block metadata at the inclusive v%i boundary', (major) => {
+    const resolution = resolveFBDInstructionMetadata(FBD_INSTRUCTION_METADATA, {
+      mnemonic: 'ADD',
+      form: 'block',
+      softwareRevision: `${major}.00`,
+      processorType: '1756-L63',
+    });
+
+    expect(resolution.diagnostics).toEqual([]);
+    expect(resolution.metadata?.ports.map((port) => port.id)).toEqual([
+      'SourceA', 'SourceB', 'Dest',
+    ]);
+  });
+
+  it.each([16, 36])('rejects Block metadata outside the v17-v35 range at v%i', (major) => {
+    const resolution = resolveFBDInstructionMetadata(FBD_INSTRUCTION_METADATA, {
+      mnemonic: 'ADD',
+      form: 'block',
+      softwareRevision: `${major}.00`,
+      processorType: '1756-L63',
+    });
+
+    expect(resolution.metadata).toBeUndefined();
+    expect(resolution.diagnostics).toEqual([
+      expect.objectContaining({ code: 'FBD_UNSUPPORTED_INSTRUCTION_CONTEXT' }),
+    ]);
+  });
+
   it('keeps connected block ports canonical and independent from wire participation', () => {
     const { routine: parsed } = routine(read('fbd-canonical-v35'), 'FBDLogic');
     const add = parsed?.fbd?.sheets[1]?.elements.find(
@@ -135,28 +183,35 @@ describe('version-aware FBD instruction metadata', () => {
     });
   });
 
-  it('resolves Functions from type, position, controller family, and version metadata', () => {
-    const { result, routine: parsed } = functionSource({ processorType: '1756-L85E' });
+  it.each([17, 35])(
+    'resolves Functions from type, position, controller family, and the v%i boundary',
+    (major) => {
+      const { result, routine: parsed } = functionSource({
+        processorType: '1756-L85E',
+        softwareRevision: `${major}.00`,
+      });
 
-    expect(result.status).toBe('complete');
-    expect(parsed?.fbd?.sheets[0]?.elements).toEqual([
-      expect.objectContaining({
-        kind: 'function',
-        instruction: 'ADD',
-        id: '10',
-        position: { x: '80', y: '40' },
-        ports: [
-          { id: 'SourceA', label: 'Source A', direction: 'input', side: 'left', order: 0, defaultVisible: true, visible: true },
-          { id: 'SourceB', label: 'Source B', direction: 'input', side: 'left', order: 1, defaultVisible: true, visible: true },
-          { id: 'Dest', label: 'Dest', direction: 'output', side: 'right', order: 0, defaultVisible: true, visible: true },
-        ],
-      }),
-    ]);
-  });
+      expect(result.status).toBe('complete');
+      expect(parsed?.fbd?.sheets[0]?.elements).toEqual([
+        expect.objectContaining({
+          kind: 'function',
+          instruction: 'ADD',
+          id: '10',
+          position: { x: '80', y: '40' },
+          ports: [
+            { id: 'SourceA', label: 'Source A', direction: 'input', side: 'left', order: 0, defaultVisible: true, visible: true },
+            { id: 'SourceB', label: 'Source B', direction: 'input', side: 'left', order: 1, defaultVisible: true, visible: true },
+            { id: 'Dest', label: 'Dest', direction: 'output', side: 'right', order: 0, defaultVisible: true, visible: true },
+          ],
+        }),
+      ]);
+    }
+  );
 
   it.each([
     ['1756-L75', '35.01'],
-    ['1756-L85E', '32.01'],
+    ['1756-L85E', '16.01'],
+    ['1756-L85E', '36.01'],
   ])('diagnoses unsupported Function applicability for %s at v%s', (processorType, softwareRevision) => {
     const { result, routine: parsed } = functionSource({ processorType, softwareRevision });
     const element = parsed?.fbd?.sheets[0]?.elements[0];
