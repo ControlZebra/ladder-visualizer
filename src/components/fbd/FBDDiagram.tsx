@@ -286,23 +286,34 @@ export function FBDDiagram({
   onDiagnostics,
 }: FBDDiagramProps) {
   const requestedSheetIndex = boundedSheetIndex(sheetIndex, body.sheets.length);
-  const [activeSheetIndex, setActiveSheetIndex] = useState(requestedSheetIndex);
-  const previousRequestedSheetIndex = useRef(sheetIndex);
+  const [navigation, setNavigation] = useState(() => ({
+    activeSheetIndex: requestedSheetIndex,
+    requestedSheetIndex: sheetIndex,
+    sheetCount: body.sheets.length,
+  }));
+  let activeSheetIndex = navigation.activeSheetIndex;
+  if (
+    navigation.requestedSheetIndex !== sheetIndex
+    || navigation.sheetCount !== body.sheets.length
+  ) {
+    activeSheetIndex = boundedSheetIndex(
+      navigation.requestedSheetIndex !== sheetIndex
+        ? sheetIndex
+        : navigation.activeSheetIndex,
+      body.sheets.length,
+    );
+    setNavigation({
+      activeSheetIndex,
+      requestedSheetIndex: sheetIndex,
+      sheetCount: body.sheets.length,
+    });
+  }
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const idPrefix = `fbd-${useId().replace(/:/g, '')}`;
 
-  useEffect(() => {
-    const requestedIndexChanged = previousRequestedSheetIndex.current !== sheetIndex;
-    previousRequestedSheetIndex.current = sheetIndex;
-    setActiveSheetIndex((currentIndex) => boundedSheetIndex(
-      requestedIndexChanged ? sheetIndex : currentIndex,
-      body.sheets.length,
-    ));
-  }, [body.sheets.length, sheetIndex]);
-
   const selectSheet = (nextIndex: number, focus = false) => {
     const boundedIndex = boundedSheetIndex(nextIndex, body.sheets.length);
-    setActiveSheetIndex(boundedIndex);
+    setNavigation((current) => ({ ...current, activeSheetIndex: boundedIndex }));
     onSheetIndexChange?.(boundedIndex);
     if (focus) tabRefs.current[boundedIndex]?.focus();
   };

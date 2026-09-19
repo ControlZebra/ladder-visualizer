@@ -207,6 +207,48 @@ describe('FBDDiagram', () => {
     await act(async () => root.unmount());
   });
 
+  it('switches a changed sheetIndex before publishing diagnostics', async () => {
+    const body = levelControlBody();
+    const firstDiagnostics = vi.fn();
+    const changedDiagnostics = vi.fn();
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <FBDDiagram
+          body={body}
+          sheetIndex={0}
+          width={900}
+          height={600}
+          onDiagnostics={firstDiagnostics}
+        />,
+      );
+    });
+    await act(async () => {
+      root.render(
+        <FBDDiagram
+          body={body}
+          sheetIndex={1}
+          width={900}
+          height={600}
+          onDiagnostics={changedDiagnostics}
+        />,
+      );
+    });
+
+    expect(changedDiagnostics).toHaveBeenCalledTimes(1);
+    expect(changedDiagnostics.mock.calls[0][0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sheetIndex: 1 }),
+    ]));
+    expect(changedDiagnostics.mock.calls[0][0]).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ sheetIndex: 0 }),
+    ]));
+    expect(container.querySelector('.fbd-diagram')?.getAttribute('data-sheet-number')).toBe('2');
+
+    await act(async () => root.unmount());
+  });
+
   it('lazily lays out each sheet once when it is first visited', async () => {
     const body = levelControlBody();
     let inactiveConnectionsReads = 0;
