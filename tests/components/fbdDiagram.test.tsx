@@ -111,6 +111,15 @@ describe('FBDDiagram', () => {
     expect(markup).toContain('height:600px');
   });
 
+  it('falls back to the first sheet for a non-finite requested index', () => {
+    const markup = renderToStaticMarkup(
+      <FBDDiagram body={levelControlBody()} sheetIndex={Number.NaN} />,
+    );
+
+    expect(markup).toContain('data-sheet-number="1"');
+    expect(markup).toContain('aria-selected="true" tabindex="0"');
+  });
+
   it('renders source-ordered accessible tabs with one active sheet and native controls', () => {
     const markup = renderToStaticMarkup(<FBDDiagram body={levelControlBody()} />);
 

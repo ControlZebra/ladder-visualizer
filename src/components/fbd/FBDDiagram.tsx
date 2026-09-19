@@ -292,12 +292,13 @@ export function FBDDiagram({
     sheetCount: body.sheets.length,
   }));
   let activeSheetIndex = navigation.activeSheetIndex;
+  const requestedSheetChanged = !Object.is(navigation.requestedSheetIndex, sheetIndex);
   if (
-    navigation.requestedSheetIndex !== sheetIndex
+    requestedSheetChanged
     || navigation.sheetCount !== body.sheets.length
   ) {
     activeSheetIndex = boundedSheetIndex(
-      navigation.requestedSheetIndex !== sheetIndex
+      requestedSheetChanged
         ? sheetIndex
         : navigation.activeSheetIndex,
       body.sheets.length,

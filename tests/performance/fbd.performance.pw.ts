@@ -34,18 +34,25 @@ test('keeps cached sheet switching and active viewport interaction within budget
   console.info(`FBD cached sheet switch: ${switchMs.toFixed(1)} ms`);
   expect(switchMs).toBeLessThan(150);
 
-  const fps = await page.evaluate(async () => {
+  const viewportPerformance = await page.evaluate(async () => {
     const pane = document.querySelector('.react-flow__pane');
+    const viewport = document.querySelector<HTMLElement>('.react-flow__viewport');
     if (!pane) throw new Error('expected React Flow pane');
+    if (!viewport) throw new Error('expected React Flow viewport');
     const startedAt = performance.now();
-    let frames = 0;
+    let changedFrames = 0;
+    let lastTransform = viewport.style.transform;
     await new Promise<void>((resolve) => {
       const step = () => {
-        frames += 1;
+        const currentTransform = viewport.style.transform;
+        if (currentTransform !== lastTransform) {
+          changedFrames += 1;
+          lastTransform = currentTransform;
+        }
         pane.dispatchEvent(new WheelEvent('wheel', {
           bubbles: true,
           cancelable: true,
-          deltaY: frames % 2 === 0 ? 8 : -8,
+          deltaY: changedFrames % 2 === 0 ? 8 : -8,
           clientX: 640,
           clientY: 410,
         }));
@@ -54,8 +61,13 @@ test('keeps cached sheet switching and active viewport interaction within budget
       };
       requestAnimationFrame(step);
     });
-    return frames / ((performance.now() - startedAt) / 1_000);
+    const elapsedSeconds = (performance.now() - startedAt) / 1_000;
+    return {
+      changedFrames,
+      fps: changedFrames / elapsedSeconds,
+    };
   });
-  console.info(`FBD active viewport: ${fps.toFixed(1)} FPS`);
-  expect(fps).toBeGreaterThanOrEqual(30);
+  console.info(`FBD active viewport: ${viewportPerformance.fps.toFixed(1)} FPS`);
+  expect(viewportPerformance.changedFrames).toBeGreaterThan(0);
+  expect(viewportPerformance.fps).toBeGreaterThanOrEqual(30);
 });
