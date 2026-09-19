@@ -15,9 +15,34 @@ test('refits the viewport when the selected sheet changes', async ({ page }) => 
   await expect.poll(() => viewport.getAttribute('style')).not.toBe(initialTransform);
   const pannedTransform = await viewport.getAttribute('style');
 
-  await page.locator('.preview-field select').nth(1).selectOption('1');
+  await page.getByRole('tab', { name: /Sheet 2/ }).click();
   await expect(page.locator('.fbd-diagram')).toHaveAttribute('data-sheet-number', '2');
   await expect.poll(() => viewport.getAttribute('style')).not.toBe(pannedTransform);
+});
+
+test('shows a visible keyboard focus indicator with reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/tests/visual/fbd.html');
+  const firstTab = page.getByRole('tab', { name: /Sheet 1/ });
+  await firstTab.focus();
+  await expect(firstTab).toBeFocused();
+  await expect(page.locator('#stage')).toHaveScreenshot('fbd-focus-light.png', {
+    animations: 'disabled',
+  });
+  const motion = await firstTab.evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return { animationDuration: styles.animationDuration, transitionDuration: styles.transitionDuration };
+  });
+  expect(motion).toEqual({ animationDuration: '1e-05s', transitionDuration: '1e-05s' });
+});
+
+test('visually regresses the native zoomed viewport', async ({ page }) => {
+  await page.goto('/tests/visual/fbd.html');
+  await page.getByRole('button', { name: 'Zoom In' }).click();
+  await page.getByRole('button', { name: 'Zoom In' }).click();
+  await expect(page.locator('#stage')).toHaveScreenshot('fbd-zoomed-light.png', {
+    animations: 'disabled',
+  });
 });
 
 for (const sheet of [0, 1]) {

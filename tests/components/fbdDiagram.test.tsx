@@ -48,6 +48,20 @@ function flowModel(body: NormalizedFBDBody, sheetIndex = 0) {
   return buildFBDFlowModel(buildFBDSheetLayout(body.sheets[sheetIndex]), DEFAULT_THEME);
 }
 
+function relativeLuminance(hex: string): number {
+  const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  const [red, green, blue] = channels.map((channel) => (
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  ));
+  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background));
+  const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 describe('FBDDiagram', () => {
   it('renders sheet topology through the real parser result with wires below elements', () => {
     const body = levelControlBody();
@@ -92,8 +106,221 @@ describe('FBDDiagram', () => {
     expect(markup.match(/class="fbd-element fbd-element-block"/g)).toHaveLength(2);
     expect(model.edges.filter((edge) => edge.className === 'fbd-connection fbd-connection-wire')).toHaveLength(3);
     expect(markup).toContain('background:#1e1e1e');
+    expect(markup).toContain('class="react-flow dark"');
     expect(markup).toContain('width:900px');
     expect(markup).toContain('height:600px');
+  });
+
+  it('falls back to the first sheet for a non-finite requested index', () => {
+    const markup = renderToStaticMarkup(
+      <FBDDiagram body={levelControlBody()} sheetIndex={Number.NaN} />,
+    );
+
+    expect(markup).toContain('data-sheet-number="1"');
+    expect(markup).toContain('aria-selected="true" tabindex="0"');
+  });
+
+  it('renders source-ordered accessible tabs with one active sheet and native controls', () => {
+    const markup = renderToStaticMarkup(<FBDDiagram body={levelControlBody()} />);
+
+    expect(markup.match(/role="tab"/g)).toHaveLength(2);
+    expect(markup.indexOf('Sheet 1')).toBeLessThan(markup.indexOf('Sheet 2'));
+    expect(markup).toContain('role="tablist" aria-label="Function block diagram sheets"');
+    expect(markup).toContain('aria-selected="true" tabindex="0"');
+    expect(markup).toContain('aria-selected="false" tabindex="-1"');
+    expect(markup.match(/role="tabpanel"/g)).toHaveLength(2);
+    expect(markup.match(/role="tabpanel"[^>]*hidden=""/g)).toHaveLength(1);
+    expect(markup).toContain('9 elements and 10 connections.');
+    expect(markup).toContain('Warning: 1 diagnostic.');
+    expect(markup).not.toContain('TankAgitator');
+
+    expect(markup.match(/react-flow__controls-zoomin/g)).toHaveLength(1);
+    expect(markup.match(/react-flow__controls-zoomout/g)).toHaveLength(1);
+    expect(markup.match(/react-flow__controls-fitview/g)).toHaveLength(1);
+    expect(markup).toContain('aria-label="Zoom In"');
+    expect(markup).toContain('aria-label="Zoom Out"');
+    expect(markup).toContain('aria-label="Fit View"');
+    expect(markup).not.toContain('react-flow__controls-interactive');
+    expect(markup).not.toContain('Toggle Interactivity');
+  });
+
+  it('activates and focuses tabs with arrow, Home, and End keys', async () => {
+    const onSheetIndexChange = vi.fn();
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <FBDDiagram
+          body={levelControlBody()}
+          width={900}
+          height={600}
+          onSheetIndexChange={onSheetIndexChange}
+        />,
+      );
+    });
+
+    const tabs = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    expect(tabs).toHaveLength(2);
+
+    await act(async () => {
+      tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    });
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+    expect(tabs[1].tabIndex).toBe(0);
+    expect(document.activeElement).toBe(tabs[1]);
+    expect(container.querySelector('.fbd-diagram')?.getAttribute('data-sheet-number')).toBe('2');
+    expect(container.textContent).toContain('TankAgitator');
+
+    await act(async () => {
+      tabs[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    });
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(tabs[0]);
+
+    await act(async () => {
+      tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    });
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+    expect(onSheetIndexChange.mock.calls.map(([index]) => index)).toEqual([1, 0, 1]);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it('preserves a user-selected tab when an equivalent body object is supplied', async () => {
+    const body = levelControlBody();
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<FBDDiagram body={body} width={900} height={600} />);
+    });
+    await act(async () => {
+      container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click();
+    });
+
+    const equivalentBody = {
+      ...body,
+      sheets: body.sheets.map((candidate) => ({ ...candidate })),
+    };
+    await act(async () => {
+      root.render(<FBDDiagram body={equivalentBody} width={900} height={600} />);
+    });
+
+    const tabs = container.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('.fbd-diagram')?.getAttribute('data-sheet-number')).toBe('2');
+
+    await act(async () => root.unmount());
+  });
+
+  it('switches a changed sheetIndex before publishing diagnostics', async () => {
+    const body = levelControlBody();
+    const firstDiagnostics = vi.fn();
+    const changedDiagnostics = vi.fn();
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <FBDDiagram
+          body={body}
+          sheetIndex={0}
+          width={900}
+          height={600}
+          onDiagnostics={firstDiagnostics}
+        />,
+      );
+    });
+    await act(async () => {
+      root.render(
+        <FBDDiagram
+          body={body}
+          sheetIndex={1}
+          width={900}
+          height={600}
+          onDiagnostics={changedDiagnostics}
+        />,
+      );
+    });
+
+    expect(changedDiagnostics).toHaveBeenCalledTimes(1);
+    expect(changedDiagnostics.mock.calls[0][0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sheetIndex: 1 }),
+    ]));
+    expect(changedDiagnostics.mock.calls[0][0]).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ sheetIndex: 0 }),
+    ]));
+    expect(container.querySelector('.fbd-diagram')?.getAttribute('data-sheet-number')).toBe('2');
+
+    await act(async () => root.unmount());
+  });
+
+  it('lazily lays out each sheet once when it is first visited', async () => {
+    const body = levelControlBody();
+    let inactiveConnectionsReads = 0;
+    const inactiveSheet = { ...body.sheets[1] };
+    Object.defineProperty(inactiveSheet, 'connections', {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        inactiveConnectionsReads += 1;
+        return body.sheets[1].connections;
+      },
+    });
+    const lazyBody = { ...body, sheets: [body.sheets[0], inactiveSheet] };
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<FBDDiagram body={lazyBody} width={900} height={600} />);
+    });
+    expect(inactiveConnectionsReads).toBe(0);
+
+    await act(async () => {
+      container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click();
+    });
+    const readsAfterFirstVisit = inactiveConnectionsReads;
+    expect(readsAfterFirstVisit).toBeGreaterThan(0);
+
+    await act(async () => {
+      container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[0].click();
+    });
+    await act(async () => {
+      container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click();
+    });
+    expect(inactiveConnectionsReads).toBe(readsAfterFirstVisit);
+
+    await act(async () => root.unmount());
+  });
+
+  it('labels diagnostic feedback with text and an icon instead of color alone', () => {
+    const markup = renderToStaticMarkup(<FBDDiagram body={renderElementsBody()} />);
+
+    expect(markup).toContain('fbd-diagnostic-summary-warning');
+    expect(markup).toContain('aria-hidden="true">⚠');
+    expect(markup).toContain('Warning: 2 diagnostics.');
+  });
+
+  it('defines visible focus and reduced-motion styles for tabs and native controls', () => {
+    const styles = readFileSync(join(__dirname, '../../src/styles/index.css'), 'utf8');
+
+    expect(styles).toContain('.fbd-sheet-tab:focus-visible');
+    expect(styles).toContain('.react-flow__controls-button:focus-visible');
+    expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(styles).toContain('animation-duration: 0.01ms !important');
+  });
+
+  it.each([
+    ['light', DEFAULT_THEME],
+    ['dark', DARK_THEME],
+  ])('keeps %s FBD text, diagnostics, and focus tokens contrast-safe', (_name, theme) => {
+    expect(contrastRatio(theme.boxTextColor, theme.bgPrimary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(theme.addressColor, theme.bgPrimary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(theme.contactNCColor, theme.bgPrimary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(theme.powerRailColor, theme.bgPrimary)).toBeGreaterThanOrEqual(3);
   });
 
   it('renders both IRef and ORef implicit terminal directions', () => {
@@ -233,6 +460,7 @@ describe('FBDDiagram', () => {
 
     const markup = renderToStaticMarkup(<FBDDiagram body={malformed} />);
     expect(markup).toContain('data-render-failure="FBD_RENDER_SHEET_FAILURE"');
+    expect(markup).toContain('role="alert"');
     expect(markup).toContain('Unable to render FBD sheet');
   });
 });
