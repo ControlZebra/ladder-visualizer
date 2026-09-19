@@ -184,10 +184,7 @@ export function buildFBDFlowModel(
       targetHandle: portHandleId('input', connection.destination.port.id),
       type: 'fbdWire',
       className: `fbd-connection fbd-connection-${connection.connection.kind}`,
-      data: {
-        path: connection.path,
-        endpoints: [connection.points[0], connection.points[connection.points.length - 1]],
-      },
+      data: { path: connection.path },
       style: {
         stroke: theme.wireColor,
         strokeWidth: 1.5,
@@ -327,6 +324,7 @@ export function FBDDiagram({
       aria-label={`Function block diagram: ${sheet.name.value}`}
     >
       <ReactFlow<FBDFlowNode, FBDFlowEdge>
+        key={`${sheetIndex}-${sheet.number.value}-${layout.viewBox}`}
         nodes={model.nodes}
         edges={model.edges}
         nodeTypes={nodeTypes}

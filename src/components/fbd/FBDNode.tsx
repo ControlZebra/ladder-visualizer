@@ -133,7 +133,7 @@ function TerminalNode({ layout, theme }: FBDFlowNodeData) {
   const emitsValue = terminalEmitsValue(element);
   const kindClass = element.kind === 'reference'
     ? `fbd-reference-shape fbd-reference-${emitsValue ? 'source' : 'target'}`
-    : 'fbd-connector-shape';
+    : `fbd-connector-shape fbd-connector-${emitsValue ? 'source' : 'target'}`;
 
   return (
     <div className={`fbd-terminal-shape ${kindClass}`}>

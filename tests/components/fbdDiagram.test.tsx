@@ -59,9 +59,7 @@ describe('FBDDiagram', () => {
     expect(model.edges.filter((edge) => edge.className === 'fbd-connection fbd-connection-wire')).toHaveLength(8);
     expect(model.edges.filter((edge) => edge.className === 'fbd-connection fbd-connection-feedback-wire')).toHaveLength(2);
     expect(model.edges.filter((edge) => edge.style?.strokeDasharray !== undefined)).toHaveLength(0);
-    expect(model.edges.filter((edge) => edge.className?.includes('fbd-connection')).every(
-      (edge) => edge.data?.endpoints?.length === 2,
-    )).toBe(true);
+    expect(model.edges.filter((edge) => edge.data && 'endpoints' in edge.data)).toHaveLength(0);
     expect(markup).toContain('StorageArray');
     expect(markup).toContain('DEDT_01array');
     expect(markup).toContain('data-connector-relationship-count="1"');
@@ -131,7 +129,12 @@ describe('FBDDiagram', () => {
     }));
 
     expect(referenceMarkup).toContain('fbd-reference-shape');
-    expect(connectorMarkup).toContain('fbd-connector-shape');
+    expect(connectorMarkup).toContain('fbd-connector-shape fbd-connector-target');
+    const inputConnectorMarkup = renderToStaticMarkup(createElement(FBDDiagram, {
+      body: levelControlBody(),
+      sheetIndex: 1,
+    }));
+    expect(inputConnectorMarkup).toContain('fbd-connector-shape fbd-connector-source');
   });
 
   it('keeps malformed and unknown positioned raw elements visible as canonical placeholders', () => {
