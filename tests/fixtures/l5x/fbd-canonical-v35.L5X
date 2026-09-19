@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="CanonicalFBD" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context">
   <Controller Use="Context" Name="FixtureController">
+    <AddOnInstructionDefinitions>
+      <AddOnInstructionDefinition Name="FixtureAOI" Class="Standard" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+        <Parameters>
+          <Parameter Name="In" TagType="Base" DataType="BOOL" Usage="Input" Required="true" Visible="true" />
+          <Parameter Name="Out" TagType="Base" DataType="BOOL" Usage="Output" Required="false" Visible="true" />
+          <Parameter Name="State" TagType="Base" DataType="DINT" Usage="InOut" Required="false" Visible="true" />
+          <Parameter Name="First" TagType="Base" DataType="DINT" Usage="InOut" Required="false" Visible="true" />
+          <Parameter Name="Second" TagType="Base" DataType="DINT" Usage="InOut" Required="false" Visible="true" />
+        </Parameters>
+      </AddOnInstructionDefinition>
+    </AddOnInstructionDefinitions>
     <Programs>
       <Program Name="CanonicalFBD">
         <Routines>

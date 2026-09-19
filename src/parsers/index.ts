@@ -40,6 +40,22 @@ export {
   l5xToNormalized,
   L5XConflictVisualAdapter,
   l5xConflictVisualAdapter,
+  FBD_INSTRUCTION_METADATA,
+  resolveBuiltInFBDInstructionMetadata,
+  resolveFBDInstructionMetadata,
+} from './l5x';
+export type {
+  FBDInstructionForm,
+  FBDPortDirection,
+  FBDPortSide,
+  FBDControllerFamily,
+  FBDPortMetadata,
+  FBDArrayRequirement,
+  FBDInstructionMetadata,
+  FBDMetadataDiagnosticCode,
+  FBDMetadataDiagnostic,
+  FBDMetadataRequest,
+  FBDMetadataResolution,
 } from './l5x';
 
 // ============================================
