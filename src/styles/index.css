@@ -119,37 +119,8 @@
 }
 
 .fbd-connector-shape {
-  isolation: isolate;
   overflow: visible;
-  border: 0;
-}
-
-.fbd-connector-shape::before,
-.fbd-connector-shape::after {
-  position: absolute;
-  content: '';
-}
-
-.fbd-connector-shape::before {
-  z-index: -2;
-  inset: 0;
-  background: var(--fbd-border);
-}
-
-.fbd-connector-shape::after {
-  z-index: -1;
-  inset: 1.5px;
-  background: inherit;
-}
-
-.fbd-connector-source::before,
-.fbd-connector-source::after {
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%, 8px 50%);
-}
-
-.fbd-connector-target::before,
-.fbd-connector-target::after {
-  clip-path: polygon(10px 0, 100% 0, calc(100% - 8px) 50%, 100% 100%, 10px 100%, 0 50%);
+  border-radius: 999px;
 }
 
 .fbd-terminal-label {
