@@ -9,6 +9,7 @@ utilities.
 
 - Parse Rockwell JSON and L5X controller exports into a normalized domain model.
 - Render virtualized SVG ladder diagrams, including parallel branches.
+- Render deterministic, read-only SVG Function Block Diagram sheets.
 - Browse controller metadata, tags, modules, data types, AOIs, and structured text.
 - Compare controllers and render inline, rung-level diffs.
 - Customize the UI with CSS custom properties or typed light/dark theme objects.
@@ -43,6 +44,18 @@ export function ControllerRoutine() {
       instructionContext={result.context}
     />
   ) : null;
+}
+```
+
+For a normalized FBD routine, render one source-ordered sheet with `FBDDiagram`:
+
+```tsx
+import { FBDDiagram } from 'ladder-visualizer';
+
+const fbd = result.data.programs[0]?.routines.find((routine) => routine.type === 'FBD')?.fbd;
+
+export function FunctionBlockRoutine() {
+  return fbd ? <FBDDiagram body={fbd} sheetIndex={0} /> : null;
 }
 ```
 
@@ -110,6 +123,7 @@ npm install
 npm run dev        # start the demo application
 npm run build      # type-check and package the library
 npm run test:run   # run tests once
+npm run test:visual # run Chromium visual baselines
 npm run lint       # lint source files
 ```
 

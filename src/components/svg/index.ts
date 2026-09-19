@@ -9,6 +9,9 @@ export type { BoxSymbolProps, BoxDimensions } from './BoxSymbol';
 
 export { RungCommentText } from './RungCommentText';
 
+export { FBDDiagram } from './FBDDiagram';
+export type { FBDDiagramProps } from './FBDDiagram';
+
 export {
   VirtualizedLadderDiagram,
   useLadderInstructionContext,

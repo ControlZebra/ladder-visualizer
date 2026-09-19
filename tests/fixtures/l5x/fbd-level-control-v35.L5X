@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FBDLevelControl" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context">
+  <Controller Use="Context" Name="FixtureController" ProcessorType="1756-L85E">
+    <Programs>
+      <Program Name="FBDLevelControl">
+        <Routines>
+          <Routine Name="MainFBD" Type="FBD">
+            <FBDContent SheetSize="Tabloid - 11 x 17 in" SheetOrientation="Landscape">
+              <Sheet Number="1">
+                <Description>Level control and simulation</Description>
+                <IRef ID="0" X="160" Y="420" Operand="FlowIntoTank" HideDesc="false" />
+                <OCon ID="1" X="520" Y="280" Name="TankLevel" />
+                <Block Type="ADD" ID="2" X="300" Y="100" Operand="ADD_01" VisiblePins="SourceA SourceB Dest" HideDesc="false" />
+                <Block Type="DEDT" ID="3" X="40" Y="100" Operand="DEDT_01" VisiblePins="In Out" HideDesc="false">
+                  <Array Name="StorageArray" Operand="DEDT_01array" />
+                </Block>
+                <Block Type="HLL" ID="4" X="520" Y="100" Operand="HLL_01" VisiblePins="In Out HighAlarm LowAlarm" HideDesc="false" />
+                <Block Type="LDLG" ID="5" X="40" Y="280" Operand="LDLG_01" VisiblePins="In Out" HideDesc="false" />
+                <Block Type="MUL" ID="6" X="480" Y="400" Operand="MUL_01" VisiblePins="SourceA Dest" HideDesc="false" />
+                <Block Type="PIDE" ID="7" X="760" Y="60" Operand="LevelController" VisiblePins="PV SPProg SPCascade RatioProg CVProg FF HandFB ProgProgReq ProgOperReq ProgCasRatReq ProgAutoReq ProgManualReq ProgOverrideReq ProgHandReq CVEU SP PVHHAlarm PVHAlarm PVLAlarm PVLLAlarm PVROCPosAlarm PVROCNegAlarm DevHHAlarm DevHAlarm DevLAlarm DevLLAlarm ProgOper CasRat Auto Manual Override Hand" HideDesc="false" />
+                <Block Type="SUB" ID="8" X="280" Y="380" Operand="SUB_01" VisiblePins="SourceA SourceB Dest" HideDesc="false" />
+                <Wire FromID="0" ToID="8" ToParam="SourceA" />
+                <Wire FromID="2" FromParam="Dest" ToID="4" ToParam="In" />
+                <Wire FromID="3" FromParam="Out" ToID="5" ToParam="In" />
+                <Wire FromID="4" FromParam="Out" ToID="1" />
+                <Wire FromID="4" FromParam="Out" ToID="7" ToParam="PV" />
+                <Wire FromID="5" FromParam="Out" ToID="8" ToParam="SourceB" />
+                <Wire FromID="6" FromParam="Dest" ToID="2" ToParam="SourceA" />
+                <Wire FromID="8" FromParam="Dest" ToID="6" ToParam="SourceA" />
+                <FeedbackWire FromID="4" FromParam="Out" ToID="2" ToParam="SourceB" />
+                <FeedbackWire FromID="7" FromParam="CVEU" ToID="3" ToParam="In" />
+              </Sheet>
+              <Sheet Number="2">
+                <Description>Agitator control</Description>
+                <IRef ID="9" X="140" Y="300" Operand="20" HideDesc="false" />
+                <ICon ID="10" X="160" Y="140" Name="TankLevel" />
+                <Block Type="D2SD" ID="11" X="440" Y="220" Operand="TankAgitator" VisiblePins="ProgCommand State0Perm State1Perm FB0 FB1 HandFB ProgProgReq ProgOperReq ProgOverrideReq ProgHandReq Out Device0State Device1State CommandStatus FaultAlarm ModeAlarm ProgOper Override Hand" HideDesc="false" />
+                <Block Type="GRT" ID="12" X="240" Y="220" Operand="GRT_01" VisiblePins="SourceA SourceB Dest" HideDesc="false" />
+                <Wire FromID="9" ToID="12" ToParam="SourceB" />
+                <Wire FromID="10" ToID="12" ToParam="SourceA" />
+                <Wire FromID="12" FromParam="Dest" ToID="11" ToParam="ProgCommand" />
+              </Sheet>
+            </FBDContent>
+          </Routine>
+        </Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>
