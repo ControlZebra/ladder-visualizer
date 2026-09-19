@@ -119,7 +119,8 @@ describe('FBDDiagram', () => {
     expect(markup).toContain('role="tablist" aria-label="Function block diagram sheets"');
     expect(markup).toContain('aria-selected="true" tabindex="0"');
     expect(markup).toContain('aria-selected="false" tabindex="-1"');
-    expect(markup).toContain('role="tabpanel"');
+    expect(markup.match(/role="tabpanel"/g)).toHaveLength(2);
+    expect(markup.match(/role="tabpanel"[^>]*hidden=""/g)).toHaveLength(1);
     expect(markup).toContain('9 elements and 10 connections.');
     expect(markup).toContain('Warning: 1 diagnostic.');
     expect(markup).not.toContain('TankAgitator');
@@ -177,6 +178,71 @@ describe('FBDDiagram', () => {
 
     await act(async () => root.unmount());
     container.remove();
+  });
+
+  it('preserves a user-selected tab when an equivalent body object is supplied', async () => {
+    const body = levelControlBody();
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<FBDDiagram body={body} width={900} height={600} />);
+    });
+    await act(async () => {
+      container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click();
+    });
+
+    const equivalentBody = {
+      ...body,
+      sheets: body.sheets.map((candidate) => ({ ...candidate })),
+    };
+    await act(async () => {
+      root.render(<FBDDiagram body={equivalentBody} width={900} height={600} />);
+    });
+
+    const tabs = container.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('.fbd-diagram')?.getAttribute('data-sheet-number')).toBe('2');
+
+    await act(async () => root.unmount());
+  });
+
+  it('lazily lays out each sheet once when it is first visited', async () => {
+    const body = levelControlBody();
+    let inactiveConnectionsReads = 0;
+    const inactiveSheet = { ...body.sheets[1] };
+    Object.defineProperty(inactiveSheet, 'connections', {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        inactiveConnectionsReads += 1;
+        return body.sheets[1].connections;
+      },
+    });
+    const lazyBody = { ...body, sheets: [body.sheets[0], inactiveSheet] };
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<FBDDiagram body={lazyBody} width={900} height={600} />);
+    });
+    expect(inactiveConnectionsReads).toBe(0);
+
+    await act(async () => {
+      container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click();
+    });
+    const readsAfterFirstVisit = inactiveConnectionsReads;
+    expect(readsAfterFirstVisit).toBeGreaterThan(0);
+
+    await act(async () => {
+      container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[0].click();
+    });
+    await act(async () => {
+      container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click();
+    });
+    expect(inactiveConnectionsReads).toBe(readsAfterFirstVisit);
+
+    await act(async () => root.unmount());
   });
 
   it('labels diagnostic feedback with text and an icon instead of color alone', () => {

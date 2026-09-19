@@ -287,12 +287,18 @@ export function FBDDiagram({
 }: FBDDiagramProps) {
   const requestedSheetIndex = boundedSheetIndex(sheetIndex, body.sheets.length);
   const [activeSheetIndex, setActiveSheetIndex] = useState(requestedSheetIndex);
+  const previousRequestedSheetIndex = useRef(sheetIndex);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const idPrefix = `fbd-${useId().replace(/:/g, '')}`;
 
   useEffect(() => {
-    setActiveSheetIndex(requestedSheetIndex);
-  }, [body, requestedSheetIndex]);
+    const requestedIndexChanged = previousRequestedSheetIndex.current !== sheetIndex;
+    previousRequestedSheetIndex.current = sheetIndex;
+    setActiveSheetIndex((currentIndex) => boundedSheetIndex(
+      requestedIndexChanged ? sheetIndex : currentIndex,
+      body.sheets.length,
+    ));
+  }, [body.sheets.length, sheetIndex]);
 
   const selectSheet = (nextIndex: number, focus = false) => {
     const boundedIndex = boundedSheetIndex(nextIndex, body.sheets.length);
@@ -327,58 +333,71 @@ export function FBDDiagram({
 
   const theme = useMemo(() => mergeTheme(themeOverride), [themeOverride]);
   const sheet = body.sheets[activeSheetIndex];
-  const sheetStates = useMemo<FBDRenderState[]>(() => {
-    let connectorIndex: ReturnType<typeof buildFBDConnectorIndex>;
+  const connectorState = useMemo<{
+    connectorIndex?: ReturnType<typeof buildFBDConnectorIndex>;
+    error?: unknown;
+  }>(() => {
     try {
-      connectorIndex = buildFBDConnectorIndex(body.sheets);
+      return { connectorIndex: buildFBDConnectorIndex(body.sheets) };
     } catch (error) {
-      return body.sheets.map((_, index) => failedRenderState(
-        error,
-        index,
-        body.diagnostics.filter(
-          (diagnostic) => diagnostic.sheetIndex === undefined || diagnostic.sheetIndex === index,
-        ),
-      ));
+      return { error };
     }
-    return body.sheets.map((candidate, index) => {
-      const bodyDiagnostics = body.diagnostics.filter(
-        (diagnostic) => diagnostic.sheetIndex === undefined || diagnostic.sheetIndex === index,
-      );
+  }, [body]);
+  const stateCache = useMemo(() => new Map<number, FBDRenderState>(), [body]);
+  const state = useMemo<FBDRenderState>(() => {
+    const cached = stateCache.get(activeSheetIndex);
+    if (cached) return cached;
+    const bodyDiagnostics = body.diagnostics.filter(
+      (diagnostic) => diagnostic.sheetIndex === undefined || diagnostic.sheetIndex === activeSheetIndex,
+    );
+    let nextState: FBDRenderState;
+    if (!sheet) {
+      nextState = {
+        connectorDiagnosticCount: 0,
+        connectorRelationshipCount: 0,
+        diagnostics: bodyDiagnostics,
+      };
+    } else if (!connectorState.connectorIndex) {
+      nextState = failedRenderState(connectorState.error, activeSheetIndex, bodyDiagnostics);
+    } else {
       try {
-        const layout = buildFBDSheetLayout(candidate);
-        return {
+        const layout = buildFBDSheetLayout(sheet);
+        nextState = {
           layout,
-          connectorDiagnosticCount: connectorIndex.diagnostics.length,
-          connectorRelationshipCount: connectorIndex.relationships.length,
-          diagnostics: [...bodyDiagnostics, ...connectorIndex.diagnostics, ...layout.diagnostics],
+          connectorDiagnosticCount: connectorState.connectorIndex.diagnostics.length,
+          connectorRelationshipCount: connectorState.connectorIndex.relationships.length,
+          diagnostics: [
+            ...bodyDiagnostics,
+            ...connectorState.connectorIndex.diagnostics,
+            ...layout.diagnostics,
+          ],
         };
       } catch (error) {
-        return failedRenderState(error, index, bodyDiagnostics);
+        nextState = failedRenderState(error, activeSheetIndex, bodyDiagnostics);
       }
-    });
-  }, [body]);
-  const state = sheetStates[activeSheetIndex] ?? {
-    connectorDiagnosticCount: 0,
-    connectorRelationshipCount: 0,
-    diagnostics: [],
-  };
+    }
+    stateCache.set(activeSheetIndex, nextState);
+    return nextState;
+  }, [activeSheetIndex, body.diagnostics, connectorState, sheet, stateCache]);
 
   useEffect(() => {
     onDiagnostics?.(state.diagnostics);
   }, [onDiagnostics, state.diagnostics]);
 
-  const sheetModels = useMemo(
-    () => sheetStates.map((candidate) => (
-      candidate.layout ? buildFBDFlowModel(candidate.layout, theme) : { nodes: [], edges: [] }
-    )),
-    [sheetStates, theme],
-  );
-  const model = sheetModels[activeSheetIndex] ?? { nodes: [], edges: [] };
+  const modelCache = useMemo(() => new Map<number, FBDFlowModel>(), [body, theme]);
+  const model = useMemo<FBDFlowModel>(() => {
+    const cached = modelCache.get(activeSheetIndex);
+    if (cached) return cached;
+    const nextModel = state.layout
+      ? buildFBDFlowModel(state.layout, theme)
+      : { nodes: [], edges: [] };
+    modelCache.set(activeSheetIndex, nextModel);
+    return nextModel;
+  }, [activeSheetIndex, modelCache, state.layout, theme]);
 
   if (!sheet) return null;
   const layout = state.layout;
   const activeTabId = `${idPrefix}-tab-${activeSheetIndex}`;
-  const activePanelId = `${idPrefix}-panel-${activeSheetIndex}`;
   const summaryId = `${idPrefix}-summary-${activeSheetIndex}`;
   const accessibleName = sheetAccessibleName(sheet.name.value, sheet.number.value);
   const summary = layout
@@ -444,88 +463,106 @@ export function FBDDiagram({
           );
         })}
       </div>
-      <div
-        id={activePanelId}
-        className="fbd-sheet-panel"
-        role="tabpanel"
-        aria-labelledby={activeTabId}
-        aria-describedby={summaryId}
-        tabIndex={0}
-      >
-        <div id={summaryId} className="fbd-sheet-summary">
-          <span>{accessibleName}. {summary}</span>
-          {state.diagnostics.length === 0 ? (
-            <span className="fbd-diagnostic-summary">{diagnosticSummary}</span>
-          ) : (
-            <span className="fbd-diagnostic-summary fbd-diagnostic-summary-warning">
-              <span aria-hidden="true">&#9888; </span>
-              Warning: {diagnosticSummary}
-            </span>
-          )}
-        </div>
-        {!layout || state.failure ? (
-          renderFailure(
-            state.failure ?? {
-              code: 'FBD_RENDER_SHEET_FAILURE',
-              message: `Unable to render FBD sheet ${activeSheetIndex + 1}.`,
-              sheetIndex: activeSheetIndex,
-            },
-            theme,
-          )
-        ) : (
-          <div className="fbd-react-flow" aria-label={`Function block diagram: ${sheet.name.value}`}>
-            <ReactFlow<FBDFlowNode, FBDFlowEdge>
-              key={`${activeSheetIndex}-${sheet.number.value}-${layout.viewBox}`}
-              nodes={model.nodes}
-              edges={model.edges}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              colorMode={colorMode ?? inferredColorMode(theme.bgPrimary)}
-              fitView
-              fitViewOptions={{ padding: 0.08, minZoom: 0.15, maxZoom: 1.5 }}
-              minZoom={0.1}
-              maxZoom={4}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              nodesFocusable={false}
-              edgesFocusable={false}
-              edgesReconnectable={false}
-              elementsSelectable={false}
-              disableKeyboardA11y
-              panOnDrag={interactive}
-              panOnScroll={interactive}
-              zoomOnScroll={interactive}
-              zoomOnPinch={interactive}
-              zoomOnDoubleClick={interactive}
-              preventScrolling={interactive}
-              onlyRenderVisibleElements={onlyRenderVisibleElements}
-              translateExtent={[
-                [layout.bounds.x - layout.bounds.width, layout.bounds.y - layout.bounds.height],
-                [layout.bounds.x + layout.bounds.width * 2, layout.bounds.y + layout.bounds.height * 2],
-              ]}
-            >
-              {showBackground && (
-                <Background
-                  variant={BackgroundVariant.Lines}
-                  gap={200}
-                  size={0.75}
-                  color={theme.borderColor}
-                />
+      {body.sheets.map((candidate, index) => {
+        const panelId = `${idPrefix}-panel-${index}`;
+        const tabId = `${idPrefix}-tab-${index}`;
+        if (index !== activeSheetIndex) {
+          return (
+            <div
+              key={`${candidate.number.value}-${index}`}
+              id={panelId}
+              role="tabpanel"
+              aria-labelledby={tabId}
+              hidden
+            />
+          );
+        }
+        return (
+          <div
+            key={`${candidate.number.value}-${index}`}
+            id={panelId}
+            className="fbd-sheet-panel"
+            role="tabpanel"
+            aria-labelledby={activeTabId}
+            aria-describedby={summaryId}
+            tabIndex={0}
+          >
+            <div id={summaryId} className="fbd-sheet-summary">
+              <span>{accessibleName}. {summary}</span>
+              {state.diagnostics.length === 0 ? (
+                <span className="fbd-diagnostic-summary">{diagnosticSummary}</span>
+              ) : (
+                <span className="fbd-diagnostic-summary fbd-diagnostic-summary-warning">
+                  <span aria-hidden="true">&#9888; </span>
+                  Warning: {diagnosticSummary}
+                </span>
               )}
-              {showControls && <Controls showInteractive={false} />}
-              {showMiniMap && (
-                <MiniMap
-                  ariaLabel={`Overview of ${accessibleName}`}
-                  pannable={interactive}
-                  zoomable={interactive}
-                  nodeColor={theme.rungNumberBg}
-                  maskColor={`${theme.bgPrimary}bb`}
-                />
-              )}
-            </ReactFlow>
+            </div>
+            {!layout || state.failure ? (
+              renderFailure(
+                state.failure ?? {
+                  code: 'FBD_RENDER_SHEET_FAILURE',
+                  message: `Unable to render FBD sheet ${activeSheetIndex + 1}.`,
+                  sheetIndex: activeSheetIndex,
+                },
+                theme,
+              )
+            ) : (
+              <div className="fbd-react-flow" aria-label={`Function block diagram: ${sheet.name.value}`}>
+                <ReactFlow<FBDFlowNode, FBDFlowEdge>
+                  key={`${activeSheetIndex}-${sheet.number.value}-${layout.viewBox}`}
+                  nodes={model.nodes}
+                  edges={model.edges}
+                  nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
+                  colorMode={colorMode ?? inferredColorMode(theme.bgPrimary)}
+                  fitView
+                  fitViewOptions={{ padding: 0.08, minZoom: 0.15, maxZoom: 1.5 }}
+                  minZoom={0.1}
+                  maxZoom={4}
+                  nodesDraggable={false}
+                  nodesConnectable={false}
+                  nodesFocusable={false}
+                  edgesFocusable={false}
+                  edgesReconnectable={false}
+                  elementsSelectable={false}
+                  disableKeyboardA11y
+                  panOnDrag={interactive}
+                  panOnScroll={interactive}
+                  zoomOnScroll={interactive}
+                  zoomOnPinch={interactive}
+                  zoomOnDoubleClick={interactive}
+                  preventScrolling={interactive}
+                  onlyRenderVisibleElements={onlyRenderVisibleElements}
+                  translateExtent={[
+                    [layout.bounds.x - layout.bounds.width, layout.bounds.y - layout.bounds.height],
+                    [layout.bounds.x + layout.bounds.width * 2, layout.bounds.y + layout.bounds.height * 2],
+                  ]}
+                >
+                  {showBackground && (
+                    <Background
+                      variant={BackgroundVariant.Lines}
+                      gap={200}
+                      size={0.75}
+                      color={theme.borderColor}
+                    />
+                  )}
+                  {showControls && <Controls showInteractive={false} />}
+                  {showMiniMap && (
+                    <MiniMap
+                      ariaLabel={`Overview of ${accessibleName}`}
+                      pannable={interactive}
+                      zoomable={interactive}
+                      nodeColor={theme.rungNumberBg}
+                      maskColor={`${theme.bgPrimary}bb`}
+                    />
+                  )}
+                </ReactFlow>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })}
     </div>
   );
 }
