@@ -74,3 +74,34 @@ export type {
   InlineDiffNodeLayout,
   InlineDiffRungLayout,
 } from './diffLayoutAdapters';
+
+export {
+  FBD_GRID_TO_SVG_SCALE,
+  FBD_SHEET_PADDING,
+  FBD_PORT_SPACING,
+  FBD_BLOCK_HEADER_HEIGHT,
+  FBD_BACKWARD_ROUTE_GAP,
+  FBD_ROUTE_LANE_GAP,
+  measureFBDElement,
+  placeFBDElementPorts,
+  layoutFBDElement,
+  routeFBDConnection,
+  buildFBDSheetLayout,
+  buildFBDConnectorIndex,
+  getFBDBlockArrayLabels,
+} from './fbdLayout';
+
+export type {
+  FBDPoint,
+  FBDRect,
+  FBDPortLayout,
+  FBDElementLayout,
+  FBDRouteKind,
+  FBDConnectionLayout,
+  FBDLayoutDiagnosticCode,
+  FBDLayoutDiagnostic,
+  FBDSheetLayout,
+  FBDConnectorLocation,
+  FBDConnectorRelationship,
+  FBDConnectorIndex,
+} from './fbdLayoutTypes';
