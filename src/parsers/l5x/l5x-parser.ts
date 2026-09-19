@@ -5,7 +5,7 @@
  */
 
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
-import type { NormalizedController, PlcDocument } from '../../types/normalized';
+import type { NormalizedController, NormalizedFBDBody, PlcDocument } from '../../types/normalized';
 import {
   BaseParser,
   type ParseResult,
@@ -222,6 +222,7 @@ export class L5XParser extends BaseParser {
       const equipmentSequenceWarnings = collectUnsupportedEquipmentSequenceWarnings(xml);
       const trendNumericWarnings = collectUnsupportedTrendNumericWarnings(xml);
       const controllerConfigurationWarnings = collectPreservedControllerConfigurationWarnings(xml);
+      const fbdWarnings = collectFBDNormalizationWarnings(controller);
       const hasRungDiagnostics = controller.programs.some((program) =>
         program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
       ) || controller.aois.some((aoi) =>
@@ -237,6 +238,7 @@ export class L5XParser extends BaseParser {
         equipmentSequenceWarnings.length ||
         trendNumericWarnings.length ||
         controllerConfigurationWarnings.length ||
+        fbdWarnings.length ||
         document.fragments.some(
           (fragment) =>
             fragment.reason === 'unmodeled' ||
@@ -258,6 +260,7 @@ export class L5XParser extends BaseParser {
         ...equipmentSequenceWarnings,
         ...trendNumericWarnings,
         ...controllerConfigurationWarnings,
+        ...fbdWarnings,
       ];
       const completionError = checkParseExecution(options);
       if (completionError) return createFailureResult([completionError]);
@@ -466,6 +469,32 @@ function collectUnsupportedFBDOnlineEditErrors(xml: L5XContent): ParseError[] {
   });
 
   return errors;
+}
+
+function collectFBDNormalizationWarnings(controller: NormalizedController): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  const collect = (owner: string, routineName: string, fbd: NormalizedFBDBody | undefined) => {
+    if (!fbd) return;
+    for (const diagnostic of fbd.diagnostics) {
+      if (diagnostic.severity !== 'warning') continue;
+      warnings.push(
+        createParseWarning(`${owner} routine ${routineName}: ${diagnostic.message}`, {
+          code: 'RECOVERED_L5X_FBD_ELEMENT',
+        })
+      );
+    }
+  };
+  for (const program of controller.programs) {
+    for (const routine of program.routines) {
+      collect(`Program ${program.name}`, routine.name, routine.fbd);
+    }
+  }
+  for (const aoi of controller.aois) {
+    for (const routine of aoi.routines) {
+      collect(`AOI ${aoi.name}`, routine.name, routine.fbd);
+    }
+  }
+  return warnings;
 }
 
 const ACCOUNTED_CONTROLLER_ATTRIBUTES = new Set([

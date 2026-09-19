@@ -222,7 +222,7 @@ describe('L5X target-aware document contract', () => {
       expect(fragments).toContainEqual(
         expect.objectContaining({
           path: `${program}/Routines[1]/Routine[3]/FBDContent[1]`,
-          reason: 'unmodeled',
+          reason: 'source-representation',
         })
       );
       expect(fragments).toContainEqual(

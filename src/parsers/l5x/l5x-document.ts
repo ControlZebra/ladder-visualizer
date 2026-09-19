@@ -616,6 +616,12 @@ function accountSource(doc: PlcDocument, root: Node): void {
                 preserve(lineValue, linePath, 'source-representation');
             }
             if (typeof item === 'string') preserve(item, childPath, 'source-representation');
+          } else if (
+            key === 'FBDContent' &&
+            currentOwner?.kind === 'routine' &&
+            currentOwner.data.fbd !== undefined
+          ) {
+            preserve(item, childPath, 'source-representation');
           } else if (children[element]?.includes(key)) {
             walk(item, childPath, key, currentOwner);
           } else {

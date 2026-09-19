@@ -57,7 +57,33 @@ export type {
 } from './trend';
 
 // Routine
-export type { NormalizedRoutine, NormalizedRoutineType, STLine } from './routine';
+export type {
+  NormalizedRoutine,
+  NormalizedRoutineType,
+  STLine,
+  NormalizedFBDOrientation,
+  NormalizedFBDMetadataSource,
+  NormalizedFBDMetadataValue,
+  NormalizedFBDPosition,
+  NormalizedFBDPlaceholderReason,
+  NormalizedFBDDiagnosticCode,
+  NormalizedFBDDiagnostic,
+  NormalizedFBDReference,
+  NormalizedFBDConnector,
+  NormalizedFBDBlockArray,
+  NormalizedFBDBlock,
+  NormalizedFBDAOIBinding,
+  NormalizedFBDAOI,
+  NormalizedFBDRoutineControl,
+  NormalizedFBDTextBox,
+  NormalizedFBDPlaceholder,
+  NormalizedFBDElement,
+  NormalizedFBDConnectionEndpoint,
+  NormalizedFBDConnection,
+  NormalizedFBDAttachment,
+  NormalizedFBDSheet,
+  NormalizedFBDBody,
+} from './routine';
 
 // Rung
 export type { NormalizedRung } from './rung';

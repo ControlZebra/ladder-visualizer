@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="CanonicalFBD" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context">
+  <Controller Use="Context" Name="FixtureController">
+    <Programs>
+      <Program Name="CanonicalFBD">
+        <Routines>
+          <Routine Name="FBDLogic" Type="FBD">
+            <FBDContent SheetSize="D - 22 x 34 in" SheetOrientation="Portrait">
+              <Sheet />
+              <Sheet Number="7">
+                <Description><![CDATA[Singleton sheet]]></Description>
+                <IRef ID="1" X="10" Y="20" Operand="InputValue" HideDesc="false" />
+                <ORef ID="2" X="210" Y="20" Operand="OutputValue" HideDesc="true" />
+                <ICon ID="3" X="10" Y="60" Name="InputConnector" />
+                <OCon ID="4" X="210" Y="60" Name="OutputConnector" />
+                <Block Type="ADD" ID="5" X="90" Y="20" Operand="ADD_01" VisiblePins="SourceA SourceB Dest" HideDesc="false">
+                  <Array Name="Storage" Operand="StorageOne" />
+                </Block>
+                <AddOnInstruction Name="FixtureAOI" ID="6" X="90" Y="100" Operand="FixtureAOI_01" VisiblePins="In Out">
+                  <InOutParameter Name="State" Argument="StateTag" />
+                </AddOnInstruction>
+                <GSV ID="7" X="20" Y="160" Object="WallClockTime" />
+                <SSV ID="8" X="180" Y="160" Object="WallClockTime" />
+                <JSR ID="9" X="20" Y="220" Routine="Child" In="InputA InputB" Ret="ReturnA ReturnB" />
+                <SBR ID="10" X="100" Y="220" Routine="Child" Ret="ReturnA ReturnB" />
+                <RET ID="11" X="180" Y="220" Routine="Child" In="InputA InputB" />
+                <Wire FromID="1" ToID="2" />
+                <FeedbackWire FromID="3" ToID="4" />
+                <TextBox ID="12" X="20" Y="280" Width="240"><Text><![CDATA[Operator note]]></Text></TextBox>
+                <Attachment FromID="12" ToID="5" />
+              </Sheet>
+              <Sheet Number="9">
+                <Description>First description</Description>
+                <Description>Second description</Description>
+                <IRef ID="20" X="10" Y="10" Operand="InputA" />
+                <IRef ID="21" X="10" Y="30" Operand="InputB" />
+                <ORef ID="22" X="300" Y="10" Operand="OutputA" />
+                <ORef ID="23" X="300" Y="30" Operand="OutputB" />
+                <ICon ID="24" X="10" Y="50" Name="InA" />
+                <ICon ID="25" X="10" Y="70" Name="InB" />
+                <OCon ID="26" X="300" Y="50" Name="OutA" />
+                <OCon ID="27" X="300" Y="70" Name="OutB" />
+                <Block Type="MUL" ID="28" X="100" Y="10" Operand="MUL_01" VisiblePins="SourceA Dest">
+                  <Array Name="First" Operand="ArrayA" />
+                  <Array Name="Second" Operand="ArrayB" />
+                </Block>
+                <Block Type="SUB" ID="29" X="100" Y="70" Operand="SUB_01" VisiblePins="SourceA SourceB Dest" />
+                <AddOnInstruction Name="FixtureAOI" ID="30" X="180" Y="10" Operand="FixtureAOI_02" VisiblePins="In Out">
+                  <InOutParameter Name="First" Argument="ArgumentA" />
+                  <InOutParameter Name="Second" Argument="ArgumentB" />
+                </AddOnInstruction>
+                <AddOnInstruction Name="FixtureAOI" ID="31" X="180" Y="90" Operand="FixtureAOI_03" VisiblePins="In Out" />
+                <GSV ID="32" X="20" Y="140" Object="ControllerDevice" />
+                <GSV ID="33" X="20" Y="170" Object="WallClockTime" />
+                <SSV ID="34" X="260" Y="140" Object="ControllerDevice" />
+                <SSV ID="35" X="260" Y="170" Object="WallClockTime" />
+                <JSR ID="36" X="20" Y="210" Routine="ChildA" In="One Two" Ret="Three Four" />
+                <JSR ID="37" X="20" Y="240" Routine="ChildB" />
+                <SBR ID="38" X="120" Y="210" Routine="ChildA" Ret="One Two" />
+                <SBR ID="39" X="120" Y="240" Routine="ChildB" />
+                <RET ID="40" X="220" Y="210" Routine="ChildA" In="One Two" />
+                <RET ID="41" X="220" Y="240" Routine="ChildB" />
+                <Wire FromID="20" ToID="28" ToParam="SourceA" />
+                <Wire FromID="28" FromParam="Dest" ToID="22" />
+                <FeedbackWire FromID="21" ToID="29" ToParam="SourceA" />
+                <FeedbackWire FromID="29" FromParam="Dest" ToID="23" />
+                <TextBox ID="42" X="20" Y="300" Width="100"><Text>First note</Text></TextBox>
+                <TextBox ID="43" X="160" Y="300" Width="120"><Text>Second note</Text></TextBox>
+                <Attachment FromID="42" ToID="28" />
+                <Attachment FromID="43" ToID="29" />
+              </Sheet>
+            </FBDContent>
+          </Routine>
+        </Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

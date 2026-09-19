@@ -94,8 +94,42 @@ function countNormalizedEntities(controller: NormalizedController): L5XNormalize
     trends: controller.trends.length,
     pens: controller.trends.reduce((count, trend) => count + trend.pens.length, 0),
     quickWatchLists: controller.quickWatchLists.length,
-    watchTags: controller.quickWatchLists.reduce(
-      (count, list) => count + list.watchTags.length,
+    watchTags: controller.quickWatchLists.reduce((count, list) => count + list.watchTags.length, 0),
+    fbdBodies: routines.filter((routine) => routine.fbd !== undefined).length,
+    fbdSheets: routines.reduce((count, routine) => count + (routine.fbd?.sheets.length ?? 0), 0),
+    fbdElements: routines.reduce(
+      (count, routine) =>
+        count +
+        (routine.fbd?.sheets.reduce((sheetCount, sheet) => sheetCount + sheet.elements.length, 0) ??
+          0),
+      0
+    ),
+    fbdConnections: routines.reduce(
+      (count, routine) =>
+        count +
+        (routine.fbd?.sheets.reduce(
+          (sheetCount, sheet) => sheetCount + sheet.connections.length,
+          0
+        ) ?? 0),
+      0
+    ),
+    fbdAttachments: routines.reduce(
+      (count, routine) =>
+        count +
+        (routine.fbd?.sheets.reduce(
+          (sheetCount, sheet) => sheetCount + sheet.attachments.length,
+          0
+        ) ?? 0),
+      0
+    ),
+    fbdPlaceholders: routines.reduce(
+      (count, routine) =>
+        count +
+        (routine.fbd?.sheets.reduce(
+          (sheetCount, sheet) =>
+            sheetCount + sheet.elements.filter((element) => element.kind === 'placeholder').length,
+          0
+        ) ?? 0),
       0
     ),
   };
@@ -167,7 +201,7 @@ describe('L5X compatibility contract', () => {
       ).toBeDefined();
       for (const semantic of [
         'structured text',
-        'unsupported FBD body',
+        'canonical FBD body',
         'unsupported SFC body',
         'protected routine',
         'produced tag',
@@ -189,7 +223,7 @@ describe('L5X compatibility contract', () => {
       'malformed input',
       'adversarial input',
       'protected routine',
-      'unsupported FBD body',
+      'canonical FBD body',
       'unsupported SFC body',
       'structured text',
       'produced tag',
@@ -265,7 +299,7 @@ describe('L5X compatibility contract', () => {
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 6, failed: 0 },
-      'rockwell-full-project': { complete: 3, partial: 21, failed: 3 },
+      'rockwell-full-project': { complete: 7, partial: 19, failed: 3 },
     });
   });
 });

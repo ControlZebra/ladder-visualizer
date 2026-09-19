@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="FixtureFBDAOI" TargetType="AddOnInstructionDefinition" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies">
+  <Controller Use="Context" Name="FixtureController">
+    <AddOnInstructionDefinitions>
+      <AddOnInstructionDefinition Name="FixtureFBDAOI" Class="Standard" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+        <Routines>
+          <Routine Name="Logic" Type="FBD">
+            <FBDContent SheetSize="Tabloid - 11 x 17 in" SheetOrientation="Landscape">
+              <Sheet Number="1">
+                <IRef ID="1" X="20" Y="20" Operand="In" />
+                <ORef ID="2" X="220" Y="20" Operand="Out" />
+                <Wire FromID="1" ToID="2" />
+              </Sheet>
+            </FBDContent>
+          </Routine>
+        </Routines>
+      </AddOnInstructionDefinition>
+    </AddOnInstructionDefinitions>
+  </Controller>
+</RSLogix5000Content>

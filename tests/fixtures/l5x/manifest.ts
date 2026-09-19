@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.7.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.8.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -55,6 +55,12 @@ export interface L5XSourceCounts {
   pens: number;
   quickWatchLists: number;
   watchTags: number;
+  fbdBodies: number;
+  fbdSheets: number;
+  fbdElements: number;
+  fbdConnections: number;
+  fbdAttachments: number;
+  fbdPlaceholders: number;
   redundancyConfigurations: number;
   securityConfigurations: number;
   safetyConfigurations: number;
@@ -172,6 +178,12 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
   pens: 0,
   quickWatchLists: 0,
   watchTags: 0,
+  fbdBodies: 0,
+  fbdSheets: 0,
+  fbdElements: 0,
+  fbdConnections: 0,
+  fbdAttachments: 0,
+  fbdPlaceholders: 0,
 };
 
 export const L5X_FIXTURES: readonly L5XFixture[] = [
@@ -956,13 +968,21 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Program',
     artifactKind: 'unsupported-language',
     profiles: ['rockwell-full-project'],
-    expectedParseStatus: 'partial',
+    expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 1, fbdSheets: 1 },
     currentParser: {
       success: true,
-      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 },
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 1,
+        routines: 1,
+        fbdBodies: 1,
+        fbdSheets: 1,
+        fbdElements: 2,
+        fbdConnections: 1,
+      },
     },
-    coverage: ['static FBD compatibility', 'unsupported FBD body', 'version matrix'],
+    coverage: ['static FBD compatibility', 'canonical FBD body', 'version matrix'],
   },
   {
     id: 'fbd-v34',
@@ -971,13 +991,21 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Program',
     artifactKind: 'unsupported-language',
     profiles: ['rockwell-full-project'],
-    expectedParseStatus: 'partial',
+    expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 1, fbdSheets: 1 },
     currentParser: {
       success: true,
-      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 },
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 1,
+        routines: 1,
+        fbdBodies: 1,
+        fbdSheets: 1,
+        fbdElements: 2,
+        fbdConnections: 1,
+      },
     },
-    coverage: ['static FBD compatibility', 'unsupported FBD body', 'version matrix'],
+    coverage: ['static FBD compatibility', 'canonical FBD body', 'version matrix'],
   },
   {
     id: 'fbd-v35',
@@ -986,13 +1014,88 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'Program',
     artifactKind: 'unsupported-language',
     profiles: ['rockwell-full-project'],
-    expectedParseStatus: 'partial',
+    expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 1, fbdSheets: 1 },
     currentParser: {
       success: true,
-      normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 },
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 1,
+        routines: 1,
+        fbdBodies: 1,
+        fbdSheets: 1,
+        fbdElements: 2,
+        fbdConnections: 1,
+      },
     },
-    coverage: ['static FBD compatibility', 'unsupported FBD body', 'version matrix'],
+    coverage: ['static FBD compatibility', 'canonical FBD body', 'version matrix'],
+  },
+  {
+    id: 'fbd-aoi-v35',
+    file: 'fbd-aoi-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'AddOnInstructionDefinition',
+    artifactKind: 'add-on-instruction',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      routines: 1,
+      aois: 1,
+      fbdSheets: 1,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        routines: 1,
+        aois: 1,
+        fbdBodies: 1,
+        fbdSheets: 1,
+        fbdElements: 2,
+        fbdConnections: 1,
+      },
+    },
+    coverage: ['AOI export', 'AOI-owned FBD routine', 'canonical FBD body'],
+  },
+  {
+    id: 'fbd-canonical-v35',
+    file: 'fbd-canonical-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Program',
+    artifactKind: 'unsupported-language',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      programs: 1,
+      routines: 1,
+      fbdSheets: 3,
+      arrays: 3,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        programs: 1,
+        routines: 1,
+        fbdBodies: 1,
+        fbdSheets: 3,
+        fbdElements: 36,
+        fbdConnections: 6,
+        fbdAttachments: 3,
+        fbdPlaceholders: 6,
+      },
+    },
+    coverage: [
+      'canonical FBD body',
+      'FBD collection cardinality',
+      'FBD routine control',
+      'FBD placeholder diagnostic',
+      'deterministic serialization',
+    ],
   },
   {
     id: 'sfc-v35',
@@ -1389,12 +1492,16 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         moduleConnections: 1,
         tasks: 1,
         scheduledPrograms: 1,
+        fbdBodies: 1,
+        fbdSheets: 1,
+        fbdElements: 2,
+        fbdConnections: 1,
       },
     },
     coverage: [
       'full-project export',
       'structured text',
-      'unsupported FBD body',
+      'canonical FBD body',
       'unsupported SFC body',
       'protected routine',
       'produced tag',
@@ -1459,12 +1566,16 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         moduleConnections: 1,
         tasks: 1,
         scheduledPrograms: 1,
+        fbdBodies: 1,
+        fbdSheets: 1,
+        fbdElements: 2,
+        fbdConnections: 1,
       },
     },
     coverage: [
       'full-project export',
       'structured text',
-      'unsupported FBD body',
+      'canonical FBD body',
       'unsupported SFC body',
       'protected routine',
       'produced tag',
@@ -1529,12 +1640,16 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         moduleConnections: 1,
         tasks: 1,
         scheduledPrograms: 1,
+        fbdBodies: 1,
+        fbdSheets: 1,
+        fbdElements: 2,
+        fbdConnections: 1,
       },
     },
     coverage: [
       'full-project export',
       'structured text',
-      'unsupported FBD body',
+      'canonical FBD body',
       'unsupported SFC body',
       'protected routine',
       'produced tag',

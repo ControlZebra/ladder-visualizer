@@ -1,6 +1,6 @@
 # L5X compatibility contract
 
-Compatibility matrix version: **1.7.0**
+Compatibility matrix version: **1.8.0**
 
 This document defines the narrow, testable claims Ladder Visualizer may make about Rockwell L5X input. A profile is a promise about named constructs and export shapes. It is not a percentage derived from the number of entities that happened to survive normalization.
 
@@ -8,14 +8,14 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 ## Compatibility profiles
 
-| Profile                   | Version 1.7.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
+| Profile                   | Version 1.8.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
 | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `rockwell-controller-rll` | Supported            | Controller identity/communication metadata, UDT headers, controller and program tags, program hierarchy, Equipment Phase metadata, tasks and schedules, trends and quick-watch lists, AOIs, modules, RLL routines, and rungs | Rockwell-specific controller configuration and SFC-based equipment sequences are preserved rather than normalized |
 | `rockwell-program-rll`    | Supported            | Program target exports with identity/hierarchy attributes, parameters, program state, program tags, and RLL routines | A parent omitted from a component export is not treated as invalid; resource IDs are document-local |
 | `rockwell-routine-rll`    | Partial              | RLL routine target exports represented in the controller-shaped result                                | Context-controller configuration is retained and reported as partial; stable cross-export identity and source spans are not modeled                                                        |
 | `rockwell-rung-rll`       | Supported          | Standalone `TargetType="Rung"` exports are present in the corpus                                      | Rungs have typed resources and owner routine IDs                                                                    |
 | `rockwell-tags`           | Partial              | Controller/program tags, aliases, dimensions, comments, forces, decorated arrays/structures, and alarms | Standard tag attributes outside the normalized contract are preserved and explicitly reported as partial |
-| `rockwell-full-project`   | Unsupported          | Corpus coverage tracks controller configuration, tasks, RLL, FBD, SFC, protected content, and malformed/adversarial input | Rockwell-specific configuration and unsupported/encoded bodies are preserved with diagnostics; typed FBD/SFC bodies remain incomplete |
+| `rockwell-full-project`   | Unsupported          | Corpus coverage tracks controller configuration, tasks, RLL, canonical FBD, SFC, protected content, and malformed/adversarial input | Rockwell-specific configuration and unsupported/encoded bodies are preserved with diagnostics; typed SFC bodies remain incomplete |
 
 “Supported” applies only to the declared fixture shapes and versions. “Partial” means useful content is returned but at least one declared construct is preserved without full normalization, recovered, or rejected. “Unsupported” means the profile must not be advertised as a successful parse contract.
 
@@ -44,7 +44,7 @@ Three additional `full-project-vXX` fixtures exercise the same semantic families
 - Tasks, scheduled programs, and wall-clock configuration.
 - The schema transition where `MaxObservedNetworkDelay` is an integer in v33 and a float in v34/v35.
 
-Focused v33-v35 FBD fixtures and focused v35 SFC and protected-routine fixtures retain small loss-regression cases. Truncated v35 XML, mismatched v34 XML, and a v35 entity-declaration fixture cover malformed and adversarial handling.
+Focused v33-v35 FBD fixtures, an AOI-owned FBD fixture, a complete FBD collection/cardinality fixture, and focused v35 SFC and protected-routine fixtures retain small loss-regression cases. Truncated v35 XML, mismatched v34 XML, and a v35 entity-declaration fixture cover malformed and adversarial handling.
 
 Public parser results expose both the legacy `success` boolean and a `status` of `complete`, `partial`, or `failed`. Built-in parsers and result helpers always provide `status`. The field remains optional on the `PLCParser` implementation contract so custom parsers compiled against the earlier boolean-only result remain source-compatible; registry and document orchestration fill a missing status deterministically.
 
@@ -62,11 +62,13 @@ Explicit resource `Use` takes precedence over the immediate collection's `Use`. 
 
 `fragments` retains unmodeled elements, protected/encoded content, and source representations that extend or overlap existing normalized fields. Each fragment has a path, parsed subtree, and reason (`unmodeled`, `protected`, or `source-representation`). Attributes use `@_`; text and CDATA use `#text` and `#cdata`. `mappings` accounts for source leaves represented by typed fields. Tests require every parsed leaf to be mapped or preserved. This is parsed-subtree preservation, without a byte-perfect XML or comment guarantee. Normalized decorated structures retain heterogeneous member declaration order. Opaque trend templates are retained as source representations.
 
-A successful result means a usable document was returned, not that all content was normalized. `PRESERVED_L5X_CONTENT` identifies results with retained fragments. Standard tag metadata outside the normalized contract, explicitly preserved Rockwell controller configuration, and FBD/SFC bodies can make a result partial. Encoded routines expose their headers and retain the body as a protected fragment.
+A successful result means a usable document was returned, not that all content was normalized. `PRESERVED_L5X_CONTENT` identifies results with retained fragments. Standard tag metadata outside the normalized contract, explicitly preserved Rockwell controller configuration, recovered FBD placeholders, and SFC bodies can make a result partial. Encoded routines expose their headers and retain the body as a protected fragment.
 
 ### FBD compatibility boundary
 
-Across v33-v35, the parser accepts exactly one FBD body only when `OnlineEditType` is absent. Repeated bodies or any declared or unknown edit-state tag fail before normalized-model creation with `UNSUPPORTED_FBD_ONLINE_EDIT`; the error identifies the owning routine path and observed states. This prevents Original, Pending Edits, and Test Edits views from being mistaken for one deterministic static routine. `NoType` is also rejected until a supported-version real export establishes its semantics. Accepted static FBD bodies remain preserved and partial until issue #40 supplies the canonical normalized model. See [the issue #39 slice contract](l5x-fbd-compatibility-slice.md).
+Across v33-v35, the parser accepts exactly one FBD body only when `OnlineEditType` is absent. Repeated bodies or any declared or unknown edit-state tag fail before normalized-model creation with `UNSUPPORTED_FBD_ONLINE_EDIT`; the error identifies the owning routine path and observed states. This prevents Original, Pending Edits, and Test Edits views from being mistaken for one deterministic static routine. `NoType` is also rejected until a supported-version real export establishes its semantics.
+
+Accepted static bodies normalize to `NormalizedRoutine.fbd` for Program-owned and AOI-owned routines. The model retains ordered sheets and descriptions, exact string IDs/coordinates, references, connectors, blocks and arrays, AOI bindings, JSR/SBR/RET calls, wires, feedback wires, text boxes, and attachments. Implicit IRef/ICon source terminals and ORef/OCon destination terminals use the canonical `value` port. Schema-valid GSV/SSV nodes, schema-absent Function nodes, unknown positioned nodes, and malformed/unplaceable nodes survive as placeholders with stable reason codes and make the result partial. Missing presentation metadata uses explicit fallback provenance and informational diagnostics. The raw accepted body remains a `source-representation` fragment rather than an `unmodeled` fragment. See the [compatibility boundary](l5x-fbd-compatibility-slice.md) and [normalization slice](l5x-fbd-normalization-slice.md).
 
 Existing controller-shaped APIs use the same document pipeline and support the newly accepted target families. They return warnings, while the document APIs provide access to fragments. A `TargetType="Program"` envelope without an actual Program target returns `MISSING_L5X_TARGET` through both API families; the parser never fabricates a Program that is absent from the source.
 
@@ -93,7 +95,7 @@ Every fixture declares both `sourceCounts` and `normalizedCounts`:
 - Source counts are lexical counts of the entity elements present in the L5X input. This remains deterministic even for intentionally malformed files.
 - Normalized counts describe the current `NormalizedController` result. They are `null` when parsing fails.
 - AOI routines and rungs are included in the aggregate routine and rung totals.
-- Counts include ST lines, program parameters, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, trends, pens, quick-watch lists, watch tags, decorated arrays, protected-content containers, and every remaining controller-configuration family and repeated port child where applicable.
+- Counts include ST lines, canonical FBD bodies/sheets/elements/connections/attachments/placeholders, program parameters, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, trends, pens, quick-watch lists, watch tags, decorated arrays, protected-content containers, and every remaining controller-configuration family and repeated port child where applicable.
 - A count change requires an intentional manifest update and review; tests must not silently regenerate baselines.
 
 ## Schema validation
