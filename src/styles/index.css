@@ -294,6 +294,27 @@
   border-radius: 0 999px 999px 0;
 }
 
+.fbd-instruction-frame .fbd-port-pin-left {
+  border-right-width: 1.5px;
+  border-right-style: solid;
+}
+
+.fbd-instruction-frame .fbd-port-pin-right {
+  border-left-width: 1.5px;
+  border-left-style: solid;
+}
+
+.fbd-instruction-frame .fbd-port-pin::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  background: var(--fbd-border);
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
 .fbd-text-box {
   display: flex;
   flex-direction: column;
