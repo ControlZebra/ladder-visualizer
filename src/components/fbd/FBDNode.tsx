@@ -136,9 +136,11 @@ function TerminalNode({ layout, theme }: FBDFlowNodeData) {
     : `fbd-connector-shape fbd-connector-${emitsValue ? 'source' : 'target'}`;
 
   return (
-    <div className={`fbd-terminal-shape ${kindClass}`}>
-      <span className="fbd-terminal-label">{terminalLabel(element)}</span>
+    <div className="fbd-terminal-node">
       <PortHandles layout={layout} theme={theme} showLabels={false} />
+      <div className={`fbd-terminal-shape ${kindClass}`}>
+        <span className="fbd-terminal-label">{terminalLabel(element)}</span>
+      </div>
     </div>
   );
 }

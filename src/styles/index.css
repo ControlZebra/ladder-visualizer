@@ -66,6 +66,7 @@
   font-size: 11px;
 }
 
+.fbd-terminal-node,
 .fbd-terminal-shape,
 .fbd-instruction-node,
 .fbd-instruction-frame,
@@ -78,8 +79,13 @@
   background: inherit;
 }
 
+.fbd-terminal-node,
 .fbd-instruction-node {
   isolation: isolate;
+}
+
+.fbd-terminal-node > .fbd-terminal-shape {
+  z-index: 1;
 }
 
 .fbd-terminal-shape {
@@ -272,21 +278,21 @@
   border-radius: 0 999px 999px 0;
 }
 
-.fbd-instruction-node .fbd-port-pin {
+:is(.fbd-terminal-node, .fbd-instruction-node) .fbd-port-pin {
   z-index: 0;
 }
 
-.fbd-instruction-node .fbd-port-pin-left {
+:is(.fbd-terminal-node, .fbd-instruction-node) .fbd-port-pin-left {
   border-right-width: 1.5px;
   border-right-style: solid;
 }
 
-.fbd-instruction-node .fbd-port-pin-right {
+:is(.fbd-terminal-node, .fbd-instruction-node) .fbd-port-pin-right {
   border-left-width: 1.5px;
   border-left-style: solid;
 }
 
-.fbd-instruction-node .fbd-port-pin::after {
+:is(.fbd-terminal-node, .fbd-instruction-node) .fbd-port-pin::after {
   position: absolute;
   top: 50%;
   left: 50%;

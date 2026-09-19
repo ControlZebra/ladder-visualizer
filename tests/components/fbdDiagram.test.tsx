@@ -128,7 +128,9 @@ describe('FBDDiagram', () => {
       sheetIndex: 0,
     }));
 
+    expect(referenceMarkup).toContain('fbd-terminal-node');
     expect(referenceMarkup).toContain('fbd-reference-shape');
+    expect(connectorMarkup).toContain('fbd-terminal-node');
     expect(connectorMarkup).toContain('fbd-connector-shape fbd-connector-target');
     const inputConnectorMarkup = renderToStaticMarkup(createElement(FBDDiagram, {
       body: levelControlBody(),
