@@ -135,6 +135,19 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
     processorType: controller['@_ProcessorType'],
     aoiDefinitions: new Map(aoiSources.map((aoi) => [aoi['@_Name'], aoi])),
   };
+  const tags = normalizeControllerTags(controller.Tags?.Tag);
+  const programs = normalizePrograms(controller.Programs?.Program, fbdContext);
+  const aois = normalizeAOIs(aoiSources, fbdContext);
+  const modules = normalizeModules(controller.Modules);
+  const dataTypes = normalizeDataTypes(controller.DataTypes);
+  const dataTypeCatalog = buildDataTypeCatalog(
+    controller,
+    dataTypes,
+    tags,
+    programs,
+    aois,
+    modules
+  );
 
   return {
     // Core metadata
@@ -147,11 +160,12 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
     modifiedDate: parseDate(controller['@_LastModifiedDate']),
 
     // Core data
-    dataTypes: normalizeDataTypes(controller.DataTypes),
-    tags: normalizeControllerTags(controller.Tags?.Tag),
-    programs: normalizePrograms(controller.Programs?.Program, fbdContext),
-    aois: normalizeAOIs(aoiSources, fbdContext),
-    modules: normalizeModules(controller.Modules),
+    dataTypes,
+    dataTypeCatalog,
+    tags,
+    programs,
+    aois,
+    modules,
     tasks: normalizeTasks(controller.Tasks),
     trends: normalizeTrends(controller.Trends?.Trend),
     quickWatchLists: normalizeQuickWatchLists(controller.QuickWatchLists?.QuickWatchList),
@@ -232,11 +246,14 @@ function normalizeDataType(dt: L5XDataType, usage?: DataTypeUsage): NormalizedDa
 
   return {
     name: dt['@_Name'],
-    family: dt['@_Family'] !== 'NoFamily' ? dt['@_Family'] : undefined,
+    family: dt['@_Family'],
     class: dataTypeClass,
+    category: dt['@_Family'] === 'StringFamily' ? 'String' : 'UserDefined',
+    resolution: 'Declared',
     members: normalizeMembers(dt.Members?.Member),
     description: extractText(dt.Description),
     usage: usage,
+    provenance: [`DataTypes/${dt['@_Name']}`],
   };
 }
 
@@ -248,15 +265,253 @@ function normalizeMembers(
 }
 
 function normalizeMember(m: L5XMember): NormalizedDataTypeMember {
+  const dimensions = parseIntegerList(m['@_Dimension']);
   return {
     name: m['@_Name'],
     dataType: m['@_DataType'],
-    dimension: parseInt(m['@_Dimension'], 0),
+    dimension: dimensions[0] ?? 0,
+    dimensions,
     radix: m['@_Radix'] !== 'NullType' ? m['@_Radix'] : undefined,
     hidden: parseBoolean(m['@_Hidden']),
     externalAccess: normalizeExternalAccess(m['@_ExternalAccess']),
     description: extractText(m.Description),
   };
+}
+
+const PREDEFINED_ATOMIC_TYPES = new Set([
+  'BIT',
+  'BOOL',
+  'SINT',
+  'INT',
+  'DINT',
+  'LINT',
+  'USINT',
+  'UINT',
+  'UDINT',
+  'ULINT',
+  'REAL',
+  'LREAL',
+]);
+
+/**
+ * Build the controller-wide Studio 5000 data type catalog. Explicit schema
+ * declarations remain authoritative; AOI parameter lists and decorated values
+ * contribute the additional categories that L5X does not emit under DataTypes.
+ */
+function buildDataTypeCatalog(
+  controller: L5XController,
+  declaredTypes: NormalizedDataType[],
+  tags: NormalizedTag[],
+  programs: NormalizedProgram[],
+  aois: NormalizedAOI[],
+  modules: NormalizedModule[]
+): NormalizedDataType[] {
+  const catalog = new Map<string, NormalizedDataType>();
+  const order: string[] = [];
+
+  const addType = (incoming: NormalizedDataType): void => {
+    if (!incoming.name) return;
+    const existing = catalog.get(incoming.name);
+    if (!existing) {
+      catalog.set(incoming.name, incoming);
+      order.push(incoming.name);
+      return;
+    }
+
+    const provenance = Array.from(
+      new Set([...(existing.provenance ?? []), ...(incoming.provenance ?? [])])
+    );
+    if (existing.resolution === 'Declared' || incoming.members.length === 0) {
+      catalog.set(incoming.name, { ...existing, provenance });
+      return;
+    }
+
+    const members = [...existing.members];
+    let conflict = existing.resolution === 'Conflict';
+    for (const member of incoming.members) {
+      const matching = members.find((candidate) => candidate.name === member.name);
+      if (!matching) {
+        members.push(member);
+        continue;
+      }
+      if (
+        matching.dataType !== member.dataType ||
+        JSON.stringify(matching.dimensions ?? []) !== JSON.stringify(member.dimensions ?? [])
+      ) {
+        conflict = true;
+      }
+    }
+    catalog.set(incoming.name, {
+      ...existing,
+      members,
+      provenance,
+      resolution: conflict ? 'Conflict' : 'Inferred',
+    });
+  };
+
+  const observeReference = (name: string | undefined, provenance: string): void => {
+    if (!name) return;
+    const isModuleDefined = name.startsWith('AB:');
+    const isString = name === 'STRING';
+    addType({
+      name,
+      ...(isString ? { family: 'StringFamily' } : {}),
+      class: isModuleDefined ? 'ModuleDefined' : 'BuiltIn',
+      category: isModuleDefined ? 'ModuleDefined' : isString ? 'String' : 'Predefined',
+      resolution: PREDEFINED_ATOMIC_TYPES.has(name) ? 'Atomic' : 'Unresolved',
+      members: [],
+      provenance: [provenance],
+    });
+  };
+
+  const scanDecoratedValue = (
+    value: NormalizedDecoratedTagValue,
+    provenance: string
+  ): void => {
+    if (value.kind === 'alarm') return;
+    observeReference(value.dataType, provenance);
+
+    if (value.kind === 'structure') {
+      if (value.dataType) {
+        addType({
+          name: value.dataType,
+          class: value.dataType.startsWith('AB:') ? 'ModuleDefined' : 'BuiltIn',
+          category: value.dataType.startsWith('AB:') ? 'ModuleDefined' : 'Predefined',
+          resolution: 'Inferred',
+          members: value.members.flatMap(inferMembersFromDecoratedValue),
+          provenance: [provenance],
+        });
+      }
+      value.members.forEach((member) => scanDecoratedValue(member, provenance));
+      return;
+    }
+
+    if (value.kind === 'array') {
+      value.elements.forEach((element) =>
+        element.structures.forEach((structure) => scanDecoratedValue(structure, provenance))
+      );
+    }
+  };
+
+  const scanTagData = (data: NormalizedTagData[] | undefined, provenance: string): void => {
+    data?.forEach((representation) =>
+      representation.values.forEach((value) => scanDecoratedValue(value, provenance))
+    );
+  };
+
+  const scanTag = (tag: NormalizedTag, provenance: string): void => {
+    observeReference(tag.dataType, provenance);
+    scanTagData(tag.data, provenance);
+  };
+
+  declaredTypes.forEach(addType);
+
+  for (const aoi of aois) {
+    addType({
+      name: aoi.name,
+      family: 'NoFamily',
+      class: 'AddOnDefined',
+      category: 'AddOnDefined',
+      resolution: 'Declared',
+      description: aoi.description,
+      members: aoi.parameters.map((parameter) => ({
+        name: parameter.name,
+        dataType: parameter.dataType,
+        dimension: parameter.dimensions?.[0] ?? 0,
+        dimensions: parameter.dimensions ?? [],
+        radix: parameter.radix,
+        description: parameter.description,
+        usage: parameter.usage,
+        tagType: parameter.tagType,
+        required: parameter.required,
+        visible: parameter.visible,
+        externalAccess: parameter.externalAccess,
+        defaultValue: parameter.defaultValue,
+      })),
+      provenance: [`AddOnInstructionDefinitions/${aoi.name}/Parameters`],
+    });
+  }
+
+  for (const dataType of declaredTypes) {
+    dataType.members.forEach((member) =>
+      observeReference(member.dataType, `DataTypes/${dataType.name}/Members/${member.name}`)
+    );
+  }
+  for (const tag of tags) scanTag(tag, `Tags/${tag.name}`);
+  for (const program of programs) {
+    program.parameters.forEach((parameter) =>
+      observeReference(parameter.dataType, `Programs/${program.name}/Parameters/${parameter.name}`)
+    );
+    program.tags.forEach((tag) => scanTag(tag, `Programs/${program.name}/Tags/${tag.name}`));
+  }
+  for (const aoi of aois) {
+    aoi.parameters.forEach((parameter) =>
+      observeReference(
+        parameter.dataType,
+        `AddOnInstructionDefinitions/${aoi.name}/Parameters/${parameter.name}`
+      )
+    );
+    aoi.localTags.forEach((tag) =>
+      observeReference(tag.dataType, `AddOnInstructionDefinitions/${aoi.name}/LocalTags/${tag.name}`)
+    );
+  }
+  for (const module of modules) {
+    module.connections.forEach((connection) => {
+      observeReference(
+        connection.inputDataType,
+        `Modules/${module.name}/Connections/${connection.name}/InputTag`
+      );
+      observeReference(
+        connection.outputDataType,
+        `Modules/${module.name}/Connections/${connection.name}/OutputTag`
+      );
+    });
+  }
+
+  for (const module of ensureArray(controller.Modules?.Module)) {
+    const moduleName = module['@_Name'];
+    for (const data of ensureArray(module.Communications?.ConfigTag?.Data)) {
+      scanTagData([normalizeTagData(data)], `Modules/${moduleName}/ConfigTag`);
+    }
+    for (const connection of ensureArray(module.Communications?.Connections?.Connection)) {
+      const connectionPath = `Modules/${moduleName}/Connections/${connection['@_Name']}`;
+      observeReference(connection.InputTag?.['@_DataType'], `${connectionPath}/InputTag`);
+      observeReference(connection.OutputTag?.['@_DataType'], `${connectionPath}/OutputTag`);
+      for (const data of ensureArray(connection.InputTag?.Data)) {
+        scanTagData([normalizeTagData(data)], `${connectionPath}/InputTag`);
+      }
+      for (const data of ensureArray(connection.OutputTag?.Data)) {
+        scanTagData([normalizeTagData(data)], `${connectionPath}/OutputTag`);
+      }
+    }
+  }
+
+  return order.map((name) => catalog.get(name)!);
+}
+
+function inferMembersFromDecoratedValue(
+  value: NormalizedDecoratedTagValue
+): NormalizedDataTypeMember[] {
+  if (value.kind === 'alarm' || !value.name || !value.dataType) return [];
+  if (value.kind === 'array') {
+    return [{
+      name: value.name,
+      dataType: value.dataType,
+      dimension: value.dimensions[0] ?? 0,
+      dimensions: value.dimensions,
+      radix: value.radix,
+    }];
+  }
+  if (value.kind === 'structure') {
+    return [{ name: value.name, dataType: value.dataType, dimension: 0, dimensions: [] }];
+  }
+  return [{
+    name: value.name,
+    dataType: value.dataType,
+    dimension: 0,
+    dimensions: [],
+    radix: value.radix,
+  }];
 }
 
 // ============================================
@@ -1752,6 +2007,7 @@ function normalizeAOIParameter(param: L5XParameter): AOIParameter {
     dataType: param['@_DataType'],
     usage: usageMap[param['@_Usage']] || 'Input',
     radix: param['@_Radix'],
+    dimensions: parseIntegerList(param['@_Dimensions']),
     required: parseBoolean(param['@_Required']),
     visible: parseBoolean(param['@_Visible']),
     externalAccess: normalizeExternalAccess(param['@_ExternalAccess']),

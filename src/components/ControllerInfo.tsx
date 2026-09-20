@@ -48,7 +48,7 @@ export function ControllerInfo({ controller, className = '' }: ControllerInfoPro
         : '',
       // Counts
       tagCount: controller.tags.length,
-      dataTypeCount: controller.dataTypes.length,
+      dataTypeCount: (controller.dataTypeCatalog ?? controller.dataTypes).length,
       programCount: controller.programs.length,
       routineCount: controller.programs.reduce((sum, p) => sum + p.routines.length, 0),
       aoiCount: controller.aois.length,

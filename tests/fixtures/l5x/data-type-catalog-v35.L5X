@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="DataTypeCatalogV35" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="DataTypeCatalogV35">
+    <DataTypes>
+      <DataType Name="PumpState" Family="NoFamily" Class="User">
+        <Description><![CDATA[State shared by the pump logic.]]></Description>
+        <Members>
+          <Member Name="Mode" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write" />
+          <Member Name="History" DataType="REAL" Dimension="4" Radix="Float" Hidden="false" ExternalAccess="Read Only" />
+        </Members>
+      </DataType>
+      <DataType Name="STRING_12" Family="StringFamily" Class="User">
+        <Members>
+          <Member Name="LEN" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write" />
+          <Member Name="DATA" DataType="SINT" Dimension="12" Radix="ASCII" Hidden="false" ExternalAccess="Read/Write" />
+        </Members>
+      </DataType>
+    </DataTypes>
+    <Modules>
+      <Module Name="SOE" CatalogNumber="1756-SOE" Vendor="1" ProductType="7" ProductCode="1" Major="3" Minor="1" ParentModule="Local" ParentModPortId="1">
+        <Communications>
+          <Connections>
+            <Connection Name="Input" RPI="10000" Type="Input">
+              <InputTag DataType="AB:1756_SOE_FIFO:I:0">
+                <Data Format="Decorated">
+                  <Structure DataType="AB:1756_SOE_FIFO:I:0">
+                    <DataValueMember Name="Fault" DataType="DINT" Radix="Binary" Value="0" />
+                    <ArrayMember Name="CSTTimestamp" DataType="DINT" Dimensions="2" Radix="Decimal">
+                      <Element Index="[0]" Value="0" />
+                      <Element Index="[1]" Value="0" />
+                    </ArrayMember>
+                    <DataValueMember Name="EventData" DataType="BOOL" Value="0" />
+                  </Structure>
+                </Data>
+              </InputTag>
+            </Connection>
+          </Connections>
+        </Communications>
+      </Module>
+    </Modules>
+    <AddOnInstructionDefinitions>
+      <AddOnInstructionDefinition Name="ValveControl" Class="Standard" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+        <Description><![CDATA[Controls one valve.]]></Description>
+        <Parameters>
+          <Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Required="false" Visible="false" />
+          <Parameter Name="Command" TagType="Base" DataType="BOOL" Usage="Input" Required="true" Visible="true">
+            <Description><![CDATA[Requested valve state.]]></Description>
+            <DefaultData Format="Decorated"><DataValue DataType="BOOL" Radix="Decimal" Value="0" /></DefaultData>
+          </Parameter>
+          <Parameter Name="Status" TagType="Base" DataType="DINT" Usage="Output" Radix="Decimal" Required="false" Visible="true" />
+          <Parameter Name="Samples" TagType="Base" DataType="REAL" Dimensions="[2,3]" Usage="InOut" Radix="Float" Required="true" Visible="true" />
+          <Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Required="false" Visible="false" />
+        </Parameters>
+        <LocalTags><LocalTag Name="Scratch" DataType="TIMER" /></LocalTags>
+      </AddOnInstructionDefinition>
+    </AddOnInstructionDefinitions>
+    <Tags>
+      <Tag Name="TimerValue" TagType="Base" DataType="TIMER">
+        <Data Format="Decorated">
+          <Structure DataType="TIMER">
+            <DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1000" />
+            <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0" />
+            <DataValueMember Name="EN" DataType="BOOL" Value="0" />
+          </Structure>
+        </Data>
+      </Tag>
+      <Tag Name="MessageValue" TagType="Base" DataType="MESSAGE" />
+      <Tag Name="OperatorText" TagType="Base" DataType="STRING" />
+      <Tag Name="Pump" TagType="Base" DataType="PumpState" />
+    </Tags>
+  </Controller>
+</RSLogix5000Content>

@@ -12,6 +12,7 @@ import {
   AOILocalTagTable,
   StructuredTextViewer,
   ModuleInfoTable,
+  DataTypeTable,
   buildInlineDiffModel,
 } from '../src';
 import type { 
@@ -25,7 +26,6 @@ import type {
   RungElement,
   BranchGroup,
 } from '../src';
-import { DataTypeTable } from './DataTypeTable';
 import { TabBar, TabData } from './TabBar';
 import { useTabs } from './useTabs';
 
@@ -723,10 +723,17 @@ export default function App() {
     return null;
   }, [activeTabData]);
 
+  const selectedNavigatorItemId = useMemo(() => {
+    if (activeTabData?.type === 'data-type') {
+      return `dt-${activeTabData.dataTypeName}`;
+    }
+    return undefined;
+  }, [activeTabData]);
+
   // Get all data types for DataTypeTable
   const allDataTypes = useMemo(() => {
     if (!controller) return [];
-    return controller.dataTypes;
+    return controller.dataTypeCatalog ?? controller.dataTypes;
   }, [controller]);
 
   /**
@@ -777,12 +784,20 @@ export default function App() {
           </div>
         );
       case 'data-type': {
-        const dataType = controller.dataTypes.find(dt => dt.name === tabData.dataTypeName);
+        const dataType = (controller.dataTypeCatalog ?? controller.dataTypes)
+          .find(dt => dt.name === tabData.dataTypeName);
         if (dataType) {
           return (
             <div key={`data-type-${tabData.dataTypeName}`} style={containerStyle}>
               <div style={styles.infoPanelContent}>
-                <DataTypeTable dataType={dataType} allDataTypes={allDataTypes} />
+                <DataTypeTable
+                  dataType={dataType}
+                  allDataTypes={allDataTypes}
+                  onDataTypeSelect={(target) => openTab(
+                    { type: 'data-type', dataTypeName: target.name },
+                    target.name,
+                  )}
+                />
               </div>
             </div>
           );
@@ -1152,6 +1167,7 @@ export default function App() {
               programs={controller.programs}
               selectedRoutine={selectedRoutine ?? undefined}
               selectedAOIRoutine={selectedAOIRoutine ?? undefined}
+              selectedItemId={selectedNavigatorItemId}
               onRoutineSelect={handleRoutineSelect}
               onControllerTagsSelect={handleControllerTagsSelect}
               onProgramTagsSelect={handleProgramTagsSelect}

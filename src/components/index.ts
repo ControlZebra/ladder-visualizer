@@ -27,6 +27,9 @@ export type { ColumnDefinition } from './table';
 // Controller Info
 export { ControllerInfo, type ControllerInfoProps } from './ControllerInfo';
 
+// Data Type Table
+export { DataTypeTable, type DataTypeTableProps } from './DataTypeTable';
+
 // Program Navigator
 export { ProgramNavigator, type ProgramNavigatorProps, type ProgramNavigatorFilter, type ProgramNavigatorBadges } from './ProgramNavigator';
 

@@ -8,6 +8,8 @@ export interface NormalizedDataTypeMember {
   dataType: string;
   /** Array dimension (0 for scalar) */
   dimension: number;
+  /** Complete array extents in source order (empty for a scalar). */
+  dimensions?: number[];
   /** Display radix (Decimal, Hex, Binary, etc.) */
   radix?: string;
   /** Whether this member is hidden in programming software */
@@ -16,12 +18,33 @@ export interface NormalizedDataTypeMember {
   externalAccess?: 'ReadWrite' | 'ReadOnly' | 'None';
   /** Description/comment for the member */
   description?: string;
+  /** AOI parameter direction for Add-On Defined data types. */
+  usage?: 'Input' | 'Output' | 'InOut';
+  /** AOI parameter tag type. */
+  tagType?: string;
+  /** Whether an AOI parameter is required at the call site. */
+  required?: boolean;
+  /** Whether an AOI parameter is visible in the instruction signature. */
+  visible?: boolean;
+  /** AOI parameter default value when one is present in the export. */
+  defaultValue?: unknown;
 }
 
 /**
  * Data type class
  */
 export type DataTypeClass = 'BuiltIn' | 'User' | 'AddOnDefined' | 'ModuleDefined' | 'Unknown';
+
+/** Studio 5000 navigator category for a normalized data type. */
+export type DataTypeCategory =
+  | 'UserDefined'
+  | 'String'
+  | 'AddOnDefined'
+  | 'Predefined'
+  | 'ModuleDefined';
+
+/** How much structural information the source export supplied. */
+export type DataTypeResolution = 'Declared' | 'Inferred' | 'Atomic' | 'Unresolved' | 'Conflict';
 
 /**
  * Data type usage/source in L5X exports
@@ -40,6 +63,10 @@ export interface NormalizedDataType {
   family?: string;
   /** Class of data type */
   class: DataTypeClass;
+  /** Schema-driven Studio 5000 navigator category. */
+  category?: DataTypeCategory;
+  /** Whether the member schema was declared, inferred, atomic, or unavailable. */
+  resolution?: DataTypeResolution;
   /** Members for structured types */
   members: NormalizedDataTypeMember[];
   /** Description/comment for the data type */
@@ -50,4 +77,6 @@ export interface NormalizedDataType {
    * - Context: Data type is referenced from controller context (module-defined)
    */
   usage?: DataTypeUsage;
+  /** Source locations that contributed this definition. */
+  provenance?: string[];
 }

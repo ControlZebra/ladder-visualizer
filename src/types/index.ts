@@ -17,6 +17,8 @@ export type {
   NormalizedTag,
   NormalizedDataType,
   NormalizedDataTypeMember,
+  DataTypeCategory,
+  DataTypeResolution,
   NormalizedAOI,
   NormalizedModule,
   NormalizedTask,
