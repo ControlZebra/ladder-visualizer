@@ -411,7 +411,17 @@ function diffTags(
 // ============================================================================
 
 const DATATYPE_PROPS = ['family', 'class', 'description'];
-const MEMBER_PROPS = ['dataType', 'dimension', 'radix', 'hidden', 'externalAccess', 'description'];
+const MEMBER_PROPS = [
+  'dataType',
+  'dimension',
+  'dimensions',
+  'radix',
+  'hidden',
+  'storageTarget',
+  'bitNumber',
+  'externalAccess',
+  'description',
+];
 
 function diffDataTypes(
   oldTypes: NormalizedDataType[],

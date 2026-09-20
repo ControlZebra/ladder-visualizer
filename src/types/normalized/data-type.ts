@@ -14,6 +14,10 @@ export interface NormalizedDataTypeMember {
   radix?: string;
   /** Whether this member is hidden in programming software */
   hidden?: boolean;
+  /** Backing storage member for a packed BIT member. */
+  storageTarget?: string;
+  /** Zero-based bit position within the packed storage member. */
+  bitNumber?: number;
   /** External access level */
   externalAccess?: 'ReadWrite' | 'ReadOnly' | 'None';
   /** Description/comment for the member */

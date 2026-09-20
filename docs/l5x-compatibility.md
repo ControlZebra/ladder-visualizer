@@ -1,6 +1,6 @@
 # L5X compatibility contract
 
-Compatibility matrix version: **1.9.0**
+Compatibility matrix version: **1.12.0**
 
 This document defines the narrow, testable claims Ladder Visualizer may make about Rockwell L5X input. A profile is a promise about named constructs and export shapes. It is not a percentage derived from the number of entities that happened to survive normalization.
 
@@ -8,7 +8,7 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 ## Compatibility profiles
 
-| Profile                   | Version 1.9.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
+| Profile                   | Version 1.12.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
 | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `rockwell-controller-rll` | Supported            | Controller identity/communication metadata, UDT headers, controller and program tags, program hierarchy, Equipment Phase metadata, tasks and schedules, trends and quick-watch lists, AOIs, modules, RLL routines/rungs, and Program/AOI Structured Text source lines | Rockwell-specific controller configuration and SFC-based equipment sequences are preserved rather than normalized |
 | `rockwell-program-rll`    | Supported            | Program target exports with identity/hierarchy attributes, parameters, program state, program tags, RLL routines, and Structured Text source lines | A parent omitted from a component export is not treated as invalid; resource IDs are document-local |
@@ -47,6 +47,8 @@ Three additional `full-project-vXX` fixtures exercise the same semantic families
 Focused v33-v35 FBD fixtures, an AOI-owned FBD fixture, a complete FBD collection/cardinality fixture, and focused v35 SFC and protected-routine fixtures retain small loss-regression cases. Truncated v35 XML, mismatched v34 XML, and a v35 entity-declaration fixture cover malformed and adversarial handling.
 
 Public parser results expose both the legacy `success` boolean and a `status` of `complete`, `partial`, or `failed`. Built-in parsers and result helpers always provide `status`. The field remains optional on the `PLCParser` implementation contract so custom parsers compiled against the earlier boolean-only result remain source-compatible; registry and document orchestration fill a missing status deterministically.
+
+Tag data keeps decorated values authoritative. When a tag has only opaque raw data, `TagTable` can use the optional declared data-type catalog to present its structure without decoding or inventing values. This includes recursively nested UDT arrays, comma- or whitespace-separated dimensions, and logical `BOOL` rows backed by packed `BIT` members; hidden backing storage is omitted. Raw-only representations remain `partial`, their leaf values remain unknown, and large arrays are materialized only as the user expands them.
 
 Controller results expose tasks in source order. Task types, descriptions, scheduling attributes, event metadata, and ordered scheduled-program names normalize across v33-v35. Programs retain their declared executing-task name. Missing, duplicate, or contradictory relationships produce stable warnings and a `partial` result while preserving the usable controller. Stable cross-document task and program IDs remain outside this profile.
 

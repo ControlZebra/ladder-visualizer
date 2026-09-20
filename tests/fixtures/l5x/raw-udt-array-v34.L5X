@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="34.01" TargetName="RawUdtArrayV34" TargetType="Controller" TargetCount="1" ContainsContext="false" ExportOptions="DecoratedData">
+  <Controller Use="Target" Name="RawUdtArrayV34">
+    <DataTypes>
+      <DataType Name="InnerType" Family="NoFamily" Class="User"><Members><Member Name="Value" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" /></Members></DataType>
+      <DataType Name="SOE_Data" Family="NoFamily" Class="User"><Members><Member Name="Events" DataType="InnerType" Dimension="2" Radix="NullType" Hidden="false" /><Member Name="Timestamps" DataType="DINT" Dimension="2" Radix="Decimal" Hidden="false" /><Member Name="ZZZZZZZZZZSOE_Data0" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" /><Member Name="Enabled" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZSOE_Data0" BitNumber="0" /></Members></DataType>
+    </DataTypes>
+    <Programs><Program Name="MainProgram"><Tags>
+      <Tag Name="RawEvents" TagType="Base" DataType="SOE_Data" Dimensions="2"><Data>00 00 00 00 00 00 00 00</Data></Tag>
+      <Tag Name="DecoratedEvents" TagType="Base" DataType="SOE_Data" Dimensions="1"><Data Format="Decorated"><Array DataType="SOE_Data" Dimensions="1"><Element Index="[0]"><Structure DataType="SOE_Data"><ArrayMember Name="Events" DataType="InnerType" Dimensions="2"><Element Index="[0]"><Structure DataType="InnerType"><DataValueMember Name="Value" DataType="DINT" Radix="Decimal" Value="7" /></Structure></Element><Element Index="[1]"><Structure DataType="InnerType"><DataValueMember Name="Value" DataType="DINT" Radix="Decimal" Value="8" /></Structure></Element></ArrayMember><ArrayMember Name="Timestamps" DataType="DINT" Dimensions="2" Radix="Decimal"><Element Index="[0]" Value="10" /><Element Index="[1]" Value="11" /></ArrayMember><DataValueMember Name="Enabled" DataType="BOOL" Value="1" /></Structure></Element></Array></Data></Tag>
+    </Tags></Program></Programs>
+  </Controller>
+</RSLogix5000Content>

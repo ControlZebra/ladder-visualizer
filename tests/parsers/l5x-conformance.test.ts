@@ -298,8 +298,8 @@ describe('L5X compatibility contract', () => {
       'rockwell-program-rll': { complete: 6, partial: 2, failed: 0 },
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
-      'rockwell-tags': { complete: 16, partial: 6, failed: 0 },
-      'rockwell-full-project': { complete: 13, partial: 20, failed: 3 },
+      'rockwell-tags': { complete: 16, partial: 9, failed: 0 },
+      'rockwell-full-project': { complete: 13, partial: 23, failed: 3 },
     });
   });
 });
