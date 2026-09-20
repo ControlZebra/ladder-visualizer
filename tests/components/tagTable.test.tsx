@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { TagTable, type ColumnDefinition } from '../../src/components';
 import { parseString } from '../../src/parsers';
-import type { NormalizedTag } from '../../src/types';
+import type { NormalizedDataType, NormalizedTag } from '../../src/types';
 
 const fixtureDirectory = join(__dirname, '../fixtures/l5x');
 const versions = ['33', '34', '35'] as const;
@@ -45,7 +45,8 @@ function visiblePaths(container: ParentNode): string[] {
 
 async function renderInteractive(
   tags: NormalizedTag[],
-  extraColumns?: ColumnDefinition<NormalizedTag>[]
+  extraColumns?: ColumnDefinition<NormalizedTag>[],
+  dataTypes?: readonly NormalizedDataType[]
 ): Promise<{
   container: HTMLDivElement;
   root: Root;
@@ -53,7 +54,7 @@ async function renderInteractive(
   const container = document.createElement('div');
   const root = createRoot(container);
   await act(async () => {
-    root.render(<TagTable tags={tags} extraColumns={extraColumns} />);
+    root.render(<TagTable tags={tags} extraColumns={extraColumns} dataTypes={dataTypes} />);
   });
   return { container, root };
 }
@@ -153,6 +154,84 @@ describe('TagTable', () => {
     ]);
 
     await act(async () => root.unmount());
+  });
+
+  it.each(versions)('expands v%s raw-only UDT arrays from the declared type catalog', async (version) => {
+    const source = readFileSync(join(fixtureDirectory, `raw-udt-array-v${version}.L5X`), 'utf8');
+    const controller = parseString(source, 'l5x').data!;
+    const raw = controller.programs[0].tags.find((tag) => tag.name === 'RawEvents')!;
+    const { container, root } = await renderInteractive([raw], undefined, controller.dataTypes);
+
+    expect(cellText(findRow(container, 'RawEvents')!)).toEqual([
+      'RawEvents', '{...}', '{...}', '-', 'SOE_Data[2]', '-', '',
+    ]);
+    await clickExpansion(container, 'RawEvents');
+    expect(visiblePaths(container)).toEqual(['RawEvents', 'RawEvents[0]', 'RawEvents[1]']);
+
+    await clickExpansion(container, 'RawEvents[0]');
+    expect(visiblePaths(container)).toContain('RawEvents[0].Events');
+    expect(visiblePaths(container)).toContain('RawEvents[0].Timestamps');
+    expect(visiblePaths(container)).toContain('RawEvents[0].Enabled');
+    expect(visiblePaths(container)).not.toContain('RawEvents[0].ZZZZZZZZZZSOE_Data0');
+    expect(cellText(findRow(container, 'RawEvents[0].Enabled')!)).toEqual([
+      'RawEvents[0].Enabled', '-', '-', 'Decimal', 'BOOL', '-', '',
+    ]);
+
+    await clickExpansion(container, 'RawEvents[0].Events');
+    await clickExpansion(container, 'RawEvents[0].Events[0]');
+    expect(findRow(container, 'RawEvents[0].Events[0].Value')).toBeDefined();
+    await act(async () => root.unmount());
+  });
+
+  it('keeps decorated values authoritative when a declared catalog is also available', async () => {
+    const source = readFileSync(join(fixtureDirectory, 'raw-udt-array-v33.L5X'), 'utf8');
+    const controller = parseString(source, 'l5x').data!;
+    const decorated = controller.programs[0].tags.find((tag) => tag.name === 'DecoratedEvents')!;
+    const { container, root } = await renderInteractive([decorated], undefined, controller.dataTypes);
+
+    await clickExpansion(container, 'DecoratedEvents');
+    await clickExpansion(container, 'DecoratedEvents[0]');
+    await clickExpansion(container, 'DecoratedEvents[0].Events');
+    await clickExpansion(container, 'DecoratedEvents[0].Events[0]');
+    expect(cellText(findRow(container, 'DecoratedEvents[0].Events[0].Value')!)[1]).toBe('7');
+    await act(async () => root.unmount());
+  });
+
+  it('does not build member rows for a large raw array until an element is expanded', async () => {
+    let memberReads = 0;
+    const dataType: NormalizedDataType = {
+      name: 'SOE_Data', class: 'User',
+      get members() {
+        memberReads += 1;
+        return [{ name: 'EventData', dataType: 'DINT', dimension: 0 }];
+      },
+    };
+    const tag: NormalizedTag = {
+      name: 'Events', tagType: 'Base', dataType: 'SOE_Data', dimensions: [2000], scope: 'Program',
+    };
+    const { container, root } = await renderInteractive([tag], undefined, [dataType]);
+
+    expect(memberReads).toBe(0);
+    await clickExpansion(container, 'Events');
+    expect(memberReads).toBe(0);
+    expect(visiblePaths(container)).toHaveLength(2001);
+    await clickExpansion(container, 'Events[0]');
+    expect(memberReads).toBe(1);
+    expect(findRow(container, 'Events[0].EventData')).toBeDefined();
+    await act(async () => root.unmount());
+  });
+
+  it('does not render opaque raw bytes as a scalar value', () => {
+    const tag: NormalizedTag = {
+      name: 'RawCounter', tagType: 'Base', dataType: 'DINT', scope: 'Controller',
+      data: [{ text: '00 00 00 2A', values: [] }],
+    };
+    const markup = renderToStaticMarkup(<TagTable tags={[tag]} />);
+    const container = document.createElement('div');
+    container.innerHTML = markup;
+
+    expect(cellText(findRow(container, 'RawCounter')!)[1]).toBe('-');
+    expect(markup).not.toContain('00 00 00 2A');
   });
 
   it('maps scalar value, force, style, type, description, and constant columns', () => {

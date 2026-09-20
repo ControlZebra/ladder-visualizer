@@ -1,6 +1,8 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import type {
   NormalizedArrayTagValue,
+  NormalizedDataType,
+  NormalizedDataTypeMember,
   NormalizedDecoratedTagValue,
   NormalizedStructureTagValue,
   NormalizedTag,
@@ -15,6 +17,8 @@ import {
 export interface TagTableProps {
   /** Array of tags to display */
   tags: NormalizedTag[];
+  /** Optional declared data types used to describe raw-only structured tags. */
+  dataTypes?: readonly NormalizedDataType[];
   /** Optional CSS class name */
   className?: string;
   /** Callback when a tag or one of its descendants is selected */
@@ -37,11 +41,21 @@ interface TagTableRow {
   description?: string;
   constant?: boolean;
   topLevel: boolean;
-  children: TagTableRow[];
+  children: TagTableRow[] | (() => TagTableRow[]);
 }
 
 const COMPOSITE_VALUE = '{...}';
 const EMPTY_VALUE = '-';
+const EMPTY_DATA_TYPES: readonly NormalizedDataType[] = [];
+const ATOMIC_DATA_TYPES = new Set([
+  'BIT', 'BOOL', 'SINT', 'INT', 'DINT', 'LINT', 'USINT', 'UINT', 'UDINT', 'ULINT',
+  'REAL', 'LREAL', 'STRING',
+]);
+
+function childRows(row: TagTableRow): TagTableRow[] {
+  if (typeof row.children === 'function') row.children = row.children();
+  return row.children;
+}
 
 function rowId(tag: NormalizedTag, path: string): string {
   return `${tag.scope}:${tag.programName ?? ''}:${path}`;
@@ -147,7 +161,7 @@ function valueRow(
         dataType: value.dataType,
         description: firstCommentText(tag, path),
         topLevel: false,
-        children: structureChildren(value, tag, path, depth + 1),
+        children: () => structureChildren(value, tag, path, depth + 1),
       };
     }
     case 'array': {
@@ -163,7 +177,7 @@ function valueRow(
         dataType: formatDataType(value.dataType, value.dimensions),
         description: firstCommentText(tag, path),
         topLevel: false,
-        children: arrayChildren(value, tag, path, depth + 1),
+        children: () => arrayChildren(value, tag, path, depth + 1),
       };
     }
     case 'alarm':
@@ -187,10 +201,110 @@ function decoratedValues(tag: NormalizedTag): NormalizedDecoratedTagValue[] {
 function scalarFallback(tag: NormalizedTag): string | undefined {
   const stringValue = (tag.data ?? [])
     .find((representation) => representation.format === 'String')?.text;
-  const textual = (tag.data ?? [])
-    .find((representation) => representation.text !== undefined)?.text;
-  const value = stringValue ?? tag.value ?? textual;
+  const l5kValue = (tag.data ?? [])
+    .find((representation) => representation.format === 'L5K')?.text;
+  const value = stringValue ?? l5kValue ?? tag.value;
   return value === undefined ? undefined : String(value);
+}
+
+function arrayIndices(dimensions: number[]): number[][] {
+  if (!dimensions.length) return [];
+  let indices: number[][] = [[]];
+  for (const dimension of dimensions) {
+    const next: number[][] = [];
+    for (const prefix of indices) {
+      for (let index = 0; index < dimension; index += 1) next.push([...prefix, index]);
+    }
+    indices = next;
+  }
+  return indices;
+}
+
+function declaredMemberRows(
+  members: readonly NormalizedDataTypeMember[],
+  tag: NormalizedTag,
+  path: string,
+  depth: number,
+  dataTypeMap: ReadonlyMap<string, NormalizedDataType>,
+  ancestors: ReadonlySet<string>
+): TagTableRow[] {
+  return members
+    .filter((member) => !member.hidden)
+    .map((member) => declaredValueRow(
+      member.name,
+      member.dataType,
+      member.dimensions ?? (member.dimension > 0 ? [member.dimension] : []),
+      tag,
+      path,
+      depth,
+      dataTypeMap,
+      ancestors,
+      member.description,
+      member.radix,
+      member.storageTarget ? 'BOOL' : undefined
+    ));
+}
+
+function declaredValueRow(
+  name: string | undefined,
+  declaredDataType: string,
+  dimensions: number[],
+  tag: NormalizedTag,
+  parentPath: string,
+  depth: number,
+  dataTypeMap: ReadonlyMap<string, NormalizedDataType>,
+  ancestors: ReadonlySet<string>,
+  description?: string,
+  style?: string,
+  displayDataType?: string
+): TagTableRow {
+  const path = name ? memberPath(parentPath, name) : parentPath;
+  const dataType = dataTypeMap.get(declaredDataType);
+  const isStructure = dataType !== undefined && !ATOMIC_DATA_TYPES.has(declaredDataType);
+  const canExpandStructure = isStructure && !ancestors.has(declaredDataType);
+  const nextAncestors = new Set(ancestors).add(declaredDataType);
+
+  if (dimensions.length) {
+    return {
+      id: rowId(tag, path), tag, name: path, depth,
+      value: COMPOSITE_VALUE,
+      forceMask: COMPOSITE_VALUE,
+      style,
+      dataType: formatDataType(displayDataType ?? declaredDataType, dimensions),
+      description: description ?? firstCommentText(tag, path),
+      topLevel: false,
+      children: () => arrayIndices(dimensions).map((index) => {
+        const elementPath = indexPath(path, index);
+        return {
+          id: rowId(tag, elementPath), tag, name: elementPath, depth: depth + 1,
+          value: canExpandStructure ? COMPOSITE_VALUE : undefined,
+          forceMask: canExpandStructure ? COMPOSITE_VALUE : undefined,
+          style,
+          dataType: displayDataType ?? declaredDataType,
+          description: firstCommentText(tag, elementPath),
+          topLevel: false,
+          children: canExpandStructure
+            ? () => declaredMemberRows(
+                dataType!.members, tag, elementPath, depth + 2, dataTypeMap, nextAncestors
+              )
+            : [],
+        };
+      }),
+    };
+  }
+
+  return {
+    id: rowId(tag, path), tag, name: path, depth,
+    value: canExpandStructure ? COMPOSITE_VALUE : undefined,
+    forceMask: canExpandStructure ? COMPOSITE_VALUE : undefined,
+    style,
+    dataType: displayDataType ?? declaredDataType,
+    description: description ?? firstCommentText(tag, path),
+    topLevel: false,
+    children: canExpandStructure
+      ? () => declaredMemberRows(dataType!.members, tag, path, depth + 1, dataTypeMap, nextAncestors)
+      : [],
+  };
 }
 
 function compareValues(left: unknown, right: unknown): number {
@@ -198,10 +312,13 @@ function compareValues(left: unknown, right: unknown): number {
   return String(left ?? '').localeCompare(String(right ?? ''));
 }
 
-function buildTagRow(tag: NormalizedTag): TagTableRow {
+function buildTagRow(
+  tag: NormalizedTag,
+  dataTypeMap: ReadonlyMap<string, NormalizedDataType>
+): TagTableRow {
   const values = decoratedValues(tag);
   const primary = values.length === 1 ? values[0] : undefined;
-  let children: TagTableRow[] = [];
+  let children: TagTableRow[] | (() => TagTableRow[]) = [];
   let value = scalarFallback(tag);
   let forceMask = tag.forceData?.[0]?.value;
   let style = tag.radix;
@@ -216,16 +333,30 @@ function buildTagRow(tag: NormalizedTag): TagTableRow {
     value = COMPOSITE_VALUE;
     forceMask = COMPOSITE_VALUE;
     dataType = primary.dataType ?? dataType;
-    children = structureChildren(primary, tag, tag.name, 1);
+    children = () => structureChildren(primary, tag, tag.name, 1);
   } else if (primary?.kind === 'array') {
     value = COMPOSITE_VALUE;
     forceMask = COMPOSITE_VALUE;
     style = primary.radix ?? style;
     dataType = formatDataType(primary.dataType ?? tag.dataType, primary.dimensions);
-    children = arrayChildren(primary, tag, tag.name, 1);
+    children = () => arrayChildren(primary, tag, tag.name, 1);
   } else if (values.length) {
     value = COMPOSITE_VALUE;
-    children = values.map((item) => valueRow(item, tag, tag.name, 1));
+    children = () => values.map((item) => valueRow(item, tag, tag.name, 1));
+  } else if (tag.dataType && dataTypeMap.has(tag.dataType)) {
+    const declared = declaredValueRow(
+      undefined,
+      tag.dataType,
+      tag.dimensions ?? [],
+      tag,
+      tag.name,
+      0,
+      dataTypeMap,
+      new Set()
+    );
+    value = declared.value;
+    forceMask = declared.forceMask;
+    children = declared.children;
   }
 
   return {
@@ -250,7 +381,7 @@ function rowMatches(row: TagTableRow, filter: string): boolean {
 }
 
 function filterTree(row: TagTableRow, filter: string): TagTableRow | undefined {
-  const children = row.children
+  const children = childRows(row)
     .map((child) => filterTree(child, filter))
     .filter((child): child is TagTableRow => child !== undefined);
   if (!rowMatches(row, filter) && !children.length) return undefined;
@@ -265,8 +396,9 @@ function flattenRows(
   const result: TagTableRow[] = [];
   for (const row of rows) {
     result.push(row);
-    if (row.children.length && (forceExpanded || expanded.has(row.id))) {
-      result.push(...flattenRows(row.children, expanded, forceExpanded));
+    if (forceExpanded || expanded.has(row.id)) {
+      const children = childRows(row);
+      if (children.length) result.push(...flattenRows(children, expanded, forceExpanded));
     }
   }
   return result;
@@ -283,6 +415,7 @@ function extraCell(tag: NormalizedTag, column: ColumnDefinition<NormalizedTag>):
  */
 export function TagTable({
   tags,
+  dataTypes = EMPTY_DATA_TYPES,
   className = '',
   onTagSelect,
   extraColumns = [],
@@ -293,7 +426,11 @@ export function TagTable({
   const [sortAscending, setSortAscending] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
-  const tagTrees = useMemo(() => tags.map(buildTagRow), [tags]);
+  const dataTypeMap = useMemo(
+    () => new Map(dataTypes.map((dataType) => [dataType.name, dataType])),
+    [dataTypes]
+  );
+  const tagTrees = useMemo(() => tags.map((tag) => buildTagRow(tag, dataTypeMap)), [dataTypeMap, tags]);
   const normalizedFilter = filter.trim().toLowerCase();
   const filteredTrees = useMemo(() => {
     const matching = normalizedFilter
@@ -396,6 +533,7 @@ export function TagTable({
           <tbody>
             {visibleRows.map((row, index) => {
               const isExpanded = expanded.has(row.id);
+              const hasChildren = typeof row.children === 'function' || row.children.length > 0;
               return (
                 <tr
                   key={row.id}
@@ -416,7 +554,7 @@ export function TagTable({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {row.children.length && !normalizedFilter ? (
+                      {hasChildren && !normalizedFilter ? (
                         <button
                           type="button"
                           aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${row.name}`}
