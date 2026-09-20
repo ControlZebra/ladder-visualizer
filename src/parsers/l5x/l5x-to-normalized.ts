@@ -274,7 +274,7 @@ function normalizeMembers(
 }
 
 function normalizeMember(m: L5XMember): NormalizedDataTypeMember {
-  const dimensions = parseIntegerList(m['@_Dimension']);
+  const dimensions = parseIntegerList(m['@_Dimension']).filter((dimension) => dimension > 0);
   return {
     name: m['@_Name'],
     dataType: m['@_DataType'],
@@ -282,6 +282,8 @@ function normalizeMember(m: L5XMember): NormalizedDataTypeMember {
     dimensions,
     radix: m['@_Radix'] !== 'NullType' ? m['@_Radix'] : undefined,
     hidden: parseBoolean(m['@_Hidden']),
+    storageTarget: m['@_Target'],
+    bitNumber: parseOptionalSafeInteger(m['@_BitNumber']),
     externalAccess: normalizeExternalAccess(m['@_ExternalAccess']),
     description: extractText(m.Description),
   };
@@ -803,7 +805,7 @@ function parseIntegerList(value: string | undefined): number[] {
   if (value === undefined) return [];
   const unwrapped = value.trim().replace(/^\[/, '').replace(/\]$/, '');
   if (!unwrapped) return [];
-  const parsed = unwrapped.split(',').map((part) => Number(part.trim()));
+  const parsed = unwrapped.split(/[\s,]+/).map((part) => Number(part.trim()));
   return parsed.every((item) => Number.isSafeInteger(item) && item >= 0) ? parsed : [];
 }
 

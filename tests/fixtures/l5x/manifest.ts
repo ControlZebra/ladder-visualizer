@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.11.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.12.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -2037,4 +2037,37 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       'multidimensional AOI parameter',
     ],
   },
+  ...(['33', '34', '35'] as const).map((version): L5XFixture => ({
+    id: `raw-udt-array-v${version}`,
+    file: `raw-udt-array-v${version}.L5X`,
+    studio5000Version: version === '33' ? '33.00' : version === '34' ? '34.01' : '35.01',
+    targetType: 'Controller',
+    artifactKind: 'tag-set',
+    profiles: ['rockwell-tags', 'rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      dataTypes: 2,
+      tags: 2,
+      programs: 1,
+      arrays: 1,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        dataTypes: 2,
+        programTags: 2,
+        programs: 1,
+      },
+    },
+    coverage: [
+      'raw-only user-defined type array',
+      'declared nested array schema',
+      'packed BIT metadata',
+      'decorated value precedence',
+      'version matrix',
+    ],
+  })),
 ];
