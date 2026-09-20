@@ -34,6 +34,8 @@ export interface AOIParameter {
   usage: AOIParameterUsage;
   /** Display radix */
   radix?: string;
+  /** Array extents in declared order. */
+  dimensions?: number[];
   /** Whether the parameter is required when calling the AOI */
   required: boolean;
   /** Whether the parameter is visible in the instruction signature */
@@ -274,6 +276,8 @@ export interface NormalizedController {
   // ---- Core Data ----
   /** User-defined and built-in data types */
   dataTypes: NormalizedDataType[];
+  /** Complete schema-driven catalog, including referenced and synthesized types. */
+  dataTypeCatalog?: NormalizedDataType[];
   /** Controller-scoped tags */
   tags: NormalizedTag[];
   /** Programs with their routines */

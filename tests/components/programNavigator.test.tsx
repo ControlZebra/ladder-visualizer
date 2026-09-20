@@ -117,3 +117,29 @@ describe('ProgramNavigator task scheduling', () => {
     expect(labelCount(markup, 'OrphanProgram')).toBe(1);
   });
 });
+
+describe('ProgramNavigator data type categories', () => {
+  it('renders schema-driven user, string, AOI, predefined, and module-defined types', () => {
+    const controller = fixtureController('data-type-catalog-v35.L5X');
+    const markup = renderToStaticMarkup(
+      <ProgramNavigator
+        controller={controller}
+        programs={controller.programs}
+        initialExpanded={new Set([
+          'dataTypes',
+          'dt-user',
+          'dt-string',
+          'dt-addon',
+          'dt-predefined',
+          'dt-module',
+        ])}
+      />,
+    );
+
+    expect(markup).toContain('PumpState');
+    expect(markup).toContain('STRING_12');
+    expect(markup).toContain('ValveControl');
+    expect(markup).toContain('TIMER');
+    expect(markup).toContain('AB:1756_SOE_FIFO:I:0');
+  });
+});

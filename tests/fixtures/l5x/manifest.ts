@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.9.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.10.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -1983,5 +1983,47 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       },
     },
     coverage: ['task scheduling', 'invalid task relationship', 'partial diagnostic'],
+  },
+  {
+    id: 'data-type-catalog-v35',
+    file: 'data-type-catalog-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Controller',
+    artifactKind: 'data-type',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'complete',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1,
+      dataTypes: 2,
+      tags: 4,
+      aois: 1,
+      modules: 1,
+      parameters: 5,
+      localTags: 1,
+      connections: 1,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: {
+        ...emptyNormalizedCounts,
+        dataTypes: 2,
+        controllerTags: 4,
+        aois: 1,
+        modules: 1,
+        aoiParameters: 5,
+        aoiLocalTags: 1,
+        moduleConnections: 1,
+      },
+    },
+    coverage: [
+      'data type catalog',
+      'string family',
+      'add-on defined data type',
+      'predefined data type',
+      'module-defined data type',
+      'decorated structure inference',
+      'multidimensional AOI parameter',
+    ],
   },
 ];

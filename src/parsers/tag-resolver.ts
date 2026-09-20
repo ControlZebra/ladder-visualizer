@@ -39,7 +39,7 @@ export class TagResolver {
   }
 
   private buildDataTypeMap(): void {
-    for (const dataType of this.controller.dataTypes) {
+    for (const dataType of this.controller.dataTypeCatalog ?? this.controller.dataTypes) {
       this.dataTypeMap.set(dataType.name, dataType);
     }
   }

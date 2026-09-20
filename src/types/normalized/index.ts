@@ -115,6 +115,8 @@ export type {
   NormalizedDataType,
   NormalizedDataTypeMember,
   DataTypeClass,
+  DataTypeCategory,
+  DataTypeResolution,
   DataTypeUsage,
 } from './data-type';
 

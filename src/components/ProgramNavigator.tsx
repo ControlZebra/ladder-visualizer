@@ -67,22 +67,35 @@ function controllerToDisplay(controller: NormalizedController): DisplayControlle
   const addOnDefined: DisplayDataType[] = [];
   const moduleDefined: DisplayDataType[] = [];
 
-  for (const dt of controller.dataTypes) {
+  for (const dt of controller.dataTypeCatalog ?? controller.dataTypes) {
     const display = { name: dt.name, family: dt.family || 'NoFamily', cls: dt.class };
-    if (dt.class === 'User') {
-      if (dt.name.includes(':')) {
-        moduleDefined.push(display);
-      } else {
+    const category = dt.category ?? (
+      dt.family === 'StringFamily'
+        ? 'String'
+        : dt.class === 'AddOnDefined'
+          ? 'AddOnDefined'
+          : dt.class === 'ModuleDefined'
+            ? 'ModuleDefined'
+            : dt.class === 'User'
+              ? 'UserDefined'
+              : 'Predefined'
+    );
+    switch (category) {
+      case 'UserDefined':
         userDefined.push(display);
-      }
-    } else if (dt.class === 'AddOnDefined') {
-      addOnDefined.push(display);
-    } else {
-      if (dt.family === 'StringFamily') {
+        break;
+      case 'String':
         strings.push(display);
-      } else {
+        break;
+      case 'AddOnDefined':
+        addOnDefined.push(display);
+        break;
+      case 'ModuleDefined':
+        moduleDefined.push(display);
+        break;
+      case 'Predefined':
         predefined.push(display);
-      }
+        break;
     }
   }
 
@@ -658,7 +671,7 @@ export function ProgramNavigator({
   // Helper to get original data type for callback
   const getOriginalDataType = (name: string): NormalizedDataType | undefined => {
     if (!controller) return undefined;
-    return controller.dataTypes.find(dt => dt.name === name);
+    return (controller.dataTypeCatalog ?? controller.dataTypes).find(dt => dt.name === name);
   };
 
   // Get data type categories from display controller
