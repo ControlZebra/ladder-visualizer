@@ -53,6 +53,51 @@ describe('L5XParser', () => {
   });
 
   describe('parse', () => {
+    it.each([
+      ['33', 'FixtureAOIV33', 3, 'State := In;'],
+      ['34', 'FixtureAOIV34', 4, 'State := NOT In;'],
+      ['35', 'FixtureAOI', 5, 'Out := In;'],
+    ] as const)(
+      'preserves program-owned and AOI-owned Structured Text for v%s',
+      (version, aoiName, aoiLineNumber, aoiText) => {
+        const project = parseString(
+          readFileSync(join(fixtureDirectory, `full-project-v${version}.L5X`), 'utf-8'),
+          'l5x'
+        );
+        const aoiExport = parseString(
+          readFileSync(join(fixtureDirectory, `aoi-v${version}.L5X`), 'utf-8'),
+          'l5x'
+        );
+
+        expect(project.data?.programs[0].routines.find(({ type }) => type === 'ST')).toMatchObject({
+          name: 'Structured',
+          stContent: [
+            { number: 0, text: 'ProgramState := ProgramState + 1;' },
+            { number: 1, text: 'Output := ProgramInput;' },
+          ],
+        });
+        expect(aoiExport.data?.aois[0]).toMatchObject({
+          name: aoiName,
+          routines: expect.arrayContaining([
+            expect.objectContaining({
+              name: 'Structured',
+              type: 'ST',
+              stContent: [{ number: aoiLineNumber, text: aoiText }],
+            }),
+          ]),
+        });
+      }
+    );
+
+    it('normalizes an STContent body without lines as an empty AOI routine', () => {
+      const source = readFileSync(join(fixtureDirectory, 'aoi-v35.L5X'), 'utf-8');
+      const result = new L5XParser().parse(source);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.aois[0].routines.find(({ name }) => name === 'EmptyStructured'))
+        .toMatchObject({ type: 'ST', stContent: [] });
+    });
+
     it.each(['33', '34', '35'] as const)(
       'retains hierarchy attributes without rejecting an omitted parent in a standalone v%s program export',
       (version) => {

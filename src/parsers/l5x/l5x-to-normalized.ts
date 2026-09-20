@@ -1600,7 +1600,7 @@ function normalizeSTContent(lines: L5XLine | L5XLine[] | undefined): STLine[] {
   const lineArray = ensureArray(lines);
   return lineArray.map((line) => ({
     number: parseInt(line['@_Number'], 0),
-    text: line['#text'] || '',
+    text: line['#cdata'] ?? line['#text'] ?? '',
   }));
 }
 

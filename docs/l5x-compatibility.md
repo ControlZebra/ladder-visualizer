@@ -1,6 +1,6 @@
 # L5X compatibility contract
 
-Compatibility matrix version: **1.8.0**
+Compatibility matrix version: **1.9.0**
 
 This document defines the narrow, testable claims Ladder Visualizer may make about Rockwell L5X input. A profile is a promise about named constructs and export shapes. It is not a percentage derived from the number of entities that happened to survive normalization.
 
@@ -8,10 +8,10 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 ## Compatibility profiles
 
-| Profile                   | Version 1.8.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
+| Profile                   | Version 1.9.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
 | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `rockwell-controller-rll` | Supported            | Controller identity/communication metadata, UDT headers, controller and program tags, program hierarchy, Equipment Phase metadata, tasks and schedules, trends and quick-watch lists, AOIs, modules, RLL routines, and rungs | Rockwell-specific controller configuration and SFC-based equipment sequences are preserved rather than normalized |
-| `rockwell-program-rll`    | Supported            | Program target exports with identity/hierarchy attributes, parameters, program state, program tags, and RLL routines | A parent omitted from a component export is not treated as invalid; resource IDs are document-local |
+| `rockwell-controller-rll` | Supported            | Controller identity/communication metadata, UDT headers, controller and program tags, program hierarchy, Equipment Phase metadata, tasks and schedules, trends and quick-watch lists, AOIs, modules, RLL routines/rungs, and Program/AOI Structured Text source lines | Rockwell-specific controller configuration and SFC-based equipment sequences are preserved rather than normalized |
+| `rockwell-program-rll`    | Supported            | Program target exports with identity/hierarchy attributes, parameters, program state, program tags, RLL routines, and Structured Text source lines | A parent omitted from a component export is not treated as invalid; resource IDs are document-local |
 | `rockwell-routine-rll`    | Partial              | RLL routine target exports represented in the controller-shaped result                                | Context-controller configuration is retained and reported as partial; stable cross-export identity and source spans are not modeled                                                        |
 | `rockwell-rung-rll`       | Supported          | Standalone `TargetType="Rung"` exports are present in the corpus                                      | Rungs have typed resources and owner routine IDs                                                                    |
 | `rockwell-tags`           | Partial              | Controller/program tags, aliases, dimensions, comments, forces, decorated arrays/structures, and alarms | Standard tag attributes outside the normalized contract are preserved and explicitly reported as partial |
@@ -31,7 +31,7 @@ The core corpus contains every required artifact target for every declared Studi
 | Rung                       | complete | complete | complete | Typed rung and owner routine        |
 | Tag                        | complete/partial | complete/partial | complete/partial | Declared value forms normalize; unmodeled metadata is partial |
 | DataType (UDT)             | complete | complete | complete | Typed UDT target and dependencies   |
-| AddOnInstructionDefinition | complete | complete | complete | AOI metadata and RLL normalize      |
+| AddOnInstructionDefinition | complete | complete | complete | AOI metadata plus RLL and Structured Text routines normalize |
 | Module                     | complete | complete | complete | Typed module target and dependencies |
 | Controller configuration  | partial  | partial  | partial  | Clear metadata normalizes; Rockwell-specific families are preserved with diagnostics |
 
@@ -73,6 +73,10 @@ Accepted static bodies normalize to `NormalizedRoutine.fbd` for Program-owned an
 `FBDDiagram` renders one normalized core FBD sheet at a time. One source grid unit equals one SVG user unit; deterministic measurement and orthogonal routing preserve source anchors. Routine-scoped connector matching is exact and case-sensitive, resolves one OCon producer to one or more ICon consumers, and does not draw cross-sheet lines. Blank, unmatched, case-variant, or multiple-producer connector groups remain unresolved with diagnostics. The sanitized v35 level-control fixture and light/dark Chromium baselines define the current visual contract. Function/AOI artwork, routine-control elements, text boxes, attachments, degraded placeholders, and navigation remain later slices. See the [core rendering slice](l5x-fbd-core-rendering-slice.md).
 
 Existing controller-shaped APIs use the same document pipeline and support the newly accepted target families. They return warnings, while the document APIs provide access to fragments. A `TargetType="Program"` envelope without an actual Program target returns `MISSING_L5X_TARGET` through both API families; the parser never fabricates a Program that is absent from the source.
+
+### Structured Text boundary
+
+Program-owned and AOI-owned `Type="ST"` routines normalize their ordered `STContent/Line` collections across v33-v35. Each `STLine` retains its declared numeric line number and exact body whether Rockwell encoded it as CDATA or ordinary XML text; an absent line collection normalizes to an empty array. This is source preservation for viewing and diffing, not an ST grammar, symbol model, or execution engine. The real v17 `Equipment_Phase_Sequencer.L5X` export from AB-samples is exercised as a regression input, but does not expand the XSD conformance matrix beyond v33-v35. See the [Structured Text slice](l5x-structured-text-slice.md).
 
 ### Program parameters and state
 

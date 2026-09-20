@@ -12,6 +12,8 @@
         <LocalTags><LocalTag Name="State" DataType="BOOL" Radix="Decimal" /></LocalTags>
         <Routines>
           <Routine Name="Logic" Type="RLL"><RLLContent><Rung Number="0" Type="N"><Text><![CDATA[XIC(In)OTE(Out);]]></Text></Rung></RLLContent></Routine>
+          <Routine Name="Structured" Type="ST"><STContent><Line Number="5">Out := In;</Line></STContent></Routine>
+          <Routine Name="EmptyStructured" Type="ST"><STContent /></Routine>
         </Routines>
       </AddOnInstructionDefinition>
     </AddOnInstructionDefinitions>
