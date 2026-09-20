@@ -177,6 +177,27 @@ describe('L5X target-aware document contract', () => {
     }
   );
 
+  it('exposes AOI-owned Structured Text through the public document entry point', () => {
+    const doc = document(read('aoi-v35'));
+    const target = targets(doc)[0];
+
+    expect(target).toMatchObject({
+      kind: 'aoi',
+      role: 'target',
+      data: {
+        name: 'FixtureAOI',
+        routines: expect.arrayContaining([
+          expect.objectContaining({
+            name: 'Structured',
+            type: 'ST',
+            stContent: [{ number: 5, text: 'Out := In;' }],
+          }),
+          expect.objectContaining({ name: 'EmptyStructured', type: 'ST', stContent: [] }),
+        ]),
+      },
+    });
+  });
+
   it.each([33, 34, 35])('v%i exposes exact standalone tag, UDT, module and rung data', (major) => {
     const tags = targets(document(read(`tags-v${major}`)));
     expect(tags.map((r) => r.data)).toMatchObject([

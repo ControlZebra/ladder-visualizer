@@ -863,6 +863,7 @@ export interface L5XSTContent {
 export interface L5XLine {
   '@_Number': string;
   '#text'?: string;
+  '#cdata'?: string;
 }
 
 /**
