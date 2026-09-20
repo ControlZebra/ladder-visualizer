@@ -452,7 +452,7 @@ export interface L5XDataValueMember {
   '@_ForceValue'?: string;
 }
 
-export interface L5XStructureMember extends L5XTagStructure {}
+export type L5XStructureMember = L5XTagStructure;
 
 export interface L5XArrayMember {
   '@_Name': string;
