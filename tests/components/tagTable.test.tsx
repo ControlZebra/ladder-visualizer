@@ -210,14 +210,46 @@ describe('TagTable', () => {
       name: 'Events', tagType: 'Base', dataType: 'SOE_Data', dimensions: [2000], scope: 'Program',
     };
     const { container, root } = await renderInteractive([tag], undefined, [dataType]);
+    const input = container.querySelector<HTMLInputElement>('input[placeholder="Filter tags..."]')!;
 
     expect(memberReads).toBe(0);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'Events');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(memberReads).toBe(0);
+    expect(visiblePaths(container)).toEqual(['Events']);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, '');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     await clickExpansion(container, 'Events');
     expect(memberReads).toBe(0);
     expect(visiblePaths(container)).toHaveLength(2001);
     await clickExpansion(container, 'Events[0]');
     expect(memberReads).toBe(1);
     expect(findRow(container, 'Events[0].EventData')).toBeDefined();
+    await act(async () => root.unmount());
+  });
+
+  it('prefers instance operand comments over declared member descriptions', async () => {
+    const dataType: NormalizedDataType = {
+      name: 'RecipeType',
+      class: 'User',
+      members: [{
+        name: 'Count', dataType: 'DINT', dimension: 0, description: 'Generic count',
+      }],
+    };
+    const tag: NormalizedTag = {
+      name: 'Recipe', tagType: 'Base', dataType: 'RecipeType', scope: 'Controller',
+      comments: [{
+        operand: '.Count', text: 'Instance count', values: ['Instance count'], localizedTexts: [],
+      }],
+    };
+    const { container, root } = await renderInteractive([tag], undefined, [dataType]);
+
+    await clickExpansion(container, 'Recipe');
+    expect(cellText(findRow(container, 'Recipe.Count')!)[5]).toBe('Instance count');
     await act(async () => root.unmount());
   });
 

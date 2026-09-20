@@ -756,7 +756,7 @@ export default function App() {
         return (
           <div key="controller-tags" style={containerStyle}>
             <div style={styles.infoPanelContent}>
-              <TagTable tags={controller.tags} />
+              <TagTable tags={controller.tags} dataTypes={allDataTypes} />
             </div>
           </div>
         );
@@ -767,7 +767,7 @@ export default function App() {
           <div key={`program-tags-${tabData.programIndex}`} style={containerStyle}>
             <div style={styles.infoPanelContent}>
               {tags.length > 0 ? (
-                <TagTable tags={tags} />
+                <TagTable tags={tags} dataTypes={allDataTypes} />
               ) : (
                 <p style={styles.noSelection}>No program-specific tags defined</p>
               )}

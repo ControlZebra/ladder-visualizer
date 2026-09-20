@@ -42,6 +42,8 @@ interface TagTableRow {
   constant?: boolean;
   topLevel: boolean;
   children: TagTableRow[] | (() => TagTableRow[]);
+  /** Whether filtering may materialize children that have not been expanded yet. */
+  filterUnmaterializedChildren?: boolean;
 }
 
 const COMPOSITE_VALUE = '{...}';
@@ -271,8 +273,9 @@ function declaredValueRow(
       forceMask: COMPOSITE_VALUE,
       style,
       dataType: formatDataType(displayDataType ?? declaredDataType, dimensions),
-      description: description ?? firstCommentText(tag, path),
+      description: firstCommentText(tag, path) ?? description,
       topLevel: false,
+      filterUnmaterializedChildren: false,
       children: () => arrayIndices(dimensions).map((index) => {
         const elementPath = indexPath(path, index);
         return {
@@ -283,6 +286,7 @@ function declaredValueRow(
           dataType: displayDataType ?? declaredDataType,
           description: firstCommentText(tag, elementPath),
           topLevel: false,
+          filterUnmaterializedChildren: false,
           children: canExpandStructure
             ? () => declaredMemberRows(
                 dataType!.members, tag, elementPath, depth + 2, dataTypeMap, nextAncestors
@@ -299,8 +303,9 @@ function declaredValueRow(
     forceMask: canExpandStructure ? COMPOSITE_VALUE : undefined,
     style,
     dataType: displayDataType ?? declaredDataType,
-    description: description ?? firstCommentText(tag, path),
+    description: firstCommentText(tag, path) ?? description,
     topLevel: false,
+    filterUnmaterializedChildren: false,
     children: canExpandStructure
       ? () => declaredMemberRows(dataType!.members, tag, path, depth + 1, dataTypeMap, nextAncestors)
       : [],
@@ -323,6 +328,7 @@ function buildTagRow(
   let forceMask = tag.forceData?.[0]?.value;
   let style = tag.radix;
   let dataType = formatDataType(tag.dataType, tag.dimensions);
+  let filterUnmaterializedChildren: boolean | undefined;
 
   if (primary?.kind === 'atomic') {
     value = primary.value ?? value;
@@ -357,6 +363,7 @@ function buildTagRow(
     value = declared.value;
     forceMask = declared.forceMask;
     children = declared.children;
+    filterUnmaterializedChildren = declared.filterUnmaterializedChildren;
   }
 
   return {
@@ -372,6 +379,7 @@ function buildTagRow(
     constant: tag.constant,
     topLevel: true,
     children,
+    filterUnmaterializedChildren,
   };
 }
 
@@ -381,11 +389,15 @@ function rowMatches(row: TagTableRow, filter: string): boolean {
 }
 
 function filterTree(row: TagTableRow, filter: string): TagTableRow | undefined {
-  const children = childRows(row)
+  const canMaterializeChildren = typeof row.children !== 'function'
+    || row.filterUnmaterializedChildren !== false;
+  const sourceChildren = canMaterializeChildren ? childRows(row) : [];
+  const children = sourceChildren
     .map((child) => filterTree(child, filter))
     .filter((child): child is TagTableRow => child !== undefined);
-  if (!rowMatches(row, filter) && !children.length) return undefined;
-  return { ...row, children: rowMatches(row, filter) ? row.children : children };
+  const matches = rowMatches(row, filter);
+  if (!matches && !children.length) return undefined;
+  return { ...row, children: matches && canMaterializeChildren ? row.children : children };
 }
 
 function flattenRows(
