@@ -261,22 +261,23 @@ function declaredValueRow(
   displayDataType?: string
 ): TagTableRow {
   const path = name ? memberPath(parentPath, name) : parentPath;
+  const arrayDimensions = dimensions.filter((dimension) => dimension > 0);
   const dataType = dataTypeMap.get(declaredDataType);
   const isStructure = dataType !== undefined && !ATOMIC_DATA_TYPES.has(declaredDataType);
   const canExpandStructure = isStructure && !ancestors.has(declaredDataType);
   const nextAncestors = new Set(ancestors).add(declaredDataType);
 
-  if (dimensions.length) {
+  if (arrayDimensions.length) {
     return {
       id: rowId(tag, path), tag, name: path, depth,
       value: COMPOSITE_VALUE,
       forceMask: COMPOSITE_VALUE,
       style,
-      dataType: formatDataType(displayDataType ?? declaredDataType, dimensions),
+      dataType: formatDataType(displayDataType ?? declaredDataType, arrayDimensions),
       description: firstCommentText(tag, path) ?? description,
       topLevel: false,
       filterUnmaterializedChildren: false,
-      children: () => arrayIndices(dimensions).map((index) => {
+      children: () => arrayIndices(arrayDimensions).map((index) => {
         const elementPath = indexPath(path, index);
         return {
           id: rowId(tag, elementPath), tag, name: elementPath, depth: depth + 1,

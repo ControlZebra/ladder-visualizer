@@ -253,6 +253,32 @@ describe('TagTable', () => {
     await act(async () => root.unmount());
   });
 
+  it('treats a declared zero dimension as a scalar leaf', async () => {
+    const dataType: NormalizedDataType = {
+      name: 'SOE_Data',
+      class: 'User',
+      members: [{
+        name: 'EventNumber',
+        dataType: 'DINT',
+        dimension: 0,
+        dimensions: [0],
+        radix: 'Decimal',
+      }],
+    };
+    const tag: NormalizedTag = {
+      name: 'Events', tagType: 'Base', dataType: 'SOE_Data', scope: 'Program',
+      data: [{ text: '00 00 00 00', values: [] }],
+    };
+    const { container, root } = await renderInteractive([tag], undefined, [dataType]);
+
+    await clickExpansion(container, 'Events');
+    expect(cellText(findRow(container, 'Events.EventNumber')!)).toEqual([
+      'Events.EventNumber', '-', '-', 'Decimal', 'DINT', '-', '',
+    ]);
+    expect(container.querySelector('button[aria-label="Expand Events.EventNumber"]')).toBeNull();
+    await act(async () => root.unmount());
+  });
+
   it('does not render opaque raw bytes as a scalar value', () => {
     const tag: NormalizedTag = {
       name: 'RawCounter', tagType: 'Base', dataType: 'DINT', scope: 'Controller',
