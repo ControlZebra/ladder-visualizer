@@ -1080,8 +1080,8 @@ export function getFBDAOIBindingLabels(
 export function getFBDElementFooterLabels(element: NormalizedFBDElement): string[] {
   if (element.kind === 'block') {
     const labels = getFBDBlockArrayLabels(element);
-    if (element.instruction === 'PIDE') {
-      labels.push(`AutotuneTag: ${element.autotuneTag ?? ''}`);
+    if (element.autotuneTag !== undefined) {
+      labels.push(`AutotuneTag: ${element.autotuneTag}`);
     }
     return labels;
   }

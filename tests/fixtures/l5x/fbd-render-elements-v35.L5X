@@ -13,6 +13,9 @@
     </AddOnInstructionDefinitions>
     <Programs>
       <Program Name="FBDRenderElements">
+        <Tags>
+          <Tag Name="ADD_01" TagType="Base" DataType="FBD_MATH"><Data Format="Decorated"><Structure DataType="FBD_MATH"><DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/><DataValueMember Name="SourceA" DataType="REAL" Value="0"/><DataValueMember Name="SourceB" DataType="REAL" Value="0"/><DataValueMember Name="EnableOut" DataType="BOOL" Value="0"/><DataValueMember Name="Dest" DataType="REAL" Value="0"/></Structure></Data></Tag>
+        </Tags>
         <Routines>
           <Routine Name="Elements" Type="FBD">
             <FBDContent SheetSize="D - 22 x 34 in" SheetOrientation="Landscape">
@@ -20,7 +23,7 @@
                 <IRef ID="1" X="20" Y="40" Operand="FlowCommand" />
                 <IRef ID="2" X="20" Y="120" Operand="FlowFeedback" />
                 <ORef ID="5" X="720" Y="40" Operand="ValveRunning" />
-                <Block Type="ADD" ID="3" X="220" Y="40" />
+                <Block Type="ADD" ID="3" X="220" Y="40" Operand="ADD_01" VisiblePins="SourceA SourceB Dest" />
                 <AddOnInstruction Name="ValveAOI" ID="4" X="460" Y="40" Operand="Valve_01" VisiblePins="Command Feedback Running">
                   <InOutParameter Name="State" Argument="ValveState" />
                 </AddOnInstruction>

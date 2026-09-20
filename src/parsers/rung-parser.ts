@@ -241,7 +241,7 @@ class RungGrammarParser {
       }
 
       if (token.kind.startsWith('close-')) {
-        const expectedKind = delimiterStack.at(-1) ?? 'close-paren';
+        const expectedKind = delimiterStack[delimiterStack.length - 1] ?? 'close-paren';
         const expected = this.tokenValue(expectedKind);
         this.pushOperand(operands, operandSpans, operandStart, token.span.start);
         this.addDiagnostic(

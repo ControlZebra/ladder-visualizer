@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.10.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.11.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -1045,6 +1045,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       controllers: 1,
       routines: 1,
       aois: 1,
+      localTags: 1,
       fbdSheets: 1,
     },
     currentParser: {
@@ -1053,10 +1054,11 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         ...emptyNormalizedCounts,
         routines: 1,
         aois: 1,
+        aoiLocalTags: 1,
         fbdBodies: 1,
         fbdSheets: 1,
-        fbdElements: 2,
-        fbdConnections: 1,
+        fbdElements: 3,
+        fbdConnections: 2,
       },
     },
     coverage: ['AOI export', 'AOI-owned FBD routine', 'canonical FBD body'],
@@ -1106,6 +1108,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       controllers: 1,
       programs: 1,
       routines: 1,
+      tags: 13,
       fbdSheets: 1,
       arrays: 1,
     },
@@ -1114,10 +1117,12 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       normalizedCounts: {
         ...emptyNormalizedCounts,
         programs: 1,
+        controllerTags: 1,
+        programTags: 12,
         routines: 1,
         fbdBodies: 1,
         fbdSheets: 1,
-        fbdElements: 9,
+        fbdElements: 12,
       },
     },
     coverage: [
@@ -1140,6 +1145,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       controllers: 1,
       programs: 1,
       routines: 1,
+      tags: 9,
       arrays: 1,
       fbdSheets: 2,
     },
@@ -1148,6 +1154,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       normalizedCounts: {
         ...emptyNormalizedCounts,
         programs: 1,
+        programTags: 9,
         routines: 1,
         fbdBodies: 1,
         fbdSheets: 2,
@@ -1178,6 +1185,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       parameters: 4,
       programs: 1,
       routines: 1,
+      tags: 1,
       fbdSheets: 1,
     },
     currentParser: {
@@ -1185,6 +1193,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       normalizedCounts: {
         ...emptyNormalizedCounts,
         programs: 1,
+        programTags: 1,
         aois: 1,
         aoiParameters: 4,
         routines: 1,
@@ -1221,6 +1230,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       parameters: 5,
       programs: 1,
       routines: 1,
+      tags: 3,
       fbdSheets: 3,
       arrays: 3,
     },
@@ -1229,6 +1239,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       normalizedCounts: {
         ...emptyNormalizedCounts,
         programs: 1,
+        programTags: 3,
         aois: 1,
         aoiParameters: 5,
         routines: 1,

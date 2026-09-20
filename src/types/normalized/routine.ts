@@ -52,6 +52,17 @@ export type NormalizedFBDDiagnosticCode =
   | 'FBD_UNSUPPORTED_INSTRUCTION_CONTEXT'
   | 'FBD_DUPLICATE_PORT_ID'
   | 'FBD_UNRESOLVED_PORT_METADATA'
+  | 'FBD_MISSING_BLOCK_TYPE'
+  | 'FBD_MISSING_BLOCK_OPERAND'
+  | 'FBD_UNRESOLVED_BLOCK_OPERAND'
+  | 'FBD_AMBIGUOUS_BLOCK_OPERAND'
+  | 'FBD_MISSING_DECORATED_STRUCTURE'
+  | 'FBD_AMBIGUOUS_DECORATED_STRUCTURE'
+  | 'FBD_UNNAMED_STRUCTURE_MEMBER'
+  | 'FBD_DUPLICATE_STRUCTURE_MEMBER'
+  | 'FBD_INVALID_BLOCK_SENTINELS'
+  | 'FBD_MISSING_VISIBLE_PINS'
+  | 'FBD_DUPLICATE_VISIBLE_PIN'
   | 'FBD_UNKNOWN_VISIBLE_PIN'
   | 'FBD_MISSING_REQUIRED_ARRAY'
   | 'FBD_UNKNOWN_AOI';
@@ -96,17 +107,21 @@ export interface NormalizedFBDBlockArray {
 export interface NormalizedFBDPort {
   /** Exact wire-facing source identifier. */
   id: string;
-  /** Human-readable label, which may differ from the source identifier. */
+  /** Display label. Source-derived Block ports use the exact member identifier. */
   label: string;
+  /** Source member data type when the port was inferred from decorated data. */
+  dataType?: string;
   direction: 'input' | 'output';
   side: 'left' | 'right';
   /** Zero-based top-to-bottom order on this side of the element. */
   order: number;
-  defaultVisible: boolean;
+  /** Catalog default for Function and AOI ports; absent for source-derived Block ports. */
+  defaultVisible?: boolean;
   /** Whether this port was selected by the source or by metadata defaults. */
   visible: boolean;
 }
 
+/** @deprecated Block arrays are preserved as authored and are not catalog-validated. */
 export interface NormalizedFBDArrayRequirement {
   id: string;
   label: string;
@@ -121,6 +136,7 @@ export interface NormalizedFBDBlock extends NormalizedFBDPositionedElement {
   visiblePins: string[];
   ports: NormalizedFBDPort[];
   arrays: NormalizedFBDBlockArray[];
+  /** @deprecated Always empty; retained for one compatibility cycle. */
   arrayRequirements: NormalizedFBDArrayRequirement[];
   hideDescription?: boolean;
   autotuneTag?: string;
