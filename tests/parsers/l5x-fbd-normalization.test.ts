@@ -148,6 +148,25 @@ describe('L5X canonical FBD normalization', () => {
             elements: [
               { kind: 'reference', id: '1' },
               { kind: 'reference', id: '2' },
+              {
+                kind: 'block',
+                id: '3',
+                instruction: 'SRTP',
+                operand: 'SRTP_01',
+                visiblePins: ['In', 'HeatOut', 'CoolOut', 'HeatTimePercent', 'CoolTimePercent'],
+              },
+            ],
+            connections: [
+              {
+                kind: 'wire',
+                from: { elementId: '1', port: 'value' },
+                to: { elementId: '3', port: 'In' },
+              },
+              {
+                kind: 'wire',
+                from: { elementId: '3', port: 'HeatOut' },
+                to: { elementId: '2', port: 'value' },
+              },
             ],
           },
         ],
@@ -213,7 +232,7 @@ describe('L5X canonical FBD normalization', () => {
         sourceKind: 'Block',
         id: 'bad',
         position: { x: '40' },
-        reasonCodes: ['invalid-id', 'missing-position'],
+        reasonCodes: ['unresolved-metadata', 'invalid-id', 'missing-position'],
       }),
       expect.objectContaining({
         sourceKind: 'Function',

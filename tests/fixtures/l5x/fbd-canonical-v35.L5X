@@ -14,6 +14,11 @@
     </AddOnInstructionDefinitions>
     <Programs>
       <Program Name="CanonicalFBD">
+        <Tags>
+          <Tag Name="ADD_01" TagType="Base" DataType="FBD_MATH"><Data Format="Decorated"><Structure DataType="FBD_MATH"><DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/><DataValueMember Name="SourceA" DataType="REAL" Value="0"/><DataValueMember Name="SourceB" DataType="REAL" Value="0"/><DataValueMember Name="EnableOut" DataType="BOOL" Value="0"/><DataValueMember Name="Dest" DataType="REAL" Value="0"/></Structure></Data></Tag>
+          <Tag Name="MUL_01" TagType="Base" DataType="FBD_MATH"><Data Format="Decorated"><Structure DataType="FBD_MATH"><DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/><DataValueMember Name="SourceA" DataType="REAL" Value="0"/><DataValueMember Name="SourceB" DataType="REAL" Value="0"/><DataValueMember Name="EnableOut" DataType="BOOL" Value="0"/><DataValueMember Name="Dest" DataType="REAL" Value="0"/></Structure></Data></Tag>
+          <Tag Name="SUB_01" TagType="Base" DataType="FBD_MATH"><Data Format="Decorated"><Structure DataType="FBD_MATH"><DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/><DataValueMember Name="SourceA" DataType="REAL" Value="0"/><DataValueMember Name="SourceB" DataType="REAL" Value="0"/><DataValueMember Name="EnableOut" DataType="BOOL" Value="0"/><DataValueMember Name="Dest" DataType="REAL" Value="0"/></Structure></Data></Tag>
+        </Tags>
         <Routines>
           <Routine Name="FBDLogic" Type="FBD">
             <FBDContent SheetSize="D - 22 x 34 in" SheetOrientation="Portrait">

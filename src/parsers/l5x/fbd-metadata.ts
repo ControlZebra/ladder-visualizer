@@ -18,6 +18,7 @@ export interface FBDPortMetadata {
   defaultVisible: boolean;
 }
 
+/** @deprecated Block array requirements are no longer catalog-driven. */
 export interface FBDArrayRequirement {
   id: string;
   label: string;
@@ -53,13 +54,14 @@ export interface FBDMetadataRequest {
   processorType?: string;
 }
 
+export type FBDFunctionMetadataRequest = Omit<FBDMetadataRequest, 'form'>;
+
 export interface FBDMetadataResolution {
   metadata?: FBDInstructionMetadata;
   diagnostics: FBDMetadataDiagnostic[];
 }
 
 const supportedVersions = Array.from({ length: 19 }, (_, index) => index + 17);
-const allControllers: FBDControllerFamily[] = ['all'];
 const functionControllers: FBDControllerFamily[] = [
   'compactlogix-5380',
   'compactlogix-5480',
@@ -68,174 +70,42 @@ const functionControllers: FBDControllerFamily[] = [
   'guardlogix-5580',
 ];
 
-function label(id: string): string {
-  const special: Record<string, string> = {
-    FF: 'Feed Forward',
-    FB0: 'Feedback 0',
-    FB1: 'Feedback 1',
-    PV: 'PV',
-    SP: 'SP',
-    CVEU: 'CVEU',
-  };
-  return special[id] ?? id.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+function input(id: string, order: number): FBDPortMetadata {
+  return { id, label: id, direction: 'input', side: 'left', order, defaultVisible: true };
 }
 
-function input(id: string, order: number, defaultVisible = true): FBDPortMetadata {
-  return { id, label: label(id), direction: 'input', side: 'left', order, defaultVisible };
+function output(id: string, order: number): FBDPortMetadata {
+  return { id, label: id, direction: 'output', side: 'right', order, defaultVisible: true };
 }
 
-function output(id: string, order: number, defaultVisible = true): FBDPortMetadata {
-  return { id, label: label(id), direction: 'output', side: 'right', order, defaultVisible };
-}
-
-function block(
+function fbdFunction(
   mnemonic: string,
-  inputs: Array<[string, boolean?]>,
-  outputs: Array<[string, boolean?]>,
-  arrays: FBDArrayRequirement[] = []
+  inputs: string[],
+  outputs: string[]
 ): FBDInstructionMetadata {
-  return {
-    mnemonic,
-    forms: ['block'],
-    softwareMajorVersions: [...supportedVersions],
-    controllerFamilies: [...allControllers],
-    ports: [
-      ...inputs.map(([id, visible], order) => input(id, order, visible ?? true)),
-      ...outputs.map(([id, visible], order) => output(id, order, visible ?? true)),
-    ],
-    arrays,
-  };
-}
-
-function fbdFunction(mnemonic: string, source: FBDInstructionMetadata): FBDInstructionMetadata {
   return {
     mnemonic,
     forms: ['function'],
     softwareMajorVersions: [...supportedVersions],
     controllerFamilies: [...functionControllers],
-    ports: source.ports.map((port) => ({ ...port, defaultVisible: true })),
+    ports: [
+      ...inputs.map((id, order) => input(id, order)),
+      ...outputs.map((id, order) => output(id, order)),
+    ],
     arrays: [],
   };
 }
 
-const add = block(
-  'ADD',
-  [['SourceA'], ['SourceB']],
-  [['Dest']]
-);
-const dedt = block(
-  'DEDT',
-  [['In'], ['Deadtime', false], ['Gain', false], ['Bias', false]],
-  [['Out'], ['DeadtimeInv', false]],
-  [{ id: 'StorageArray', label: 'Storage Array', order: 0, required: true }]
-);
-const hll = block(
-  'HLL',
-  [['In'], ['HighLimit', false], ['LowLimit', false]],
-  [['Out'], ['HighAlarm'], ['LowAlarm']]
-);
-const ldlg = block(
-  'LDLG',
-  [['In'], ['Lead', false], ['Lag', false], ['Gain', false], ['Bias', false]],
-  [['Out']]
-);
-const mul = block(
-  'MUL',
-  [['SourceA'], ['SourceB', false]],
-  [['Dest']]
-);
-const pide = block(
-  'PIDE',
-  [
-    ['PV'],
-    ['SPProg'],
-    ['SPCascade'],
-    ['RatioProg'],
-    ['CVProg'],
-    ['FF'],
-    ['HandFB'],
-    ['ProgProgReq'],
-    ['ProgOperReq'],
-    ['ProgCasRatReq'],
-    ['ProgAutoReq'],
-    ['ProgManualReq'],
-    ['ProgOverrideReq'],
-    ['ProgHandReq'],
-  ],
-  [
-    ['CVEU'],
-    ['SP'],
-    ['PVHHAlarm'],
-    ['PVHAlarm'],
-    ['PVLAlarm'],
-    ['PVLLAlarm'],
-    ['PVROCPosAlarm'],
-    ['PVROCNegAlarm'],
-    ['DevHHAlarm'],
-    ['DevHAlarm'],
-    ['DevLAlarm'],
-    ['DevLLAlarm'],
-    ['ProgOper'],
-    ['CasRat'],
-    ['Auto'],
-    ['Manual'],
-    ['Override'],
-    ['Hand'],
-  ]
-);
-const sub = block(
-  'SUB',
-  [['SourceA'], ['SourceB']],
-  [['Dest']]
-);
-const d2sd = block(
-  'D2SD',
-  [
-    ['ProgCommand'],
-    ['State0Perm'],
-    ['State1Perm'],
-    ['FB0'],
-    ['FB1'],
-    ['HandFB'],
-    ['ProgProgReq'],
-    ['ProgOperReq'],
-    ['ProgOverrideReq'],
-    ['ProgHandReq'],
-  ],
-  [
-    ['Out'],
-    ['Device0State'],
-    ['Device1State'],
-    ['CommandStatus'],
-    ['FaultAlarm'],
-    ['ModeAlarm'],
-    ['ProgOper'],
-    ['Override'],
-    ['Hand'],
-  ]
-);
-const grt = block(
-  'GRT',
-  [['SourceA'], ['SourceB']],
-  [['Dest']]
-);
-
-/** Canonical FBD metadata. Deliberately independent from the RLL instruction registry. */
-export const FBD_INSTRUCTION_METADATA: readonly FBDInstructionMetadata[] = [
-  add,
-  dedt,
-  hll,
-  ldlg,
-  mul,
-  pide,
-  sub,
-  d2sd,
-  grt,
-  fbdFunction('ADD', add),
-  fbdFunction('MUL', mul),
-  fbdFunction('SUB', sub),
-  fbdFunction('GRT', grt),
+/** Built-in metadata retained only for Function elements. Block ports are source-derived. */
+export const FBD_FUNCTION_METADATA: readonly FBDInstructionMetadata[] = [
+  fbdFunction('ADD', ['SourceA', 'SourceB'], ['Dest']),
+  fbdFunction('MUL', ['SourceA', 'SourceB'], ['Dest']),
+  fbdFunction('SUB', ['SourceA', 'SourceB'], ['Dest']),
+  fbdFunction('GRT', ['SourceA', 'SourceB'], ['Dest']),
 ];
+
+/** @deprecated Use FBD_FUNCTION_METADATA. Block metadata is no longer catalog-driven. */
+export const FBD_INSTRUCTION_METADATA = FBD_FUNCTION_METADATA;
 
 function softwareMajor(revision: string | undefined): number | undefined {
   const match = revision?.match(/^(\d+)/);
@@ -280,6 +150,7 @@ function validatePorts(metadata: FBDInstructionMetadata): FBDMetadataDiagnostic[
   return diagnostics;
 }
 
+/** @deprecated Use resolveBuiltInFBDFunctionMetadata for the built-in Function catalog. */
 export function resolveFBDInstructionMetadata(
   catalog: readonly FBDInstructionMetadata[],
   request: FBDMetadataRequest
@@ -320,6 +191,13 @@ export function resolveFBDInstructionMetadata(
   return { metadata, diagnostics: validatePorts(metadata) };
 }
 
+export function resolveBuiltInFBDFunctionMetadata(
+  request: FBDFunctionMetadataRequest
+): FBDMetadataResolution {
+  return resolveFBDInstructionMetadata(FBD_FUNCTION_METADATA, { ...request, form: 'function' });
+}
+
+/** @deprecated Use resolveBuiltInFBDFunctionMetadata. */
 export function resolveBuiltInFBDInstructionMetadata(
   request: FBDMetadataRequest
 ): FBDMetadataResolution {

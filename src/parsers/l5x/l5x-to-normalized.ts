@@ -109,15 +109,23 @@ import type {
 } from '../../types/normalized';
 import { parseRungDetailed } from '../rung-parser';
 import {
-  resolveBuiltInFBDInstructionMetadata,
+  resolveBuiltInFBDFunctionMetadata,
   type FBDMetadataDiagnostic,
   type FBDPortMetadata,
 } from './fbd-metadata';
+
+interface FBDBlockOperandDefinition {
+  name: string;
+  data: L5XTagData[];
+}
+
+type FBDBlockOperandScope = Map<string, FBDBlockOperandDefinition[]>;
 
 interface FBDNormalizationContext {
   softwareRevision?: string;
   processorType?: string;
   aoiDefinitions: Map<string, L5XAddOnInstruction>;
+  blockOperandScopes: FBDBlockOperandScope[];
 }
 
 /**
@@ -134,6 +142,7 @@ export function l5xToNormalized(content: L5XContent): NormalizedController {
     softwareRevision: root['@_SoftwareRevision'],
     processorType: controller['@_ProcessorType'],
     aoiDefinitions: new Map(aoiSources.map((aoi) => [aoi['@_Name'], aoi])),
+    blockOperandScopes: [createFBDTagOperandScope(controller.Tags?.Tag)],
   };
   const tags = normalizeControllerTags(controller.Tags?.Tag);
   const programs = normalizePrograms(controller.Programs?.Program, fbdContext);
@@ -518,6 +527,38 @@ function inferMembersFromDecoratedValue(
 // Tags
 // ============================================
 
+function createFBDBlockOperandScope(
+  definitions: FBDBlockOperandDefinition[]
+): FBDBlockOperandScope {
+  const scope: FBDBlockOperandScope = new Map();
+  for (const definition of definitions) {
+    const existing = scope.get(definition.name) ?? [];
+    existing.push(definition);
+    scope.set(definition.name, existing);
+  }
+  return scope;
+}
+
+function createFBDTagOperandScope(tags: L5XTag | L5XTag[] | undefined): FBDBlockOperandScope {
+  return createFBDBlockOperandScope(
+    ensureArray(tags).map((tag) => ({
+      name: tag['@_Name'],
+      data: ensureArray(tag.Data),
+    }))
+  );
+}
+
+function createFBDLocalTagOperandScope(
+  tags: L5XLocalTag | L5XLocalTag[] | undefined
+): FBDBlockOperandScope {
+  return createFBDBlockOperandScope(
+    ensureArray(tags).map((tag) => ({
+      name: tag['@_Name'],
+      data: ensureArray(tag.DefaultData),
+    }))
+  );
+}
+
 function normalizeControllerTags(tags: L5XTag | L5XTag[] | undefined): NormalizedTag[] {
   const tagArray = ensureArray(tags);
   return tagArray.map((tag) => normalizeTag(tag, 'Controller'));
@@ -799,6 +840,13 @@ function normalizeProgram(
   fbdContext: FBDNormalizationContext
 ): NormalizedProgram {
   const programName = program['@_Name'] || `Program_${index}`;
+  const programFBDContext: FBDNormalizationContext = {
+    ...fbdContext,
+    blockOperandScopes: [
+      createFBDTagOperandScope(program.Tags?.Tag),
+      ...fbdContext.blockOperandScopes,
+    ],
+  };
 
   return {
     name: programName,
@@ -806,7 +854,7 @@ function normalizeProgram(
     parentUid: program['@_ParentUId'],
     useAsFolder: parseOptionalBoolean(program['@_UseAsFolder']),
     tags: normalizeProgramTags(program.Tags?.Tag, programName),
-    routines: normalizeRoutines(program.Routines, fbdContext),
+    routines: normalizeRoutines(program.Routines, programFBDContext),
     parameters: normalizeProgramParameters(program.Parameters?.Parameter, programName),
     programType: program['@_Type'],
     description: extractText(program.Description),
@@ -1390,53 +1438,175 @@ function normalizeFBDBlock(
 ): NormalizedFBDElement {
   const visiblePinsSource = node['@_VisiblePins'];
   const visiblePins = splitTokens(visiblePinsSource);
-  const mnemonic = node['@_Type'] ?? '';
-  const resolution = resolveBuiltInFBDInstructionMetadata({
-    mnemonic,
-    form: 'block',
-    softwareRevision: context.softwareRevision,
-    processorType: context.processorType,
-  });
-  appendFBDMetadataDiagnostics(diagnostics, resolution.diagnostics, sheetIndex, 'Block');
-  if (!resolution.metadata || resolution.diagnostics.length) {
-    return createFBDPlaceholder(node as L5XFBDBlock & Record<string, unknown>, 'Block', [
-      'unresolved-metadata',
-    ], []);
+  const mnemonic = node['@_Type']?.trim();
+  const operand = node['@_Operand']?.trim();
+  const unresolved = () =>
+    createFBDPlaceholder(
+      node as L5XFBDBlock & Record<string, unknown>,
+      'Block',
+      ['unresolved-metadata'],
+      []
+    );
+
+  if (!mnemonic) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_MISSING_BLOCK_TYPE',
+      'FBD Block has no Type attribute.',
+      sheetIndex
+    );
+    return unresolved();
   }
-  const ports = selectFBDPorts(
-    resolution.metadata.ports,
-    visiblePins,
-    visiblePinsSource !== undefined,
-    diagnostics,
-    sheetIndex,
-    'Block',
-    mnemonic
+  if (!operand) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_MISSING_BLOCK_OPERAND',
+      `FBD ${mnemonic} has no Operand attribute.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+
+  let definition: FBDBlockOperandDefinition | undefined;
+  for (const scope of context.blockOperandScopes) {
+    const candidates = scope.get(operand);
+    if (!candidates?.length) continue;
+    if (candidates.length > 1) {
+      appendFBDBlockDiagnostic(
+        diagnostics,
+        'FBD_AMBIGUOUS_BLOCK_OPERAND',
+        `FBD ${mnemonic} operand ${operand} resolves to multiple definitions in the same scope.`,
+        sheetIndex
+      );
+      return unresolved();
+    }
+    definition = candidates[0];
+    break;
+  }
+  if (!definition) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_UNRESOLVED_BLOCK_OPERAND',
+      `FBD ${mnemonic} operand ${operand} does not resolve in its owning scope.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+
+  const structures = definition.data
+    .filter((data) => data['@_Format'] === 'Decorated')
+    .flatMap((data) => ensureArray(data.Structure));
+  if (!structures.length) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_MISSING_DECORATED_STRUCTURE',
+      `FBD ${mnemonic} operand ${operand} has no decorated Structure.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+  if (structures.length > 1) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_AMBIGUOUS_DECORATED_STRUCTURE',
+      `FBD ${mnemonic} operand ${operand} has multiple decorated Structures.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+
+  const members = normalizeStructureValue(structures[0]).members.filter(
+    (
+      member
+    ): member is NormalizedAtomicTagValue | NormalizedArrayTagValue | NormalizedStructureTagValue =>
+      member.kind !== 'alarm'
   );
+  const unnamedMembers = members.filter((member) => !member.name);
+  if (unnamedMembers.length) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_UNNAMED_STRUCTURE_MEMBER',
+      `FBD ${mnemonic} operand ${operand} has an unnamed direct Structure member.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+  const memberNames = members.map((member) => member.name!);
+  const duplicateMembers = duplicateStrings(memberNames);
+  if (duplicateMembers.length) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_DUPLICATE_STRUCTURE_MEMBER',
+      `FBD ${mnemonic} operand ${operand} has duplicate direct member ${duplicateMembers[0]}.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+
+  const enableInIndex = memberNames.indexOf('EnableIn');
+  const enableOutIndex = memberNames.indexOf('EnableOut');
+  if (enableInIndex !== 0 || enableOutIndex <= enableInIndex) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_INVALID_BLOCK_SENTINELS',
+      `FBD ${mnemonic} operand ${operand} must start with EnableIn and declare EnableOut after its inputs.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+  if (visiblePinsSource === undefined) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_MISSING_VISIBLE_PINS',
+      `FBD ${mnemonic} has no VisiblePins attribute.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+  const duplicateVisiblePins = duplicateStrings(visiblePins);
+  if (duplicateVisiblePins.length) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_DUPLICATE_VISIBLE_PIN',
+      `FBD ${mnemonic} selects duplicate visible pin ${duplicateVisiblePins[0]}.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+  const knownMemberNames = new Set(memberNames);
+  const unknownVisiblePins = visiblePins.filter((pin) => !knownMemberNames.has(pin));
+  if (unknownVisiblePins.length) {
+    appendFBDBlockDiagnostic(
+      diagnostics,
+      'FBD_UNKNOWN_VISIBLE_PIN',
+      `FBD ${mnemonic} selects unknown Structure member ${unknownVisiblePins[0]}.`,
+      sheetIndex
+    );
+    return unresolved();
+  }
+
+  const selectedPins = new Set(visiblePins);
+  let inputOrder = 0;
+  let outputOrder = 0;
+  const ports: NormalizedFBDPort[] = members.flatMap((member, index) => {
+    if (!selectedPins.has(member.name!)) return [];
+    const input = index < enableOutIndex;
+    return [
+      {
+        id: member.name!,
+        label: member.name!,
+        ...(member.dataType !== undefined ? { dataType: member.dataType } : {}),
+        direction: input ? 'input' : 'output',
+        side: input ? 'left' : 'right',
+        order: input ? inputOrder++ : outputOrder++,
+        visible: true,
+      },
+    ];
+  });
   const arrays = ensureArray(node.Array).map((array) => ({
     ...(array['@_Name'] !== undefined ? { name: array['@_Name'] } : {}),
     ...(array['@_Operand'] !== undefined ? { operand: array['@_Operand'] } : {}),
   }));
-  const missingArrays = resolution.metadata.arrays.filter(
-    (requirement) =>
-      requirement.required &&
-      !arrays.some(
-        (array) => array.name === requirement.id && Boolean(array.operand?.trim())
-      )
-  );
-  for (const requirement of missingArrays) {
-    diagnostics.push({
-      code: 'FBD_MISSING_REQUIRED_ARRAY',
-      message: `FBD ${mnemonic} requires the ${requirement.id} array binding.`,
-      severity: 'warning',
-      sheetIndex,
-      sourceKind: 'Block',
-    });
-  }
-  if (!ports || missingArrays.length) {
-    return createFBDPlaceholder(node as L5XFBDBlock & Record<string, unknown>, 'Block', [
-      'unresolved-metadata',
-    ], []);
-  }
   const positioned = normalizeFBDPositioned(node, 'Block', ports);
   if ('kind' in positioned) return positioned;
   const hidden = parseFBDBoolean(node['@_HideDesc']);
@@ -1444,14 +1614,33 @@ function normalizeFBDBlock(
     kind: 'block',
     ...positioned,
     instruction: mnemonic,
-    ...(node['@_Operand'] !== undefined ? { operand: node['@_Operand'] } : {}),
+    operand: node['@_Operand'],
     visiblePins,
     ports,
     arrays,
-    arrayRequirements: resolution.metadata.arrays.map((array) => ({ ...array })),
+    arrayRequirements: [],
     ...(hidden !== undefined ? { hideDescription: hidden } : {}),
     ...(node['@_AutotuneTag'] !== undefined ? { autotuneTag: node['@_AutotuneTag'] } : {}),
   };
+}
+
+function appendFBDBlockDiagnostic(
+  diagnostics: NormalizedFBDDiagnostic[],
+  code: NormalizedFBDDiagnostic['code'],
+  message: string,
+  sheetIndex: number
+): void {
+  diagnostics.push({ code, message, severity: 'warning', sheetIndex, sourceKind: 'Block' });
+}
+
+function duplicateStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) duplicates.add(value);
+    seen.add(value);
+  }
+  return [...duplicates];
 }
 
 function normalizeFBDAOI(
@@ -1562,9 +1751,8 @@ function normalizeFBDFunction(
   sheetIndex: number
 ): NormalizedFBDElement {
   const mnemonic = stringValue(node['@_Type']) ?? stringValue(node['@_Name']) ?? '';
-  const resolution = resolveBuiltInFBDInstructionMetadata({
+  const resolution = resolveBuiltInFBDFunctionMetadata({
     mnemonic,
-    form: 'function',
     softwareRevision: context.softwareRevision,
     processorType: context.processorType,
   });
@@ -1953,6 +2141,10 @@ function normalizeAOI(
     Standard: 'Standard',
     Safety: 'Safety',
   };
+  const aoiFBDContext: FBDNormalizationContext = {
+    ...fbdContext,
+    blockOperandScopes: [createFBDLocalTagOperandScope(aoi.LocalTags?.LocalTag)],
+  };
 
   return {
     // Identification
@@ -1985,7 +2177,7 @@ function normalizeAOI(
     localTags: normalizeAOILocalTags(aoi.LocalTags?.LocalTag),
 
     // Implementation
-    routines: normalizeRoutines(aoi.Routines, fbdContext),
+    routines: normalizeRoutines(aoi.Routines, aoiFBDContext),
   };
 }
 

@@ -11,7 +11,9 @@ export { L5XConflictVisualAdapter, l5xConflictVisualAdapter } from './l5x-confli
 // Transformation
 export { l5xToNormalized } from './l5x-to-normalized';
 export {
+  FBD_FUNCTION_METADATA,
   FBD_INSTRUCTION_METADATA,
+  resolveBuiltInFBDFunctionMetadata,
   resolveBuiltInFBDInstructionMetadata,
   resolveFBDInstructionMetadata,
 } from './fbd-metadata';
@@ -26,6 +28,7 @@ export type {
   FBDMetadataDiagnosticCode,
   FBDMetadataDiagnostic,
   FBDMetadataRequest,
+  FBDFunctionMetadataRequest,
   FBDMetadataResolution,
 } from './fbd-metadata';
 

@@ -40,7 +40,9 @@ export {
   l5xToNormalized,
   L5XConflictVisualAdapter,
   l5xConflictVisualAdapter,
+  FBD_FUNCTION_METADATA,
   FBD_INSTRUCTION_METADATA,
+  resolveBuiltInFBDFunctionMetadata,
   resolveBuiltInFBDInstructionMetadata,
   resolveFBDInstructionMetadata,
 } from './l5x';
@@ -55,6 +57,7 @@ export type {
   FBDMetadataDiagnosticCode,
   FBDMetadataDiagnostic,
   FBDMetadataRequest,
+  FBDFunctionMetadataRequest,
   FBDMetadataResolution,
 } from './l5x';
 

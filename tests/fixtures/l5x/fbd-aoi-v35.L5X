@@ -3,13 +3,31 @@
   <Controller Use="Context" Name="FixtureController">
     <AddOnInstructionDefinitions>
       <AddOnInstructionDefinition Name="FixtureFBDAOI" Class="Standard" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+        <LocalTags>
+          <LocalTag Name="SRTP_01" DataType="SPLIT_RANGE">
+            <DefaultData Format="Decorated">
+              <Structure DataType="SPLIT_RANGE">
+                <DataValueMember Name="EnableIn" DataType="BOOL" Value="1" />
+                <DataValueMember Name="In" DataType="REAL" Value="0" />
+                <DataValueMember Name="CycleTime" DataType="REAL" Value="0" />
+                <DataValueMember Name="EnableOut" DataType="BOOL" Value="0" />
+                <DataValueMember Name="HeatOut" DataType="BOOL" Value="0" />
+                <DataValueMember Name="CoolOut" DataType="BOOL" Value="0" />
+                <DataValueMember Name="HeatTimePercent" DataType="REAL" Value="0" />
+                <DataValueMember Name="CoolTimePercent" DataType="REAL" Value="0" />
+              </Structure>
+            </DefaultData>
+          </LocalTag>
+        </LocalTags>
         <Routines>
           <Routine Name="Logic" Type="FBD">
             <FBDContent SheetSize="Tabloid - 11 x 17 in" SheetOrientation="Landscape">
               <Sheet Number="1">
                 <IRef ID="1" X="20" Y="20" Operand="In" />
                 <ORef ID="2" X="220" Y="20" Operand="Out" />
-                <Wire FromID="1" ToID="2" />
+                <Block Type="SRTP" ID="3" X="100" Y="20" Operand="SRTP_01" VisiblePins="In HeatOut CoolOut HeatTimePercent CoolTimePercent" />
+                <Wire FromID="1" ToID="3" ToParam="In" />
+                <Wire FromID="3" FromParam="HeatOut" ToID="2" />
               </Sheet>
             </FBDContent>
           </Routine>

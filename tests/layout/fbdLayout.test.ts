@@ -383,6 +383,25 @@ describe('FBD layout', () => {
     }
   });
 
+  it('renders AutotuneTag decoratively for any Block only when the attribute is present', () => {
+    const source = readFileSync(fixturePath, 'utf8').replace(
+      'Type="HLL" ID="4"',
+      'Type="HLL" ID="4" AutotuneTag="TuneRef"',
+    );
+    const result = parseString(source, 'l5x');
+    const elements = result.data?.programs[0]?.routines[0]?.fbd?.sheets
+      .flatMap((sheet) => sheet.elements) ?? [];
+    const hll = elements.find(
+      (element) => element.kind === 'block' && element.instruction === 'HLL',
+    );
+    const pide = elements.find(
+      (element) => element.kind === 'block' && element.instruction === 'PIDE',
+    );
+
+    expect(hll && getFBDElementFooterLabels(hll)).toEqual(['AutotuneTag: TuneRef']);
+    expect(pide && getFBDElementFooterLabels(pide)).toEqual([]);
+  });
+
   it('routes forward, backward, crossing, and feedback connections with deterministic orthogonal paths', () => {
     const bounds = { x: 40, y: 60, width: 900, height: 500 };
     const forward = routeFBDConnection(port(100, 100, 'output'), port(400, 200, 'input'), 'wire', 0, bounds);

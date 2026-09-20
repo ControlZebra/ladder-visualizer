@@ -3,11 +3,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildFBDSheetLayout } from '../../src/layout';
 import { parseString } from '../../src/parsers';
-import {
-  FBD_INSTRUCTION_METADATA,
-  resolveFBDInstructionMetadata,
-  type FBDInstructionMetadata,
-} from '../../src/parsers/l5x';
+import * as l5xPublic from '../../src/parsers/l5x';
+import { FBD_INSTRUCTION_METADATA } from '../../src/parsers/l5x';
 
 const fixtureDirectory = join(__dirname, '../fixtures/l5x');
 const read = (name: string) => readFileSync(join(fixtureDirectory, `${name}.L5X`), 'utf8');
@@ -27,7 +24,10 @@ function functionSource(options: {
   mnemonic?: string;
 }) {
   const source = read('fbd-v35')
-    .replace('SoftwareRevision="35.01"', `SoftwareRevision="${options.softwareRevision ?? '35.01'}"`)
+    .replace(
+      'SoftwareRevision="35.01"',
+      `SoftwareRevision="${options.softwareRevision ?? '35.01'}"`
+    )
     .replace(
       '<Controller Use="Context" Name="FixtureController">',
       `<Controller Use="Context" Name="FixtureController" ProcessorType="${options.processorType}">`
@@ -39,11 +39,193 @@ function functionSource(options: {
   return routine(source, 'FBDLogic');
 }
 
-describe('version-aware FBD instruction metadata', () => {
-  it('publishes explicit canonical metadata without reusing RLL labels as port IDs', () => {
-    const blockEntries = FBD_INSTRUCTION_METADATA.filter((entry) => entry.forms.includes('block'));
+function member(name: string | undefined, dataType = 'BOOL'): string {
+  return `<DataValueMember${name === undefined ? '' : ` Name="${name}"`} DataType="${dataType}" Value="0" />`;
+}
 
-    expect(blockEntries.map((entry) => entry.mnemonic)).toEqual([
+function structureTag(name: string, members: string[], dataType = 'FBD_TEST'): string {
+  return `<Tag Name="${name}" TagType="Base" DataType="${dataType}"><Data Format="Decorated"><Structure DataType="${dataType}">${members.join('')}</Structure></Data></Tag>`;
+}
+
+const validMembers = [
+  member('EnableIn'),
+  member('InA', 'REAL'),
+  member('InB', 'DINT'),
+  member('EnableOut'),
+  member('OutA', 'REAL'),
+  member('OutB', 'DINT'),
+];
+
+const validTag = structureTag('BLOCK_01', validMembers);
+
+function blockProgram(options: {
+  blocks: string;
+  programTags?: string;
+  controllerTags?: string;
+  softwareRevision?: string;
+}): string {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${options.softwareRevision ?? '35.01'}" TargetName="GenericBlocks" TargetType="Program" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context">
+  <Controller Use="Context" Name="FixtureController" ProcessorType="1756-L85E">
+    ${options.controllerTags ? `<Tags>${options.controllerTags}</Tags>` : ''}
+    <Programs>
+      <Program Name="GenericBlocks">
+        ${options.programTags ? `<Tags>${options.programTags}</Tags>` : ''}
+        <Routines><Routine Name="Logic" Type="FBD"><FBDContent SheetSize="Tabloid - 11 x 17 in" SheetOrientation="Landscape"><Sheet Number="1">${options.blocks}</Sheet></FBDContent></Routine></Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>`;
+}
+
+function parsedElements(source: string) {
+  const result = parseString(source, 'l5x');
+  expect(result.success).toBe(true);
+  return {
+    result,
+    body: result.data?.programs[0]?.routines.find((candidate) => candidate.name === 'Logic')?.fbd,
+  };
+}
+
+describe('generic FBD Block port inference', () => {
+  it('publishes Function-only built-in metadata while preserving the deprecated catalog alias', () => {
+    const functionMetadata = Reflect.get(l5xPublic, 'FBD_FUNCTION_METADATA');
+    const functionResolver = Reflect.get(l5xPublic, 'resolveBuiltInFBDFunctionMetadata');
+
+    expect(functionMetadata).toBe(FBD_INSTRUCTION_METADATA);
+    expect(typeof functionResolver).toBe('function');
+    expect(FBD_INSTRUCTION_METADATA.map((entry) => [entry.mnemonic, entry.forms])).toEqual([
+      ['ADD', ['function']],
+      ['MUL', ['function']],
+      ['SUB', ['function']],
+      ['GRT', ['function']],
+    ]);
+  });
+
+  it.each([33, 34, 35])(
+    'infers catalog-independent Program Block ports from decorated structures in v%i',
+    (major) => {
+      const { result, routine: parsed } = routine(read(`fbd-port-metadata-v${major}`));
+      const blocks = parsed?.fbd?.sheets[0]?.elements.filter((element) => element.kind === 'block');
+
+      expect(result.status).toBe('complete');
+      expect(blocks?.map((block) => block.instruction)).toEqual([
+        'ADD',
+        'DEDT',
+        'HLL',
+        'LDLG',
+        'MUL',
+        'PIDE',
+        'SUB',
+        'D2SD',
+        'GRT',
+        'BAND',
+        'BOR',
+        'AND',
+      ]);
+      expect(blocks?.map((block) => block.ports.map((port) => port.id))).toEqual([
+        ['SourceA', 'SourceB', 'Dest'],
+        ['In', 'Out'],
+        ['In', 'Out', 'HighAlarm', 'LowAlarm'],
+        ['In', 'Out'],
+        ['SourceA', 'Dest'],
+        [
+          'PV',
+          'SPProg',
+          'SPCascade',
+          'RatioProg',
+          'CVProg',
+          'FF',
+          'HandFB',
+          'ProgProgReq',
+          'ProgOperReq',
+          'ProgCasRatReq',
+          'ProgAutoReq',
+          'ProgManualReq',
+          'ProgOverrideReq',
+          'ProgHandReq',
+          'CVEU',
+          'SP',
+          'PVHHAlarm',
+          'PVHAlarm',
+          'PVLAlarm',
+          'PVLLAlarm',
+          'PVROCPosAlarm',
+          'PVROCNegAlarm',
+          'DevHHAlarm',
+          'DevHAlarm',
+          'DevLAlarm',
+          'DevLLAlarm',
+          'ProgOper',
+          'CasRat',
+          'Auto',
+          'Manual',
+          'Override',
+          'Hand',
+        ],
+        ['SourceA', 'SourceB', 'Dest'],
+        [
+          'ProgCommand',
+          'State0Perm',
+          'State1Perm',
+          'FB0',
+          'FB1',
+          'HandFB',
+          'ProgProgReq',
+          'ProgOperReq',
+          'ProgOverrideReq',
+          'ProgHandReq',
+          'Out',
+          'Device0State',
+          'Device1State',
+          'CommandStatus',
+          'FaultAlarm',
+          'ModeAlarm',
+          'ProgOper',
+          'Override',
+          'Hand',
+        ],
+        ['SourceA', 'SourceB', 'Dest'],
+        ['In1', 'In2', 'In3', 'In4', 'Out'],
+        ['In1', 'In2', 'In3', 'In4', 'Out'],
+        ['SourceA', 'SourceB', 'Dest'],
+      ]);
+      expect(
+        blocks
+          ?.flatMap((block) => block.ports)
+          .every(
+            (port) =>
+              port.label === port.id &&
+              port.dataType !== undefined &&
+              port.defaultVisible === undefined &&
+              port.visible &&
+              port.direction === (port.side === 'left' ? 'input' : 'output')
+          )
+      ).toBe(true);
+      expect(blocks?.find((block) => block.instruction === 'DEDT')).toMatchObject({
+        arrays: [{ name: 'StorageArray', operand: 'DEDT_01array' }],
+        arrayRequirements: [],
+      });
+      expect(blocks?.find((block) => block.instruction === 'AND')?.ports).toEqual([
+        expect.objectContaining({ id: 'SourceA', direction: 'input', order: 0 }),
+        expect.objectContaining({ id: 'SourceB', direction: 'input', order: 1 }),
+        expect.objectContaining({ id: 'Dest', direction: 'output', order: 0 }),
+      ]);
+    }
+  );
+
+  it('uses the same decorated-structure rule in the real-sample-compatible v17 context', () => {
+    const source = read('fbd-level-control-v35')
+      .replace('SoftwareRevision="35.01"', 'SoftwareRevision="17.00"')
+      .replace('ProcessorType="1756-L85E"', 'ProcessorType="1756-L63"');
+    const { result, routine: parsed } = routine(source, 'MainFBD');
+    const sheets = parsed?.fbd?.sheets ?? [];
+    const blocks = sheets
+      .flatMap((sheet) => sheet.elements)
+      .filter((element) => element.kind === 'block');
+
+    expect(result.status).toBe('complete');
+    expect(blocks.map((block) => block.instruction)).toEqual([
       'ADD',
       'DEDT',
       'HLL',
@@ -54,121 +236,76 @@ describe('version-aware FBD instruction metadata', () => {
       'D2SD',
       'GRT',
     ]);
-    expect(blockEntries.every(
-      (entry) => entry.softwareMajorVersions.join() ===
-        Array.from({ length: 19 }, (_, index) => index + 17).join()
-    )).toBe(true);
-    expect(blockEntries.every((entry) => entry.ports.every((port) =>
-      port.id.length > 0 &&
-      port.label.length > 0 &&
-      port.direction !== undefined &&
-      port.side !== undefined &&
-      Number.isInteger(port.order) &&
-      typeof port.defaultVisible === 'boolean'
-    ))).toBe(true);
-
-    const add = blockEntries.find((entry) => entry.mnemonic === 'ADD');
-    expect(add?.ports).toEqual([
-      { id: 'SourceA', label: 'Source A', direction: 'input', side: 'left', order: 0, defaultVisible: true },
-      { id: 'SourceB', label: 'Source B', direction: 'input', side: 'left', order: 1, defaultVisible: true },
-      { id: 'Dest', label: 'Dest', direction: 'output', side: 'right', order: 0, defaultVisible: true },
-    ]);
-    expect(add?.ports.some((port) => port.id === 'Source A')).toBe(false);
-
-    const dedt = blockEntries.find((entry) => entry.mnemonic === 'DEDT');
-    expect(dedt?.arrays).toEqual([
-      { id: 'StorageArray', label: 'Storage Array', order: 0, required: true },
-    ]);
-  });
-
-  it.each([33, 34, 35])('resolves all level-control VisiblePins in v%i without wires', (major) => {
-    const { result, routine: parsed } = routine(read(`fbd-port-metadata-v${major}`));
-    const blocks = parsed?.fbd?.sheets[0]?.elements.filter((element) => element.kind === 'block');
-
-    expect(result.status).toBe('complete');
-    expect(blocks?.map((block) => block.instruction)).toEqual([
-      'ADD', 'DEDT', 'HLL', 'LDLG', 'MUL', 'PIDE', 'SUB', 'D2SD', 'GRT',
-    ]);
-    expect(blocks?.map((block) => block.ports.map((port) => port.id))).toEqual([
-      ['SourceA', 'SourceB', 'Dest'],
-      ['In', 'Out'],
-      ['In', 'Out', 'HighAlarm', 'LowAlarm'],
-      ['In', 'Out'],
-      ['SourceA', 'Dest'],
-      [
-        'PV', 'SPProg', 'SPCascade', 'RatioProg', 'CVProg', 'FF', 'HandFB',
-        'ProgProgReq', 'ProgOperReq', 'ProgCasRatReq', 'ProgAutoReq', 'ProgManualReq',
-        'ProgOverrideReq', 'ProgHandReq', 'CVEU', 'SP', 'PVHHAlarm', 'PVHAlarm',
-        'PVLAlarm', 'PVLLAlarm', 'PVROCPosAlarm', 'PVROCNegAlarm', 'DevHHAlarm',
-        'DevHAlarm', 'DevLAlarm', 'DevLLAlarm', 'ProgOper', 'CasRat', 'Auto', 'Manual',
-        'Override', 'Hand',
-      ],
-      ['SourceA', 'SourceB', 'Dest'],
-      [
-        'ProgCommand', 'State0Perm', 'State1Perm', 'FB0', 'FB1', 'HandFB', 'ProgProgReq',
-        'ProgOperReq', 'ProgOverrideReq', 'ProgHandReq', 'Out', 'Device0State',
-        'Device1State', 'CommandStatus', 'FaultAlarm', 'ModeAlarm', 'ProgOper', 'Override',
-        'Hand',
-      ],
-      ['SourceA', 'SourceB', 'Dest'],
-    ]);
-    expect(blocks?.every((block) => block.ports.every((port) => port.visible))).toBe(true);
-    expect(blocks?.flatMap((block) => block.ports).every((port) =>
-      port.direction === (port.side === 'left' ? 'input' : 'output')
-    )).toBe(true);
-    expect(blocks?.find((block) => block.instruction === 'DEDT')).toMatchObject({
-      arrays: [{ name: 'StorageArray', operand: 'DEDT_01array' }],
-      arrayRequirements: [{ id: 'StorageArray', label: 'Storage Array', order: 0, required: true }],
-    });
-  });
-
-  it('resolves the public level-control sample in its original v17 controller context', () => {
-    const source = read('fbd-level-control-v35')
-      .replace('SoftwareRevision="35.01"', 'SoftwareRevision="17.00"')
-      .replace('ProcessorType="1756-L85E"', 'ProcessorType="1756-L63"');
-    const { result, routine: parsed } = routine(source, 'MainFBD');
-    const sheets = parsed?.fbd?.sheets ?? [];
-
-    expect(result.status).toBe('complete');
-    expect(sheets.flatMap((sheet) => sheet.elements)
-      .filter((element) => element.kind === 'block')
-      .map((block) => block.instruction)).toEqual([
-      'ADD', 'DEDT', 'HLL', 'LDLG', 'MUL', 'PIDE', 'SUB', 'D2SD', 'GRT',
-    ]);
-    expect(sheets.flatMap((sheet) => sheet.elements)
-      .some((element) => element.kind === 'placeholder')).toBe(false);
+    expect(
+      blocks
+        .flatMap((block) => block.ports)
+        .every((port) => port.label === port.id && port.dataType !== undefined)
+    ).toBe(true);
     expect(sheets.map((sheet) => buildFBDSheetLayout(sheet).diagnostics)).toEqual([[], []]);
   });
 
-  it.each([17, 35])('resolves existing Block metadata at the inclusive v%i boundary', (major) => {
-    const resolution = resolveFBDInstructionMetadata(FBD_INSTRUCTION_METADATA, {
-      mnemonic: 'ADD',
-      form: 'block',
-      softwareRevision: `${major}.00`,
-      processorType: '1756-L63',
-    });
+  it('resolves AOI-owned Blocks from LocalTag decorated DefaultData', () => {
+    const result = parseString(read('fbd-aoi-v35'), 'l5x');
+    const block = result.data?.aois[0]?.routines[0]?.fbd?.sheets[0]?.elements.find(
+      (element) => element.kind === 'block'
+    );
 
-    expect(resolution.diagnostics).toEqual([]);
-    expect(resolution.metadata?.ports.map((port) => port.id)).toEqual([
-      'SourceA', 'SourceB', 'Dest',
-    ]);
+    expect(result).toMatchObject({ success: true, status: 'complete' });
+    expect(block).toMatchObject({
+      kind: 'block',
+      instruction: 'SRTP',
+      operand: 'SRTP_01',
+      ports: [
+        {
+          id: 'In',
+          label: 'In',
+          dataType: 'REAL',
+          direction: 'input',
+          side: 'left',
+          order: 0,
+          visible: true,
+        },
+        {
+          id: 'HeatOut',
+          label: 'HeatOut',
+          dataType: 'BOOL',
+          direction: 'output',
+          side: 'right',
+          order: 0,
+          visible: true,
+        },
+        {
+          id: 'CoolOut',
+          label: 'CoolOut',
+          dataType: 'BOOL',
+          direction: 'output',
+          side: 'right',
+          order: 1,
+          visible: true,
+        },
+        {
+          id: 'HeatTimePercent',
+          label: 'HeatTimePercent',
+          dataType: 'REAL',
+          direction: 'output',
+          side: 'right',
+          order: 2,
+          visible: true,
+        },
+        {
+          id: 'CoolTimePercent',
+          label: 'CoolTimePercent',
+          dataType: 'REAL',
+          direction: 'output',
+          side: 'right',
+          order: 3,
+          visible: true,
+        },
+      ],
+    });
   });
 
-  it.each([16, 36])('rejects Block metadata outside the v17-v35 range at v%i', (major) => {
-    const resolution = resolveFBDInstructionMetadata(FBD_INSTRUCTION_METADATA, {
-      mnemonic: 'ADD',
-      form: 'block',
-      softwareRevision: `${major}.00`,
-      processorType: '1756-L63',
-    });
-
-    expect(resolution.metadata).toBeUndefined();
-    expect(resolution.diagnostics).toEqual([
-      expect.objectContaining({ code: 'FBD_UNSUPPORTED_INSTRUCTION_CONTEXT' }),
-    ]);
-  });
-
-  it('keeps connected block ports canonical and independent from wire participation', () => {
+  it('keeps connected Block ports independent from wire participation', () => {
     const { routine: parsed } = routine(read('fbd-canonical-v35'), 'FBDLogic');
     const add = parsed?.fbd?.sheets[1]?.elements.find(
       (element) => element.kind === 'block' && element.instruction === 'ADD'
@@ -176,15 +313,81 @@ describe('version-aware FBD instruction metadata', () => {
 
     expect(add).toMatchObject({
       ports: [
-        { id: 'SourceA', direction: 'input', side: 'left', order: 0 },
-        { id: 'SourceB', direction: 'input', side: 'left', order: 1 },
-        { id: 'Dest', direction: 'output', side: 'right', order: 0 },
+        {
+          id: 'SourceA',
+          label: 'SourceA',
+          dataType: 'REAL',
+          direction: 'input',
+          side: 'left',
+          order: 0,
+        },
+        {
+          id: 'SourceB',
+          label: 'SourceB',
+          dataType: 'REAL',
+          direction: 'input',
+          side: 'left',
+          order: 1,
+        },
+        {
+          id: 'Dest',
+          label: 'Dest',
+          dataType: 'REAL',
+          direction: 'output',
+          side: 'right',
+          order: 0,
+        },
+      ],
+    });
+  });
+
+  it('falls back from Program tags to Controller tags without crossing unrelated scopes', () => {
+    const { result, body } = parsedElements(
+      blockProgram({
+        controllerTags: validTag,
+        blocks:
+          '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="OutB InB InA" />',
+      })
+    );
+
+    expect(result.status).toBe('complete');
+    expect(body?.sheets[0]?.elements[0]).toMatchObject({
+      kind: 'block',
+      ports: [
+        { id: 'InA', direction: 'input', order: 0 },
+        { id: 'InB', direction: 'input', order: 1 },
+        { id: 'OutB', direction: 'output', order: 0 },
+      ],
+    });
+  });
+
+  it('treats structured members as direct ports without flattening their children', () => {
+    const nestedTag = structureTag('BLOCK_01', [
+      member('EnableIn'),
+      '<StructureMember Name="Nested" DataType="INNER"><DataValueMember Name="Child" DataType="REAL" Value="0" /></StructureMember>',
+      member('EnableOut'),
+      member('OutA', 'REAL'),
+    ]);
+    const { result, body } = parsedElements(
+      blockProgram({
+        programTags: nestedTag,
+        blocks:
+          '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="Nested OutA" />',
+      })
+    );
+
+    expect(result.status).toBe('complete');
+    expect(body?.sheets[0]?.elements[0]).toMatchObject({
+      kind: 'block',
+      ports: [
+        { id: 'Nested', dataType: 'INNER', direction: 'input', order: 0 },
+        { id: 'OutA', dataType: 'REAL', direction: 'output', order: 0 },
       ],
     });
   });
 
   it.each([17, 35])(
-    'resolves Functions from type, position, controller family, and the v%i boundary',
+    'retains Function resolution through the Function-only metadata API at v%i',
     (major) => {
       const { result, routine: parsed } = functionSource({
         processorType: '1756-L85E',
@@ -199,9 +402,33 @@ describe('version-aware FBD instruction metadata', () => {
           id: '10',
           position: { x: '80', y: '40' },
           ports: [
-            { id: 'SourceA', label: 'Source A', direction: 'input', side: 'left', order: 0, defaultVisible: true, visible: true },
-            { id: 'SourceB', label: 'Source B', direction: 'input', side: 'left', order: 1, defaultVisible: true, visible: true },
-            { id: 'Dest', label: 'Dest', direction: 'output', side: 'right', order: 0, defaultVisible: true, visible: true },
+            {
+              id: 'SourceA',
+              label: 'SourceA',
+              direction: 'input',
+              side: 'left',
+              order: 0,
+              defaultVisible: true,
+              visible: true,
+            },
+            {
+              id: 'SourceB',
+              label: 'SourceB',
+              direction: 'input',
+              side: 'left',
+              order: 1,
+              defaultVisible: true,
+              visible: true,
+            },
+            {
+              id: 'Dest',
+              label: 'Dest',
+              direction: 'output',
+              side: 'right',
+              order: 0,
+              defaultVisible: true,
+              visible: true,
+            },
           ],
         }),
       ]);
@@ -212,23 +439,26 @@ describe('version-aware FBD instruction metadata', () => {
     ['1756-L75', '35.01'],
     ['1756-L85E', '16.01'],
     ['1756-L85E', '36.01'],
-  ])('diagnoses unsupported Function applicability for %s at v%s', (processorType, softwareRevision) => {
-    const { result, routine: parsed } = functionSource({ processorType, softwareRevision });
-    const element = parsed?.fbd?.sheets[0]?.elements[0];
+  ])(
+    'retains Function applicability diagnostics for %s at v%s',
+    (processorType, softwareRevision) => {
+      const { result, routine: parsed } = functionSource({ processorType, softwareRevision });
+      const element = parsed?.fbd?.sheets[0]?.elements[0];
 
-    expect(result.status).toBe('partial');
-    expect(element).toMatchObject({
-      kind: 'placeholder',
-      sourceKind: 'Function',
-      ports: [],
-      reasonCodes: ['unsupported-semantics', 'unresolved-metadata'],
-    });
-    expect(parsed?.fbd?.diagnostics).toContainEqual(
-      expect.objectContaining({ code: 'FBD_UNSUPPORTED_INSTRUCTION_CONTEXT' })
-    );
-  });
+      expect(result.status).toBe('partial');
+      expect(element).toMatchObject({
+        kind: 'placeholder',
+        sourceKind: 'Function',
+        ports: [],
+        reasonCodes: ['unsupported-semantics', 'unresolved-metadata'],
+      });
+      expect(parsed?.fbd?.diagnostics).toContainEqual(
+        expect.objectContaining({ code: 'FBD_UNSUPPORTED_INSTRUCTION_CONTEXT' })
+      );
+    }
+  );
 
-  it('resolves AOI Input and Output ports in definition order while preserving InOut bindings', () => {
+  it('retains AOI call-element port resolution and InOut bindings', () => {
     const { result, routine: parsed } = routine(read('fbd-aoi-ports-v35'), 'Logic');
     const aoi = parsed?.fbd?.sheets[0]?.elements[0];
 
@@ -237,124 +467,170 @@ describe('version-aware FBD instruction metadata', () => {
       kind: 'add-on-instruction',
       name: 'ValveAOI',
       ports: [
-        { id: 'Command', label: 'Command', direction: 'input', side: 'left', order: 0, defaultVisible: true, visible: true },
-        { id: 'Feedback', label: 'Feedback', direction: 'input', side: 'left', order: 1, defaultVisible: true, visible: true },
-        { id: 'Running', label: 'Running', direction: 'output', side: 'right', order: 0, defaultVisible: true, visible: true },
+        { id: 'Command', direction: 'input', order: 0 },
+        { id: 'Feedback', direction: 'input', order: 1 },
+        { id: 'Running', direction: 'output', order: 0 },
       ],
       bindings: [{ name: 'State', argument: 'ValveState' }],
     });
-    expect(aoi && 'ports' in aoi ? aoi.ports.some((port) => port.id === 'State') : true).toBe(false);
   });
 
-  it('turns unknown or incompletely resolved source elements into diagnosed placeholders', () => {
-    const source = read('fbd-v35').replace(
-      /<Sheet Number="1">[\s\S]*<\/Sheet>/,
-      `<Sheet Number="1">
-        <Block Type="FUTURE" ID="10" X="20" Y="20" VisiblePins="Left Right" />
-        <Block Type="ADD" ID="11" X="20" Y="80" VisiblePins="SourceA FuturePin Dest" />
-        <Block Type="DEDT" ID="12" X="20" Y="140" VisiblePins="In Out" />
-        <AddOnInstruction Name="MissingAOI" ID="13" X="20" Y="200" VisiblePins="In Out" />
-      </Sheet>`
+  it('treats explicit empty VisiblePins as a valid zero-port Block and absent VisiblePins as unresolved', () => {
+    const { result, body } = parsedElements(
+      blockProgram({
+        programTags: validTag,
+        blocks: `
+        <Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" />
+        <Block Type="TEST" ID="2" X="20" Y="80" Operand="BLOCK_01" VisiblePins="" />`,
+      })
     );
-    const { result, routine: parsed } = routine(source, 'FBDLogic');
 
     expect(result.status).toBe('partial');
-    expect(parsed?.fbd?.sheets[0]?.elements).toEqual([
-      expect.objectContaining({ kind: 'placeholder', sourceKind: 'Block', ports: [], reasonCodes: ['unresolved-metadata'] }),
-      expect.objectContaining({ kind: 'placeholder', sourceKind: 'Block', ports: [], reasonCodes: ['unresolved-metadata'] }),
-      expect.objectContaining({ kind: 'placeholder', sourceKind: 'Block', ports: [], reasonCodes: ['unresolved-metadata'] }),
-      expect.objectContaining({ kind: 'placeholder', sourceKind: 'AddOnInstruction', ports: [], reasonCodes: ['unresolved-metadata'] }),
+    expect(body?.sheets[0]?.elements).toEqual([
+      expect.objectContaining({ kind: 'placeholder', sourceKind: 'Block' }),
+      expect.objectContaining({ kind: 'block', instruction: 'TEST', visiblePins: [], ports: [] }),
     ]);
-    expect(parsed?.fbd?.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
-      expect.arrayContaining([
-        'FBD_UNKNOWN_INSTRUCTION',
-        'FBD_UNKNOWN_VISIBLE_PIN',
-        'FBD_MISSING_REQUIRED_ARRAY',
-        'FBD_UNKNOWN_AOI',
-      ])
+    expect(body?.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'FBD_MISSING_VISIBLE_PINS' })
     );
   });
 
-  it('rejects a required DEDT array whose binding operand is absent', () => {
-    const source = read('fbd-v35').replace(
-      /<Sheet Number="1">[\s\S]*<\/Sheet>/,
-      `<Sheet Number="1">
-        <Block Type="DEDT" ID="10" X="20" Y="20" VisiblePins="In Out">
-          <Array Name="StorageArray" />
-        </Block>
-      </Sheet>`
+  it('preserves declared arrays without instruction-specific required-array validation', () => {
+    const { result, body } = parsedElements(
+      blockProgram({
+        programTags: validTag,
+        blocks: `<Block Type="DEDT" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA"><Array Name="StorageArray" /></Block>`,
+      })
     );
-    const { result, routine: parsed } = routine(source, 'FBDLogic');
+    const block = body?.sheets[0]?.elements[0];
+
+    expect(result.status).toBe('complete');
+    expect(block).toMatchObject({
+      kind: 'block',
+      arrays: [{ name: 'StorageArray' }],
+      arrayRequirements: [],
+    });
+    expect(
+      body?.diagnostics.some((diagnostic) => diagnostic.code === 'FBD_MISSING_REQUIRED_ARRAY')
+    ).toBe(false);
+  });
+
+  it('does not borrow a decorated structure from another Tag with the same DataType', () => {
+    const undecorated =
+      '<Tag Name="BLOCK_02" TagType="Base" DataType="FBD_TEST"><Data Format="L5K">[0]</Data></Tag>';
+    const { result, body } = parsedElements(
+      blockProgram({
+        programTags: `${validTag}${undecorated}`,
+        blocks:
+          '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_02" VisiblePins="InA OutA" />',
+      })
+    );
 
     expect(result.status).toBe('partial');
-    expect(parsed?.fbd?.sheets[0]?.elements[0]).toMatchObject({
+    expect(body?.sheets[0]?.elements[0]).toMatchObject({
+      kind: 'placeholder',
+      sourceKind: 'Block',
+    });
+    expect(body?.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'FBD_MISSING_DECORATED_STRUCTURE' })
+    );
+  });
+
+  it.each([
+    {
+      name: 'missing Type',
+      tags: validTag,
+      block: '<Block ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA" />',
+      code: 'FBD_MISSING_BLOCK_TYPE',
+    },
+    {
+      name: 'missing Operand',
+      tags: validTag,
+      block: '<Block Type="TEST" ID="1" X="20" Y="20" VisiblePins="InA OutA" />',
+      code: 'FBD_MISSING_BLOCK_OPERAND',
+    },
+    {
+      name: 'unresolved Operand',
+      tags: '',
+      block: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="MISSING" VisiblePins="InA OutA" />',
+      code: 'FBD_UNRESOLVED_BLOCK_OPERAND',
+    },
+    {
+      name: 'duplicate Operand in one scope',
+      tags: `${validTag}${validTag}`,
+      block: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA" />',
+      code: 'FBD_AMBIGUOUS_BLOCK_OPERAND',
+    },
+    {
+      name: 'multiple decorated Structures',
+      tags: `<Tag Name="BLOCK_01" TagType="Base" DataType="FBD_TEST"><Data Format="Decorated"><Structure DataType="FBD_TEST">${validMembers.join('')}</Structure><Structure DataType="FBD_TEST">${validMembers.join('')}</Structure></Data></Tag>`,
+      block: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA" />',
+      code: 'FBD_AMBIGUOUS_DECORATED_STRUCTURE',
+    },
+    {
+      name: 'unnamed direct member',
+      tags: structureTag('BLOCK_01', [
+        member('EnableIn'),
+        member(undefined),
+        member('EnableOut'),
+        member('OutA'),
+      ]),
+      block: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="OutA" />',
+      code: 'FBD_UNNAMED_STRUCTURE_MEMBER',
+    },
+    {
+      name: 'duplicate direct member',
+      tags: structureTag('BLOCK_01', [
+        member('EnableIn'),
+        member('InA'),
+        member('InA'),
+        member('EnableOut'),
+        member('OutA'),
+      ]),
+      block: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA" />',
+      code: 'FBD_DUPLICATE_STRUCTURE_MEMBER',
+    },
+    {
+      name: 'missing sentinel',
+      tags: structureTag('BLOCK_01', [member('EnableIn'), member('InA'), member('OutA')]),
+      block: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA" />',
+      code: 'FBD_INVALID_BLOCK_SENTINELS',
+    },
+    {
+      name: 'misordered sentinels',
+      tags: structureTag('BLOCK_01', [
+        member('EnableOut'),
+        member('OutA'),
+        member('EnableIn'),
+        member('InA'),
+      ]),
+      block: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA" />',
+      code: 'FBD_INVALID_BLOCK_SENTINELS',
+    },
+    {
+      name: 'duplicate VisiblePins',
+      tags: validTag,
+      block:
+        '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA InA OutA" />',
+      code: 'FBD_DUPLICATE_VISIBLE_PIN',
+    },
+    {
+      name: 'unknown VisiblePin',
+      tags: validTag,
+      block:
+        '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA FuturePin OutA" />',
+      code: 'FBD_UNKNOWN_VISIBLE_PIN',
+    },
+  ])('retains $name as a cause-specific diagnosed placeholder', ({ tags, block, code }) => {
+    const { result, body } = parsedElements(blockProgram({ programTags: tags, blocks: block }));
+
+    expect(result.status).toBe('partial');
+    expect(body?.sheets[0]?.elements[0]).toMatchObject({
       kind: 'placeholder',
       sourceKind: 'Block',
       ports: [],
       reasonCodes: ['unresolved-metadata'],
     });
-    expect(parsed?.fbd?.diagnostics).toContainEqual(
-      expect.objectContaining({
-        code: 'FBD_MISSING_REQUIRED_ARRAY',
-        message: expect.stringContaining('StorageArray'),
-      })
-    );
-  });
-
-  it('uses port defaults only when VisiblePins is absent, not when it is explicitly empty', () => {
-    const source = read('fbd-v35').replace(
-      /<Sheet Number="1">[\s\S]*<\/Sheet>/,
-      `<Sheet Number="1">
-        <Block Type="ADD" ID="10" X="20" Y="20" />
-        <Block Type="ADD" ID="11" X="20" Y="80" VisiblePins="" />
-      </Sheet>`
-    );
-    const { result, routine: parsed } = routine(source, 'FBDLogic');
-    const blocks = parsed?.fbd?.sheets[0]?.elements.filter(
-      (element) => element.kind === 'block'
-    );
-
-    expect(result.status).toBe('complete');
-    expect(blocks?.map((block) => block.ports.map((port) => port.id))).toEqual([
-      ['SourceA', 'SourceB', 'Dest'],
-      [],
-    ]);
-    expect(blocks?.map((block) => block.visiblePins)).toEqual([[], []]);
-  });
-
-  it('accepts complete external metadata and diagnoses duplicate or unresolved port definitions', () => {
-    const complete: FBDInstructionMetadata = {
-      mnemonic: 'FUTURE',
-      forms: ['block'],
-      softwareMajorVersions: [35],
-      controllerFamilies: ['all'],
-      ports: [
-        { id: 'In', label: 'Input', direction: 'input', side: 'left', order: 0, defaultVisible: true },
-        { id: 'Out', label: 'Output', direction: 'output', side: 'right', order: 0, defaultVisible: true },
-      ],
-      arrays: [],
-    };
-    const duplicate: FBDInstructionMetadata = {
-      ...complete,
-      mnemonic: 'DUPLICATE',
-      ports: [complete.ports[0], { ...complete.ports[0], label: 'Duplicate' }],
-    };
-    const incomplete: FBDInstructionMetadata = {
-      ...complete,
-      mnemonic: 'INCOMPLETE',
-      ports: [{ id: 'Mystery', label: 'Mystery', order: 0, defaultVisible: true }],
-    };
-    const context = { form: 'block' as const, softwareRevision: '35.01', processorType: '1756-L85E' };
-
-    expect(resolveFBDInstructionMetadata([complete], { mnemonic: 'future', ...context })).toMatchObject({
-      metadata: { mnemonic: 'FUTURE' },
-      diagnostics: [],
-    });
-    expect(resolveFBDInstructionMetadata([duplicate], { mnemonic: 'DUPLICATE', ...context }).diagnostics)
-      .toContainEqual(expect.objectContaining({ code: 'FBD_DUPLICATE_PORT_ID', portId: 'In' }));
-    expect(resolveFBDInstructionMetadata([incomplete], { mnemonic: 'INCOMPLETE', ...context }).diagnostics)
-      .toContainEqual(expect.objectContaining({ code: 'FBD_UNRESOLVED_PORT_METADATA', portId: 'Mystery' }));
-    expect(resolveFBDInstructionMetadata([], { mnemonic: 'ABSENT', ...context }).diagnostics)
-      .toContainEqual(expect.objectContaining({ code: 'FBD_UNKNOWN_INSTRUCTION' }));
+    expect(body?.diagnostics).toContainEqual(expect.objectContaining({ code }));
   });
 });

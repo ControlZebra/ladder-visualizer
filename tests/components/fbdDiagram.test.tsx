@@ -426,7 +426,7 @@ describe('FBDDiagram', () => {
       'utf8',
     )
       .replace(
-        '<Block Type="ADD" ID="3" X="220" Y="40" />',
+        '<Block Type="ADD" ID="3" X="220" Y="40" Operand="ADD_01" VisiblePins="SourceA SourceB Dest" />',
         '<Block ID="bad" X="220" Y="40" />',
       )
       .replace(
