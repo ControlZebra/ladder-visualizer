@@ -4,7 +4,7 @@ import { DataTypeTable } from '../../src/components/DataTypeTable';
 import type { NormalizedDataType } from '../../src/types';
 
 describe('DataTypeTable', () => {
-  it('preserves member declaration order and renders AOI parameter metadata', () => {
+  it('shows only name and description above a three-column member table', () => {
     const dataType: NormalizedDataType = {
       name: 'ValveControl',
       family: 'NoFamily',
@@ -27,9 +27,14 @@ describe('DataTypeTable', () => {
 
     const markup = renderToStaticMarkup(<DataTypeTable dataType={dataType} />);
 
-    expect(markup).toContain('Add-On Defined');
-    expect(markup).toContain('Usage');
-    expect(markup).toContain('[2,3]');
+    expect(markup.match(/<th(?=[ >])/g)).toHaveLength(3);
+    expect(markup).toContain('Name');
+    expect(markup).toContain('Data Type');
+    expect(markup).toContain('Description');
+    expect(markup).not.toContain('Add-On Defined');
+    expect(markup).not.toContain('Usage');
+    expect(markup).not.toContain('Dimensions');
+    expect(markup).not.toContain('External Access');
     expect(markup.indexOf('EnableIn')).toBeLessThan(markup.indexOf('Samples'));
     expect(markup).toContain('Controls one valve.');
   });
