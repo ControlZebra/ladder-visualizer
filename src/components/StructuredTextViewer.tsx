@@ -115,14 +115,34 @@ interface TokenSpan {
   className: string;
 }
 
+interface HighlightedLine {
+  spans: TokenSpan[];
+  inBlockComment: boolean;
+}
+
 /**
- * Tokenize and highlight a line of Structured Text
+ * Tokenize and highlight a line of Structured Text while carrying multiline
+ * block-comment state from the preceding source line.
  */
-function highlightLine(line: string): TokenSpan[] {
+function highlightLine(line: string, initialInBlockComment = false): HighlightedLine {
   const spans: TokenSpan[] = [];
+  let inBlockComment = initialInBlockComment;
   let i = 0;
 
   while (i < line.length) {
+    if (inBlockComment) {
+      const endIdx = line.indexOf('*)', i);
+      if (endIdx === -1) {
+        spans.push({ text: line.slice(i), className: 'st-comment' });
+        i = line.length;
+      } else {
+        spans.push({ text: line.slice(i, endIdx + 2), className: 'st-comment' });
+        i = endIdx + 2;
+        inBlockComment = false;
+      }
+      continue;
+    }
+
     // Skip whitespace
     if (/\s/.test(line[i])) {
       let ws = '';
@@ -134,7 +154,7 @@ function highlightLine(line: string): TokenSpan[] {
       continue;
     }
 
-    // Single-line comment (// or (* ... *))
+    // Single-line comment
     if (line.slice(i, i + 2) === '//') {
       spans.push({ text: line.slice(i), className: 'st-comment' });
       break;
@@ -142,14 +162,7 @@ function highlightLine(line: string): TokenSpan[] {
 
     // Block comment start
     if (line.slice(i, i + 2) === '(*') {
-      const endIdx = line.indexOf('*)', i + 2);
-      if (endIdx !== -1) {
-        spans.push({ text: line.slice(i, endIdx + 2), className: 'st-comment' });
-        i = endIdx + 2;
-      } else {
-        spans.push({ text: line.slice(i), className: 'st-comment' });
-        break;
-      }
+      inBlockComment = true;
       continue;
     }
 
@@ -241,7 +254,7 @@ function highlightLine(line: string): TokenSpan[] {
     i++;
   }
 
-  return spans;
+  return { spans, inBlockComment };
 }
 
 // ============================================================================
@@ -331,11 +344,16 @@ export function StructuredTextViewer({
   const highlightedLines = useMemo(() => {
     // Sort lines by number
     const sortedLines = [...stLines].sort((a, b) => a.number - b.number);
-    
-    return sortedLines.map(line => ({
-      number: line.number,
-      spans: highlightLine(line.text),
-    }));
+    let inBlockComment = false;
+
+    return sortedLines.map(line => {
+      const highlighted = highlightLine(line.text, inBlockComment);
+      inBlockComment = highlighted.inBlockComment;
+      return {
+        number: line.number,
+        spans: highlighted.spans,
+      };
+    });
   }, [stLines]);
 
   if (routine.type !== 'ST') {
