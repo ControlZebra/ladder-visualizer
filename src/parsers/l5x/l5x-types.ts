@@ -751,6 +751,7 @@ export interface L5XProgram {
   Description?: L5XDescription;
   Tags?: L5XTags;
   Parameters?: L5XParameters;
+  LocalTags?: L5XLocalTags;
   Routines?: L5XRoutines;
 }
 
@@ -1025,13 +1026,16 @@ export interface L5XSFCContent {
  * Description/Comment element as emitted by fast-xml-parser.
  * DescriptionType also permits direct and localized Value children.
  */
+export type L5XTextValue = string | { '#text'?: string; '#cdata'?: string };
+
 export type L5XDescription =
   | string
   | {
       '#text'?: string;
       '#cdata'?: string;
-      Value?: string | string[];
+      Value?: L5XTextValue | L5XTextValue[];
       LocalizedDescription?: L5XLocalizedDescription | L5XLocalizedDescription[];
+      LocalizedRevisionNote?: L5XLocalizedDescription | L5XLocalizedDescription[];
     };
 
 export type L5XLocalizedDescription =
@@ -1040,7 +1044,7 @@ export type L5XLocalizedDescription =
       '@_Lang'?: string;
       '#text'?: string;
       '#cdata'?: string;
-      Value?: string | string[];
+      Value?: L5XTextValue | L5XTextValue[];
     };
 
 // ============================================
@@ -1075,13 +1079,16 @@ export function extractText(desc: L5XDescription | undefined): string | undefine
   if (desc['#text'] !== undefined) return desc['#text'];
   // Prefer the non-localized value when both representations are present.
   const directValue = ensureArray(desc.Value)[0];
-  if (directValue !== undefined) return directValue;
-  for (const localized of ensureArray(desc.LocalizedDescription)) {
+  if (directValue !== undefined) return extractText(directValue);
+  for (const localized of [
+    ...ensureArray(desc.LocalizedDescription),
+    ...ensureArray(desc.LocalizedRevisionNote),
+  ]) {
     if (typeof localized === 'string') return localized;
     if (localized['#cdata'] !== undefined) return localized['#cdata'];
     if (localized['#text'] !== undefined) return localized['#text'];
     const localizedValue = ensureArray(localized.Value)[0];
-    if (localizedValue !== undefined) return localizedValue;
+    if (localizedValue !== undefined) return extractText(localizedValue);
   }
   return undefined;
 }

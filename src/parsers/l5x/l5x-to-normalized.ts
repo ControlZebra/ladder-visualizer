@@ -2233,8 +2233,8 @@ function extractDefaultValue(defaultData: L5XParameter['DefaultData']): unknown 
   // Handle array of DefaultData
   const dataArray = ensureArray(defaultData);
   const l5kData = dataArray.find((d: { '@_Format'?: string }) => d['@_Format'] === 'L5K');
-  if (l5kData && '#text' in l5kData && l5kData['#text']) {
-    const text = (l5kData['#text'] as string).trim();
+  const text = (l5kData?.['#cdata'] ?? l5kData?.['#text'])?.trim();
+  if (text) {
     // Try to parse as number
     const num = Number(text);
     if (!isNaN(num)) return num;

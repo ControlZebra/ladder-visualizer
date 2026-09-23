@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.01" TargetName="CoverageController" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="CoverageController">
+    <AddOnInstructionDefinitions>
+      <AddOnInstructionDefinition Name="CoverageAOI" Class="Standard" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+        <RevisionNote><![CDATA[Normalized revision note]]></RevisionNote>
+        <AdditionalHelpText><![CDATA[Normalized help text]]></AdditionalHelpText>
+        <Parameters>
+          <Parameter Name="ArrayDefault" TagType="Base" DataType="DINT" Dimensions="2" Usage="Input">
+            <DefaultData Format="Decorated"><Array DataType="DINT" Dimensions="2" Radix="Decimal"><Element Index="[0]" Value="7" /><Element Index="[1]" Value="9" /></Array></DefaultData>
+          </Parameter>
+        </Parameters>
+        <LocalTags>
+          <LocalTag Name="Matrix" DataType="DINT" Dimensions="2,3" Radix="Decimal">
+            <DefaultData Format="Decorated"><Array DataType="DINT" Dimensions="2,3" Radix="Decimal"><Element Index="[0,0]" Value="1" /><Element Index="[1,2]" Value="6" /></Array></DefaultData>
+          </LocalTag>
+          <LocalTag Name="Composite" DataType="Pair">
+            <DefaultData Format="Decorated"><Structure DataType="Pair"><DataValueMember Name="Left" DataType="DINT" Radix="Decimal" Value="3" /><DataValueMember Name="Right" DataType="DINT" Radix="Decimal" Value="4" /></Structure></DefaultData>
+          </LocalTag>
+        </LocalTags>
+      </AddOnInstructionDefinition>
+    </AddOnInstructionDefinitions>
+    <Programs><Program Name="ProgramWithLocals"><LocalTags>
+      <LocalTag Name="Hidden" DataType="DINT" Radix="Decimal"><DefaultData Format="Decorated"><DataValue DataType="DINT" Radix="Decimal" Value="7" /></DefaultData></LocalTag>
+      <LocalTag Name="HiddenAgain" DataType="BOOL" />
+    </LocalTags></Program></Programs>
+  </Controller>
+</RSLogix5000Content>

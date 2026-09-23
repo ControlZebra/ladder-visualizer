@@ -138,7 +138,10 @@ describe('L5X canonical FBD normalization', () => {
     const result = parseString(read('fbd-aoi-v35'), 'l5x');
     const routine = result.data?.aois[0]?.routines[0];
 
-    expect(result).toMatchObject({ success: true, status: 'complete' });
+    expect(result).toMatchObject({ success: true, status: 'partial' });
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({ code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA' })
+    );
     expect(routine).toMatchObject({
       name: 'Logic',
       type: 'FBD',
