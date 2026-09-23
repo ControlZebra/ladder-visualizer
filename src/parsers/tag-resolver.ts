@@ -1,5 +1,6 @@
 import type { 
   NormalizedTag, 
+  NormalizedProgramLocalTag,
   NormalizedDataType, 
   NormalizedController, 
   NormalizedRoutine 
@@ -84,6 +85,16 @@ export class TagResolver {
    */
   getTag(name: string): NormalizedTag | undefined {
     return this.tagMap.get(name);
+  }
+
+  /** Return every ordinary tag and local declaration with this name in one program. */
+  getProgramTagCandidates(name: string, programName: string): Array<NormalizedTag | NormalizedProgramLocalTag> {
+    const program = this.controller.programs.find((candidate) => candidate.name === programName);
+    if (!program) return [];
+    return [
+      ...program.tags.filter((tag) => tag.name === name),
+      ...program.localTags.filter((tag) => tag.name === name),
+    ];
   }
 
   /**

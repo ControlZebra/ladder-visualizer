@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.13.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.14.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -77,6 +77,7 @@ export interface L5XNormalizedCounts {
   dataTypes: number;
   controllerTags: number;
   programTags: number;
+  programLocalTags: number;
   programs: number;
   programParameters: number;
   routines: number;
@@ -161,6 +162,7 @@ const emptyNormalizedCounts: L5XNormalizedCounts = {
   dataTypes: 0,
   controllerTags: 0,
   programTags: 0,
+  programLocalTags: 0,
   programs: 0,
   programParameters: 0,
   routines: 0,
@@ -456,6 +458,42 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     ],
   },
   {
+    id: 'program-local-tags-v33',
+    file: 'program-local-tags-v33.L5X',
+    studio5000Version: '33.00',
+    targetType: 'Program',
+    artifactKind: 'program',
+    profiles: ['rockwell-program-rll', 'rockwell-full-project'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, localTags: 2 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programLocalTags: 2 } },
+    coverage: ['program local tag', 'repeated local tags', 'decorated scalar default', 'version matrix'],
+  },
+  {
+    id: 'program-local-tags-v34',
+    file: 'program-local-tags-v34.L5X',
+    studio5000Version: '34.01',
+    targetType: 'Program',
+    artifactKind: 'program',
+    profiles: ['rockwell-program-rll', 'rockwell-full-project'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, localTags: 2 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programLocalTags: 2 } },
+    coverage: ['program local tag', 'repeated local tags', 'decorated scalar default', 'version matrix'],
+  },
+  {
+    id: 'program-local-tags-v35',
+    file: 'program-local-tags-v35.L5X',
+    studio5000Version: '35.01',
+    targetType: 'Program',
+    artifactKind: 'program',
+    profiles: ['rockwell-program-rll', 'rockwell-full-project'],
+    expectedParseStatus: 'complete',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, localTags: 2 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programLocalTags: 2 } },
+    coverage: ['program local tag', 'repeated local tags', 'decorated scalar default', 'version matrix'],
+  },
+  {
     id: 'program-parameters-v33',
     file: 'program-parameters-v33.L5X',
     studio5000Version: '33.00',
@@ -536,6 +574,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       success: true,
       normalizedCounts: {
         ...emptyNormalizedCounts,
+        programLocalTags: 2,
         programs: 1,
         aois: 1,
         aoiParameters: 1,
@@ -573,6 +612,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       success: true,
       normalizedCounts: {
         ...emptyNormalizedCounts,
+        programLocalTags: 2,
         programs: 1,
         aois: 1,
         aoiParameters: 1,
@@ -610,6 +650,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       success: true,
       normalizedCounts: {
         ...emptyNormalizedCounts,
+        programLocalTags: 2,
         programs: 1,
         aois: 1,
         aoiParameters: 1,
@@ -1759,6 +1800,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       success: true,
       normalizedCounts: {
         ...emptyNormalizedCounts,
+        programLocalTags: 1,
         dataTypes: 1,
         controllerTags: 3,
         programTags: 0,
@@ -1833,6 +1875,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       success: true,
       normalizedCounts: {
         ...emptyNormalizedCounts,
+        programLocalTags: 1,
         dataTypes: 1,
         controllerTags: 3,
         programTags: 0,
@@ -1907,6 +1950,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       success: true,
       normalizedCounts: {
         ...emptyNormalizedCounts,
+        programLocalTags: 1,
         dataTypes: 1,
         controllerTags: 3,
         programTags: 0,

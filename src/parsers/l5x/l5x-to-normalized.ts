@@ -60,6 +60,7 @@ import type {
   NormalizedTag,
   NormalizedProgram,
   NormalizedProgramParameter,
+  NormalizedProgramLocalTag,
   ProgramParameterUsage,
   NormalizedRoutine,
   NormalizedRung,
@@ -454,6 +455,11 @@ function buildDataTypeCatalog(
       observeReference(parameter.dataType, `Programs/${program.name}/Parameters/${parameter.name}`)
     );
     program.tags.forEach((tag) => scanTag(tag, `Programs/${program.name}/Tags/${tag.name}`));
+    program.localTags.forEach((tag) => {
+      const provenance = `Programs/${program.name}/LocalTags/${tag.name}`;
+      observeReference(tag.dataType, provenance);
+      scanTagData(tag.defaultData === undefined ? undefined : [tag.defaultData], provenance);
+    });
   }
   for (const aoi of aois) {
     aoi.parameters.forEach((parameter) =>
@@ -541,12 +547,21 @@ function createFBDBlockOperandScope(
   return scope;
 }
 
-function createFBDTagOperandScope(tags: L5XTag | L5XTag[] | undefined): FBDBlockOperandScope {
+function createFBDTagOperandScope(
+  tags: L5XTag | L5XTag[] | undefined,
+  localTags?: L5XLocalTag | L5XLocalTag[]
+): FBDBlockOperandScope {
   return createFBDBlockOperandScope(
-    ensureArray(tags).map((tag) => ({
-      name: tag['@_Name'],
-      data: ensureArray(tag.Data),
-    }))
+    [
+      ...ensureArray(tags).map((tag) => ({
+        name: tag['@_Name'],
+        data: ensureArray(tag.Data),
+      })),
+      ...ensureArray(localTags).map((tag) => ({
+        name: tag['@_Name'],
+        data: ensureArray(tag.DefaultData),
+      })),
+    ]
   );
 }
 
@@ -845,7 +860,7 @@ function normalizeProgram(
   const programFBDContext: FBDNormalizationContext = {
     ...fbdContext,
     blockOperandScopes: [
-      createFBDTagOperandScope(program.Tags?.Tag),
+      createFBDTagOperandScope(program.Tags?.Tag, program.LocalTags?.LocalTag),
       ...fbdContext.blockOperandScopes,
     ],
   };
@@ -856,6 +871,7 @@ function normalizeProgram(
     parentUid: program['@_ParentUId'],
     useAsFolder: parseOptionalBoolean(program['@_UseAsFolder']),
     tags: normalizeProgramTags(program.Tags?.Tag, programName),
+    localTags: normalizeProgramLocalTags(program.LocalTags?.LocalTag, programName),
     routines: normalizeRoutines(program.Routines, programFBDContext),
     parameters: normalizeProgramParameters(program.Parameters?.Parameter, programName),
     programType: program['@_Type'],
@@ -881,6 +897,41 @@ function normalizeProgram(
       program['@_SynchronizeRedundancyDataAfterExecution']
     ),
   };
+}
+
+function normalizeProgramLocalTags(
+  tags: L5XLocalTag | L5XLocalTag[] | undefined,
+  programName: string
+): NormalizedProgramLocalTag[] {
+  return ensureArray(tags).map((tag) => ({
+    name: tag['@_Name'],
+    dataType: tag['@_DataType'],
+    scope: 'Program',
+    programName,
+    ...(tag['@_UId'] !== undefined ? { uid: tag['@_UId'] } : {}),
+    ...(tag['@_ParentUId'] !== undefined ? { parentUid: tag['@_ParentUId'] } : {}),
+    ...(tag['@_DataTypeUId'] !== undefined ? { dataTypeUid: tag['@_DataTypeUId'] } : {}),
+    ...(tag['@_Dimensions'] !== undefined
+      ? { dimensions: parseIntegerList(tag['@_Dimensions']) }
+      : {}),
+    ...(tag['@_Radix'] !== undefined ? { radix: tag['@_Radix'] } : {}),
+    ...(tag['@_ExternalAccess'] !== undefined
+      ? { externalAccess: normalizeOptionalExternalAccess(tag['@_ExternalAccess']) }
+      : {}),
+    ...(tag['@_Verified'] !== undefined
+      ? { verified: parseOptionalBoolean(tag['@_Verified']) }
+      : {}),
+    ...(extractText(tag.Description) !== undefined
+      ? { description: extractText(tag.Description) }
+      : {}),
+    comments: normalizeTagComments(tag.Comments?.Comment),
+    ...(tag.DefaultData !== undefined
+      ? { defaultData: normalizeTagData(tag.DefaultData) }
+      : {}),
+    ...(extractDefaultValue(tag.DefaultData) !== undefined
+      ? { defaultValue: extractDefaultValue(tag.DefaultData) }
+      : {}),
+  }));
 }
 
 function normalizeProgramParameters(

@@ -68,6 +68,26 @@ export interface NormalizedProgramParameter {
   defaultData?: NormalizedTagData;
 }
 
+/** A program-owned local declaration, separate from ordinary tags and parameters. */
+export interface NormalizedProgramLocalTag {
+  name: string;
+  dataType: string;
+  scope: 'Program';
+  programName: string;
+  uid?: string;
+  parentUid?: string;
+  dataTypeUid?: string;
+  dimensions?: number[];
+  radix?: string;
+  externalAccess?: ExternalAccess;
+  verified?: boolean;
+  description?: string;
+  comments: NormalizedTagComment[];
+  defaultData?: NormalizedTagData;
+  /** Convenience scalar value when a supported default can be reduced safely. */
+  defaultValue?: unknown;
+}
+
 /**
  * Normalized program - vendor-agnostic representation
  */
@@ -82,6 +102,8 @@ export interface NormalizedProgram {
   useAsFolder?: boolean;
   /** Program-scoped tags */
   tags: NormalizedTag[];
+  /** Schema-declared program locals in source order. */
+  localTags: NormalizedProgramLocalTag[];
   /** Routines within this program */
   routines: NormalizedRoutine[];
   /** Program interface parameters in source order. */

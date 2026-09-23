@@ -143,14 +143,6 @@ describe('L5X normalization completeness', () => {
       expect(documentResult.warnings).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG',
-            location: { path: `${programPath}/LocalTags[1]/LocalTag[1]` },
-          }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG',
-            location: { path: `${programPath}/LocalTags[1]/LocalTag[2]` },
-          }),
-          expect.objectContaining({
             code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
             location: { path: `${aoiPath}/Parameters[1]/Parameter[1]/DefaultData[1]` },
           }),
@@ -171,7 +163,7 @@ describe('L5X normalization completeness', () => {
 
       expect(
         documentResult.warnings?.filter(({ code }) => code?.startsWith('UNNORMALIZED_L5X_'))
-      ).toHaveLength(6);
+      ).toHaveLength(4);
       expect(
         controllerResult.warnings?.filter(({ code }) => code?.startsWith('UNNORMALIZED_L5X_'))
       ).toEqual(
@@ -212,7 +204,12 @@ describe('L5X normalization completeness', () => {
         revisionNote: 'Normalized revision note',
         helpText: 'Normalized help text',
       });
-      expect(program?.data).not.toHaveProperty('localTags');
+      expect(program?.data).toMatchObject({
+        localTags: [
+          expect.objectContaining({ name: 'Hidden', defaultValue: 7 }),
+          expect.objectContaining({ name: 'HiddenAgain' }),
+        ],
+      });
       expect(
         result.data?.fragments.filter(
           ({ path, reason }) =>

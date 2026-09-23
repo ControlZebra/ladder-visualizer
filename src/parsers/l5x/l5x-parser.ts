@@ -219,6 +219,7 @@ export class L5XParser extends BaseParser {
       const taskWarnings = collectTaskWarnings(xml, controller);
       const programNumericWarnings = collectUnsupportedProgramNumericWarnings(xml);
       const programParameterWarnings = collectUnsupportedProgramParameterWarnings(xml);
+      const programLocalTagWarnings = collectUnsupportedProgramLocalTagWarnings(xml);
       const programHierarchyWarnings = collectProgramHierarchyWarnings(xml, controller);
       const equipmentSequenceWarnings = collectUnsupportedEquipmentSequenceWarnings(xml);
       const trendNumericWarnings = collectUnsupportedTrendNumericWarnings(xml);
@@ -236,6 +237,7 @@ export class L5XParser extends BaseParser {
         taskWarnings.length ||
         programNumericWarnings.length ||
         programParameterWarnings.length ||
+        programLocalTagWarnings.length ||
         programHierarchyWarnings.length ||
         equipmentSequenceWarnings.length ||
         trendNumericWarnings.length ||
@@ -259,6 +261,7 @@ export class L5XParser extends BaseParser {
         ...taskWarnings,
         ...programNumericWarnings,
         ...programParameterWarnings,
+        ...programLocalTagWarnings,
         ...programHierarchyWarnings,
         ...equipmentSequenceWarnings,
         ...trendNumericWarnings,
@@ -572,21 +575,6 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
   const warnings: ParseWarning[] = [];
   const controller = xml.RSLogix5000Content.Controller;
   const controllerPath = '/RSLogix5000Content/Controller[1]';
-
-  ensureArray(controller.Programs?.Program).forEach((program, programIndex) => {
-    const localTagsPath = `${controllerPath}/Programs[1]/Program[${programIndex + 1}]/LocalTags[1]`;
-    ensureArray(program.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
-      warnings.push(
-        createParseWarning(
-          `Program local tag ${tag['@_Name'] ?? tagIndex + 1} is preserved but is not exposed by the normalized program model.`,
-          {
-            code: 'UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG',
-            location: { path: `${localTagsPath}/LocalTag[${tagIndex + 1}]` },
-          }
-        )
-      );
-    });
-  });
 
   ensureArray(controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition).forEach(
     (aoi, aoiIndex) => {
@@ -1023,6 +1011,43 @@ function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarni
             `Program parameter ${parameter['@_Name']} contains unsupported default-data node ${key}. The source representation was preserved.`,
             {
               code: 'UNSUPPORTED_L5X_PROGRAM_PARAMETER_DATA',
+              location: { path: `${dataPath}/${key}[1]` },
+            }
+          ));
+        }
+      });
+    }
+  );
+  return warnings;
+}
+
+function collectUnsupportedProgramLocalTagWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program).forEach(
+    (program, programIndex) => {
+      ensureArray(program.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
+        const data = tag.DefaultData;
+        if (!data) return;
+        const dataPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/LocalTags[1]/LocalTag[${tagIndex + 1}]/DefaultData[1]`;
+        const format = data['@_Format'];
+        if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
+          warnings.push(createParseWarning(
+            `Program local tag ${tag['@_Name']} has unsupported default-data encoding. The source representation was preserved.`,
+            {
+              code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
+              location: { path: format === undefined ? dataPath : `${dataPath}/@Format` },
+            }
+          ));
+          return;
+        }
+        for (const key of Object.keys(data)) {
+          if (key.startsWith('@_') || key.startsWith('#') || SUPPORTED_PROGRAM_PARAMETER_DATA_NODES.has(key)) {
+            continue;
+          }
+          warnings.push(createParseWarning(
+            `Program local tag ${tag['@_Name']} has unsupported default-data node ${key}. The source representation was preserved.`,
+            {
+              code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
               location: { path: `${dataPath}/${key}[1]` },
             }
           ));

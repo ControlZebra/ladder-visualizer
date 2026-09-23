@@ -702,9 +702,14 @@ export interface L5XLocalTags {
 export interface L5XLocalTag {
   '@_Name': string;
   '@_DataType': string;
+  '@_UId'?: string;
+  '@_ParentUId'?: string;
+  '@_DataTypeUId'?: string;
   '@_Radix'?: string;
   '@_Dimensions'?: string;
   '@_ExternalAccess'?: string;
+  '@_Verified'?: string;
+  Comments?: L5XComments;
   Description?: L5XDescription;
   DefaultData?: L5XTagData;
 }

@@ -259,6 +259,7 @@ function normalizeProgram(
   return {
     name: programName,
     tags: (program.tags || []).map(tag => normalizeTag(tag, 'Program', programName)),
+    localTags: [],
     routines: program.routines.map(normalizeRoutine),
     parameters: [],
   };

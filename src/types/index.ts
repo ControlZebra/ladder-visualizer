@@ -6,6 +6,7 @@ export type {
   NormalizedController,
   NormalizedProgram,
   NormalizedProgramParameter,
+  NormalizedProgramLocalTag,
   ProgramParameterUsage,
   NormalizedProgramType,
   NormalizedProgramInitialState,
