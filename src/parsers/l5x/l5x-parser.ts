@@ -26,6 +26,7 @@ import {
   type L5XOrderedStructureMember,
   type L5XRoutines,
   type L5XTag,
+  type L5XTagData,
   type L5XTagStructure,
 } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
@@ -222,6 +223,7 @@ export class L5XParser extends BaseParser {
       const equipmentSequenceWarnings = collectUnsupportedEquipmentSequenceWarnings(xml);
       const trendNumericWarnings = collectUnsupportedTrendNumericWarnings(xml);
       const controllerConfigurationWarnings = collectPreservedControllerConfigurationWarnings(xml);
+      const normalizationCoverageWarnings = collectNormalizationCoverageWarnings(xml);
       const fbdWarnings = collectFBDNormalizationWarnings(controller);
       const hasRungDiagnostics = controller.programs.some((program) =>
         program.routines.some((routine) => routine.rungs.some((rung) => rung.diagnostics?.length))
@@ -238,6 +240,7 @@ export class L5XParser extends BaseParser {
         equipmentSequenceWarnings.length ||
         trendNumericWarnings.length ||
         controllerConfigurationWarnings.length ||
+        normalizationCoverageWarnings.length ||
         fbdWarnings.length ||
         document.fragments.some(
           (fragment) =>
@@ -260,6 +263,7 @@ export class L5XParser extends BaseParser {
         ...equipmentSequenceWarnings,
         ...trendNumericWarnings,
         ...controllerConfigurationWarnings,
+        ...normalizationCoverageWarnings,
         ...fbdWarnings,
       ];
       const completionError = checkParseExecution(options);
@@ -562,6 +566,92 @@ function collectPreservedControllerConfigurationWarnings(xml: L5XContent): Parse
     ));
   });
   return warnings;
+}
+
+function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  const controller = xml.RSLogix5000Content.Controller;
+  const controllerPath = '/RSLogix5000Content/Controller[1]';
+
+  ensureArray(controller.Programs?.Program).forEach((program, programIndex) => {
+    const localTagsPath = `${controllerPath}/Programs[1]/Program[${programIndex + 1}]/LocalTags[1]`;
+    ensureArray(program.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
+      warnings.push(
+        createParseWarning(
+          `Program local tag ${tag['@_Name'] ?? tagIndex + 1} is preserved but is not exposed by the normalized program model.`,
+          {
+            code: 'UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG',
+            location: { path: `${localTagsPath}/LocalTag[${tagIndex + 1}]` },
+          }
+        )
+      );
+    });
+  });
+
+  ensureArray(controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition).forEach(
+    (aoi, aoiIndex) => {
+      const aoiPath = `${controllerPath}/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[${aoiIndex + 1}]`;
+
+      ensureArray(aoi.Parameters?.Parameter).forEach((parameter, parameterIndex) => {
+        collectCompositeAOIDefaultWarnings(
+          parameter.DefaultData,
+          parameter['@_Name'] ?? String(parameterIndex + 1),
+          `${aoiPath}/Parameters[1]/Parameter[${parameterIndex + 1}]/DefaultData`,
+          warnings
+        );
+      });
+
+      ensureArray(aoi.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
+        const tagPath = `${aoiPath}/LocalTags[1]/LocalTag[${tagIndex + 1}]`;
+        const dimensions = tag['@_Dimensions'];
+        if (dimensions !== undefined && !isFaithfullyNormalizedAOILocalDimension(dimensions)) {
+          warnings.push(
+            createParseWarning(
+              `AOI local tag ${tag['@_Name'] ?? tagIndex + 1} has dimensions that the scalar normalized field cannot represent faithfully.`,
+              {
+                code: 'UNNORMALIZED_L5X_AOI_LOCAL_TAG_DIMENSIONS',
+                location: { path: `${tagPath}/@Dimensions` },
+              }
+            )
+          );
+        }
+        collectCompositeAOIDefaultWarnings(
+          tag.DefaultData,
+          tag['@_Name'] ?? String(tagIndex + 1),
+          `${tagPath}/DefaultData`,
+          warnings
+        );
+      });
+    }
+  );
+
+  return warnings;
+}
+
+function collectCompositeAOIDefaultWarnings(
+  defaultData: L5XTagData | undefined,
+  ownerName: string,
+  path: string,
+  warnings: ParseWarning[]
+): void {
+  ensureArray(defaultData).forEach((data, dataIndex) => {
+    if (data.Array === undefined && data.Structure === undefined) return;
+    warnings.push(
+      createParseWarning(
+        `AOI value ${ownerName} has a decorated array or structure default that is preserved but not exposed by the scalar normalized default field.`,
+        {
+          code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
+          location: { path: `${path}[${dataIndex + 1}]` },
+        }
+      )
+    );
+  });
+}
+
+function isFaithfullyNormalizedAOILocalDimension(value: string): boolean {
+  if (!/^\d+$/.test(value.trim())) return false;
+  const dimension = Number(value);
+  return Number.isSafeInteger(dimension) && dimension >= 0;
 }
 
 const SUPPORTED_TAG_FORMATS = new Set(['L5K', 'String', 'Decorated', 'Alarm']);

@@ -567,12 +567,22 @@ function accountSource(doc: PlcDocument, root: Node): void {
             resource &&
             (key === 'Description' ||
               key === 'Comment' ||
-              (resource.kind === 'rung' && key === 'Text'))
+              (resource.kind === 'rung' && key === 'Text') ||
+              (resource.kind === 'aoi' &&
+                (key === 'RevisionNote' || key === 'AdditionalHelpText')))
           ) {
             text(
               item,
               childPath,
-              key === 'Text' ? 'raw' : key === 'Comment' ? 'comment' : 'description',
+              key === 'Text'
+                ? 'raw'
+                : key === 'Comment'
+                  ? 'comment'
+                  : key === 'RevisionNote'
+                    ? 'revisionNote'
+                    : key === 'AdditionalHelpText'
+                      ? 'helpText'
+                      : 'description',
               resource
             );
           } else if (

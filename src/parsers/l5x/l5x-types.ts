@@ -751,6 +751,7 @@ export interface L5XProgram {
   Description?: L5XDescription;
   Tags?: L5XTags;
   Parameters?: L5XParameters;
+  LocalTags?: L5XLocalTags;
   Routines?: L5XRoutines;
 }
 

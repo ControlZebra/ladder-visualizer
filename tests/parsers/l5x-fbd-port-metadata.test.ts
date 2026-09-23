@@ -250,7 +250,10 @@ describe('generic FBD Block port inference', () => {
       (element) => element.kind === 'block'
     );
 
-    expect(result).toMatchObject({ success: true, status: 'complete' });
+    expect(result).toMatchObject({ success: true, status: 'partial' });
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({ code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA' })
+    );
     expect(block).toMatchObject({
       kind: 'block',
       instruction: 'SRTP',
