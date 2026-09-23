@@ -56,6 +56,50 @@ describe('L5X normalization completeness', () => {
     }
   );
 
+  it.each(['', '   '])('does not fabricate a zero from empty L5K CDATA %j', (content) => {
+    for (const decorated of [
+      '',
+      '<DefaultData Format="Decorated"><DataValue DataType="BOOL" Radix="Decimal" Value="1" /></DefaultData>',
+    ]) {
+      const source = read('aoi-v35').replace(
+        /<DefaultData Format="L5K">.*?<\/DefaultData>/g,
+        `<DefaultData Format="L5K"><![CDATA[${content}]]></DefaultData>${decorated}`
+      );
+      const result = parseString(source, 'l5x');
+      expect(result.success).toBe(true);
+      expect(result.data?.aois[0].parameters.find((p) => p.name === 'In')?.defaultValue).toBe(
+        decorated ? 1 : undefined
+      );
+      expect(result.data?.aois[0].localTags[0].defaultValue).toBe(decorated ? 1 : undefined);
+    }
+  });
+
+  it.each(['33', '34', '35'])('extracts CDATA Value wrappers in v%s revision notes', (version) => {
+    for (const localized of [false, true]) {
+      const value = '<Value><![CDATA[Wrapped note]]></Value>';
+      const body = localized
+        ? `<LocalizedRevisionNote Lang="en-US">${value}</LocalizedRevisionNote>`
+        : value;
+      const source = read(`aoi-v${version}`).replace(
+        /<RevisionNote>.*?<\/RevisionNote>/,
+        `<RevisionNote>${body}</RevisionNote>`
+      );
+      const result = parseDocumentString(source, 'l5x');
+      expect(result.status).toBe('complete');
+      expect(result.data?.resources.find((r) => r.kind === 'aoi')?.data).toHaveProperty(
+        'revisionNote',
+        'Wrapped note'
+      );
+      expect(parseString(source, 'l5x').data?.aois[0].revisionNote).toBe('Wrapped note');
+      expect(result.data?.mappings).toContainEqual(
+        expect.objectContaining({
+          sourcePath: `${aoiPath}/RevisionNote[1]/${localized ? 'LocalizedRevisionNote[1]/' : ''}Value[1]/#cdata`,
+          field: 'revisionNote',
+        })
+      );
+    }
+  });
+
   it.each([
     ['', undefined],
     ['<RevisionNote />', ''],
