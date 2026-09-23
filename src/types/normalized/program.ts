@@ -83,7 +83,8 @@ export interface NormalizedProgramLocalTag {
   verified?: boolean;
   description?: string;
   comments: NormalizedTagComment[];
-  defaultData?: NormalizedTagData;
+  /** All declared default representations in source order. */
+  defaultData?: NormalizedTagData[];
   /** Convenience scalar value when a supported default can be reduced safely. */
   defaultValue?: unknown;
 }

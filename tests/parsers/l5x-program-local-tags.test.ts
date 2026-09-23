@@ -26,9 +26,12 @@ describe('schema-declared Program LocalTags', () => {
         name: 'Hidden', uid: '18446744073709551615', parentUid: '4', dataTypeUid: '5',
         dataType: 'DINT', scope: 'Program', programName: 'ProgramLocals',
         externalAccess: 'ReadOnly', verified: true, description: 'Hidden local',
-        defaultValue: 7, defaultData: { format: 'Decorated', values: [
-          { kind: 'atomic', dataType: 'DINT', radix: 'Decimal', value: '7' },
-        ] },
+        defaultValue: 7, defaultData: [
+          { format: 'L5K', text: '7', values: [] },
+          { format: 'Decorated', values: [
+            { kind: 'atomic', dataType: 'DINT', radix: 'Decimal', value: '7' },
+          ] },
+        ],
         comments: [expect.objectContaining({ text: 'Initial value' })],
       }),
       expect.objectContaining({ name: 'Buffer', dimensions: [2, 3], programName: 'ProgramLocals' }),
@@ -46,9 +49,9 @@ describe('schema-declared Program LocalTags', () => {
       expect.objectContaining({
         name: 'Hidden', dataType: 'DINT', scope: 'Program', programName: 'ProgramWithLocals',
         radix: 'Decimal', defaultValue: 7,
-        defaultData: { format: 'Decorated', values: [
+        defaultData: [{ format: 'Decorated', values: [
           { kind: 'atomic', dataType: 'DINT', radix: 'Decimal', value: '7' },
-        ] },
+        ] }],
       }),
       expect.objectContaining({ name: 'HiddenAgain', dataType: 'BOOL', scope: 'Program', programName: 'ProgramWithLocals' }),
     ];
@@ -85,7 +88,7 @@ describe('schema-declared Program LocalTags', () => {
       name: 'State', uid: '18446744073709551615', parentUid: '4', dataTypeUid: '5',
       dataType: 'DINT', scope: 'Program', programName: 'FixtureProgramV35',
       dimensions: [2, 3], radix: 'Decimal', externalAccess: 'ReadOnly', verified: true,
-      description: 'Local state', defaultData: { format: 'L5K', text: '7', values: [] },
+      description: 'Local state', defaultData: [{ format: 'L5K', text: '7', values: [] }],
       defaultValue: 7,
       comments: [expect.objectContaining({ operand: '[0,0]', text: 'First element' })],
     });
@@ -105,20 +108,41 @@ describe('schema-declared Program LocalTags', () => {
   });
 
   it('preserves unsupported defaults and reports a partial result at the source node', () => {
-    const source = programSource('<LocalTags><LocalTag Name="Axis" DataType="AXIS_CIP_DRIVE"><DefaultData Format="Decorated"><AxisParameters MotionGroup="MotionGroup1" /></DefaultData></LocalTag></LocalTags>');
+    const source = programSource('<LocalTags><LocalTag Name="Axis" DataType="AXIS_CIP_DRIVE"><DefaultData Format="L5K"><![CDATA[0]]></DefaultData><DefaultData Format="Decorated"><AxisParameters MotionGroup="MotionGroup1" /></DefaultData></LocalTag></LocalTags>');
     const result = parseDocumentString(source, 'l5x');
     expect(result).toMatchObject({ success: true, status: 'partial' });
     expect(result.warnings).toContainEqual(expect.objectContaining({
       code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
-      location: { path: `${programPath}/LocalTags[1]/LocalTag[1]/DefaultData[1]/AxisParameters[1]` },
+      location: { path: `${programPath}/LocalTags[1]/LocalTag[1]/DefaultData[2]/AxisParameters[1]` },
     }));
     expect(result.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0]).toMatchObject({
-      name: 'Axis', defaultData: { format: 'Decorated', values: [] },
+      name: 'Axis', defaultValue: 0, defaultData: [
+        { format: 'L5K', text: '0', values: [] },
+        { format: 'Decorated', values: [] },
+      ],
     });
     expect(result.data?.fragments).toContainEqual(expect.objectContaining({
       path: `${programPath}/LocalTags[1]`, reason: 'source-representation',
     }));
   });
+
+  it.each(['', '-1', '9007199254740993'])(
+    'reports unrepresentable LocalTag Dimensions %j without silently manufacturing dimensions',
+    (dimensions) => {
+      const source = programSource(`<LocalTags><LocalTag Name="Buffer" DataType="DINT" Dimensions="${dimensions}" /></LocalTags>`);
+      const result = parseDocumentString(source, 'l5x');
+      expect(result).toMatchObject({ success: true, status: 'partial' });
+      expect(result.warnings).toContainEqual(expect.objectContaining({
+        code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DIMENSIONS',
+        location: { path: `${programPath}/LocalTags[1]/LocalTag[1]/@Dimensions` },
+      }));
+      const local = result.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0];
+      expect(local).not.toHaveProperty('dimensions');
+      expect(result.data?.fragments).toContainEqual(expect.objectContaining({
+        path: `${programPath}/LocalTags[1]`, reason: 'source-representation',
+      }));
+    }
+  );
 
   it.each(['17.00', '32.00'])('keeps focused v%s parsing behavior without XSD claims', (version) => {
     const result = parseString(programSource('<LocalTags><LocalTag Name="Earlier" DataType="DINT" /></LocalTags>', version), 'l5x');

@@ -21,6 +21,7 @@ import {
 } from '../parse-error';
 import {
   ensureArray,
+  parseLocalTagDimensions,
   L5X_STRUCTURE_MEMBER_ORDER,
   type L5XContent,
   type L5XOrderedStructureMember,
@@ -617,7 +618,7 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
 }
 
 function collectCompositeAOIDefaultWarnings(
-  defaultData: L5XTagData | undefined,
+  defaultData: L5XTagData | L5XTagData[] | undefined,
   ownerName: string,
   path: string,
   warnings: ParseWarning[]
@@ -1026,32 +1027,43 @@ function collectUnsupportedProgramLocalTagWarnings(xml: L5XContent): ParseWarnin
   ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program).forEach(
     (program, programIndex) => {
       ensureArray(program.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
-        const data = tag.DefaultData;
-        if (!data) return;
-        const dataPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/LocalTags[1]/LocalTag[${tagIndex + 1}]/DefaultData[1]`;
-        const format = data['@_Format'];
-        if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
+        const tagPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/LocalTags[1]/LocalTag[${tagIndex + 1}]`;
+        const dimensions = tag['@_Dimensions'];
+        if (dimensions !== undefined && parseLocalTagDimensions(dimensions) === undefined) {
           warnings.push(createParseWarning(
-            `Program local tag ${tag['@_Name']} has unsupported default-data encoding. The source representation was preserved.`,
+            `Program local tag ${tag['@_Name']} has dimensions that cannot be represented safely. The source representation was preserved.`,
             {
-              code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
-              location: { path: format === undefined ? dataPath : `${dataPath}/@Format` },
+              code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DIMENSIONS',
+              location: { path: `${tagPath}/@Dimensions` },
             }
           ));
-          return;
         }
-        for (const key of Object.keys(data)) {
-          if (key.startsWith('@_') || key.startsWith('#') || SUPPORTED_PROGRAM_PARAMETER_DATA_NODES.has(key)) {
-            continue;
+        ensureArray(tag.DefaultData).forEach((data, dataIndex) => {
+          const dataPath = `${tagPath}/DefaultData[${dataIndex + 1}]`;
+          const format = data['@_Format'];
+          if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
+            warnings.push(createParseWarning(
+              `Program local tag ${tag['@_Name']} has unsupported default-data encoding. The source representation was preserved.`,
+              {
+                code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
+                location: { path: format === undefined ? dataPath : `${dataPath}/@Format` },
+              }
+            ));
+            return;
           }
-          warnings.push(createParseWarning(
-            `Program local tag ${tag['@_Name']} has unsupported default-data node ${key}. The source representation was preserved.`,
-            {
-              code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
-              location: { path: `${dataPath}/${key}[1]` },
+          for (const key of Object.keys(data)) {
+            if (key.startsWith('@_') || key.startsWith('#') || SUPPORTED_PROGRAM_PARAMETER_DATA_NODES.has(key)) {
+              continue;
             }
-          ));
-        }
+            warnings.push(createParseWarning(
+              `Program local tag ${tag['@_Name']} has unsupported default-data node ${key}. The source representation was preserved.`,
+              {
+                code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
+                location: { path: `${dataPath}/${key}[1]` },
+              }
+            ));
+          }
+        });
       });
     }
   );

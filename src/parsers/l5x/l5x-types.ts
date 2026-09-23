@@ -711,7 +711,7 @@ export interface L5XLocalTag {
   '@_Verified'?: string;
   Comments?: L5XComments;
   Description?: L5XDescription;
-  DefaultData?: L5XTagData;
+  DefaultData?: L5XTagData | L5XTagData[];
 }
 
 // ============================================
@@ -1069,6 +1069,17 @@ export function isArray<T>(value: T | T[] | undefined): value is T[] {
 export function ensureArray<T>(value: T | T[] | undefined): T[] {
   if (value === undefined) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+/** Parse an optional LocalTag dimension list only when every extent is representable. */
+export function parseLocalTagDimensions(value: string | undefined): number[] | undefined {
+  if (value === undefined) return undefined;
+  const source = value.trim();
+  if (!/^(?:\d+(?:[\s,]+\d+)*|\[\d+(?:[\s,]+\d+)*\])$/.test(source)) return undefined;
+  const dimensions = source.replace(/^\[/, '').replace(/\]$/, '').split(/[\s,]+/).map(Number);
+  return dimensions.every((dimension) => Number.isSafeInteger(dimension))
+    ? dimensions
+    : undefined;
 }
 
 /**

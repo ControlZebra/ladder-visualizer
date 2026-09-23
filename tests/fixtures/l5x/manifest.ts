@@ -467,7 +467,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, localTags: 2 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programLocalTags: 2 } },
-    coverage: ['program local tag', 'repeated local tags', 'decorated scalar default', 'version matrix'],
+    coverage: ['program local tag', 'repeated local tags', 'repeated default representations', 'decorated scalar default', 'version matrix'],
   },
   {
     id: 'program-local-tags-v34',
@@ -479,7 +479,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, localTags: 2 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programLocalTags: 2 } },
-    coverage: ['program local tag', 'repeated local tags', 'decorated scalar default', 'version matrix'],
+    coverage: ['program local tag', 'repeated local tags', 'repeated default representations', 'decorated scalar default', 'version matrix'],
   },
   {
     id: 'program-local-tags-v35',
@@ -491,7 +491,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     expectedParseStatus: 'complete',
     sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, localTags: 2 },
     currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, programLocalTags: 2 } },
-    coverage: ['program local tag', 'repeated local tags', 'decorated scalar default', 'version matrix'],
+    coverage: ['program local tag', 'repeated local tags', 'repeated default representations', 'decorated scalar default', 'version matrix'],
   },
   {
     id: 'program-parameters-v33',

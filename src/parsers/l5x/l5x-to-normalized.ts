@@ -52,6 +52,7 @@ import {
   L5X_STRUCTURE_MEMBER_ORDER,
   parseBoolean,
   parseInt,
+  parseLocalTagDimensions,
 } from './l5x-types';
 import type {
   NormalizedController,
@@ -458,7 +459,7 @@ function buildDataTypeCatalog(
     program.localTags.forEach((tag) => {
       const provenance = `Programs/${program.name}/LocalTags/${tag.name}`;
       observeReference(tag.dataType, provenance);
-      scanTagData(tag.defaultData === undefined ? undefined : [tag.defaultData], provenance);
+      scanTagData(tag.defaultData, provenance);
     });
   }
   for (const aoi of aois) {
@@ -911,8 +912,8 @@ function normalizeProgramLocalTags(
     ...(tag['@_UId'] !== undefined ? { uid: tag['@_UId'] } : {}),
     ...(tag['@_ParentUId'] !== undefined ? { parentUid: tag['@_ParentUId'] } : {}),
     ...(tag['@_DataTypeUId'] !== undefined ? { dataTypeUid: tag['@_DataTypeUId'] } : {}),
-    ...(tag['@_Dimensions'] !== undefined
-      ? { dimensions: parseIntegerList(tag['@_Dimensions']) }
+    ...(parseLocalTagDimensions(tag['@_Dimensions']) !== undefined
+      ? { dimensions: parseLocalTagDimensions(tag['@_Dimensions']) }
       : {}),
     ...(tag['@_Radix'] !== undefined ? { radix: tag['@_Radix'] } : {}),
     ...(tag['@_ExternalAccess'] !== undefined
@@ -926,7 +927,7 @@ function normalizeProgramLocalTags(
       : {}),
     comments: normalizeTagComments(tag.Comments?.Comment),
     ...(tag.DefaultData !== undefined
-      ? { defaultData: normalizeTagData(tag.DefaultData) }
+      ? { defaultData: ensureArray(tag.DefaultData).map(normalizeTagData) }
       : {}),
     ...(extractDefaultValue(tag.DefaultData) !== undefined
       ? { defaultValue: extractDefaultValue(tag.DefaultData) }
@@ -2278,7 +2279,7 @@ function normalizeAOILocalTag(tag: L5XLocalTag): AOILocalTag {
   };
 }
 
-function extractDefaultValue(defaultData: L5XParameter['DefaultData']): unknown {
+function extractDefaultValue(defaultData: L5XTagData | L5XTagData[] | undefined): unknown {
   if (!defaultData) return undefined;
 
   // Handle array of DefaultData
