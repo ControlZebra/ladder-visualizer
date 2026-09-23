@@ -1033,6 +1033,7 @@ export type L5XDescription =
       '#cdata'?: string;
       Value?: string | string[];
       LocalizedDescription?: L5XLocalizedDescription | L5XLocalizedDescription[];
+      LocalizedRevisionNote?: L5XLocalizedDescription | L5XLocalizedDescription[];
     };
 
 export type L5XLocalizedDescription =
@@ -1077,7 +1078,10 @@ export function extractText(desc: L5XDescription | undefined): string | undefine
   // Prefer the non-localized value when both representations are present.
   const directValue = ensureArray(desc.Value)[0];
   if (directValue !== undefined) return directValue;
-  for (const localized of ensureArray(desc.LocalizedDescription)) {
+  for (const localized of [
+    ...ensureArray(desc.LocalizedDescription),
+    ...ensureArray(desc.LocalizedRevisionNote),
+  ]) {
     if (typeof localized === 'string') return localized;
     if (localized['#cdata'] !== undefined) return localized['#cdata'];
     if (localized['#text'] !== undefined) return localized['#text'];

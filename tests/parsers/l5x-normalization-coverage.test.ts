@@ -11,6 +11,79 @@ const aoiPath = `${controllerPath}/AddOnInstructionDefinitions[1]/AddOnInstructi
 const programPath = `${controllerPath}/Programs[1]/Program[1]`;
 
 describe('L5X normalization completeness', () => {
+  it.each(['17', '33', '34', '35'])(
+    'retains v%s scalar defaults and localized revision notes',
+    (version) => {
+      const source = read(`aoi-v${version === '17' ? '35' : version}`).replace(
+        /SoftwareRevision="[^"]+"/,
+        `SoftwareRevision="${version}.00"`
+      );
+      for (const content of ['0', '-42', '1.25', "'text'"]) {
+        for (const encoded of [content, `<![CDATA[${content}]]>`]) {
+          const xml = source.replace('<![CDATA[0]]>', encoded).replace('<![CDATA[1]]>', encoded);
+          const result = parseDocumentString(xml, 'l5x');
+          const controller = parseString(xml, 'l5x');
+          expect(result).toMatchObject({ success: true, status: 'complete' });
+          expect(controller).toMatchObject({ success: true, status: 'complete' });
+          const expected = content === "'text'" ? content : Number(content);
+          for (const aoi of [
+            result.data?.resources.find((r) => r.kind === 'aoi')?.data,
+            controller.data?.aois[0],
+          ]) {
+            expect(aoi).toMatchObject({
+              revisionNote: 'Localized revision note',
+              parameters: expect.arrayContaining([
+                expect.objectContaining({ name: 'In', defaultValue: expected }),
+              ]),
+              localTags: [expect.objectContaining({ name: 'State', defaultValue: expected })],
+            });
+          }
+          expect(result.data?.mappings).toContainEqual(
+            expect.objectContaining({
+              sourcePath: `${aoiPath}/RevisionNote[1]/LocalizedRevisionNote[1]/Value[1]`,
+              field: 'revisionNote',
+            })
+          );
+          expect(result.data?.fragments).toContainEqual(
+            expect.objectContaining({
+              path: `${aoiPath}/RevisionNote[1]/LocalizedRevisionNote[2]/#cdata`,
+              value: 'Weitere Notiz',
+              reason: 'source-representation',
+            })
+          );
+        }
+      }
+    }
+  );
+
+  it.each([
+    ['', undefined],
+    ['<RevisionNote />', ''],
+    [
+      '<RevisionNote><LocalizedRevisionNote Lang="en-US"><![CDATA[Note]]></LocalizedRevisionNote></RevisionNote>',
+      'Note',
+    ],
+    [
+      '<RevisionNote><LocalizedRevisionNote Lang="en-US">Note</LocalizedRevisionNote></RevisionNote>',
+      'Note',
+    ],
+    [
+      '<RevisionNote><Value>Direct</Value><LocalizedRevisionNote Lang="en-US"><Value>Other</Value></LocalizedRevisionNote></RevisionNote>',
+      'Direct',
+    ],
+  ])('handles optional and alternative revision notes: %s', (replacement, expected) => {
+    const source = read('aoi-v35').replace(
+      /<RevisionNote>.*?<\/RevisionNote>/,
+      replacement as string
+    );
+    const result = parseDocumentString(source, 'l5x');
+    expect(result.status).toBe('complete');
+    expect(result.data?.resources.find((r) => r.kind === 'aoi')?.data).toHaveProperty(
+      'revisionNote',
+      expected
+    );
+  });
+
   it.each(['33', '34', '35'])(
     'marks preserved-only v%s constructs partial with precise diagnostics',
     (version) => {

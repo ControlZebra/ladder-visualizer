@@ -1060,7 +1060,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         aoiLocalTags: 1,
       },
     },
-    coverage: ['AOI export', 'AOI parameter', 'AOI local tag', 'AOI RLL', 'AOI ST', 'plain-text ST', 'empty ST'],
+    coverage: ['scalar L5K CDATA defaults', 'localized revision notes', 'AOI export', 'AOI parameter', 'AOI local tag', 'AOI RLL', 'AOI ST', 'plain-text ST', 'empty ST'],
   },
   {
     id: 'module-v35',
@@ -1666,7 +1666,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         aoiLocalTags: 1,
       },
     },
-    coverage: ['AOI export', 'AOI parameter', 'AOI local tag', 'AOI RLL', 'AOI ST', 'CDATA ST', 'version matrix'],
+    coverage: ['scalar L5K CDATA defaults', 'localized revision notes', 'AOI export', 'AOI parameter', 'AOI local tag', 'AOI RLL', 'AOI ST', 'CDATA ST', 'version matrix'],
   },
   {
     id: 'aoi-v34',
@@ -1698,7 +1698,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
         aoiLocalTags: 1,
       },
     },
-    coverage: ['AOI export', 'AOI parameter', 'AOI local tag', 'AOI RLL', 'AOI ST', 'CDATA ST', 'version matrix'],
+    coverage: ['scalar L5K CDATA defaults', 'localized revision notes', 'AOI export', 'AOI parameter', 'AOI local tag', 'AOI RLL', 'AOI ST', 'CDATA ST', 'version matrix'],
   },
   {
     id: 'module-v33',

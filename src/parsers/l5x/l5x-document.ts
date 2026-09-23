@@ -401,7 +401,11 @@ function accountSource(doc: PlcDocument, root: Node): void {
           const childPath = `${itemPath}/${key}`;
           if (!mapped && mapping(child, childPath, field, resource)) mapped = true;
           else preserve(child, childPath, 'source-representation');
-        } else if (key === 'Value' || key === 'LocalizedDescription') {
+        } else if (
+          key === 'Value' ||
+          key === 'LocalizedDescription' ||
+          key === 'LocalizedRevisionNote'
+        ) {
           array(child).forEach((nested, index) => {
             visitText(nested, `${itemPath}/${key}[${index + 1}]`);
           });
