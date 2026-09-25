@@ -163,7 +163,9 @@ describe('L5X compatibility contract', () => {
 
   it('covers every required artifact family in every supported source version', () => {
     const artifactKinds = new Set(L5X_FIXTURES.map((fixture) => fixture.artifactKind));
-    const versions = new Set(L5X_FIXTURES.map((fixture) => fixture.studio5000Version));
+    const versions = new Set(L5X_FIXTURES
+      .filter((fixture) => /-v(33|34|35)\.L5X$/.test(fixture.file))
+      .map((fixture) => fixture.studio5000Version));
     const coverage = new Set(L5X_FIXTURES.flatMap((fixture) => fixture.coverage));
 
     const requiredArtifactKinds = [
@@ -299,7 +301,7 @@ describe('L5X compatibility contract', () => {
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 9, failed: 0 },
-      'rockwell-full-project': { complete: 12, partial: 27, failed: 3 },
+      'rockwell-full-project': { complete: 13, partial: 27, failed: 3 },
     });
   });
 });

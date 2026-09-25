@@ -1,5 +1,5 @@
 import type { NormalizedDataType } from './data-type';
-import type { NormalizedTag, ExternalAccess } from './tag';
+import type { NormalizedTag, NormalizedTagData, ExternalAccess } from './tag';
 import type { NormalizedProgram } from './program';
 import type { NormalizedRoutine } from './routine';
 import type { NormalizedTask } from './task';
@@ -44,7 +44,9 @@ export interface AOIParameter {
   externalAccess: ExternalAccess;
   /** Parameter description */
   description?: string;
-  /** Default value */
+  /** Ordered source default representations, including recursive decorated values. */
+  defaultData?: NormalizedTagData[];
+  /** Scalar convenience value from Decorated data, then L5K/String text. */
   defaultValue?: unknown;
 }
 
@@ -62,10 +64,12 @@ export interface AOILocalTag {
   externalAccess: ExternalAccess;
   /** Description */
   description?: string;
-  /** Default value */
+  /** Ordered source default representations, including recursive decorated values. */
+  defaultData?: NormalizedTagData[];
+  /** Scalar convenience value from Decorated data, then L5K/String text. */
   defaultValue?: unknown;
-  /** Array dimensions (0 for scalar) */
-  dimensions?: number;
+  /** Array extents in declared order; absent for scalar tags. */
+  dimensions?: number[];
 }
 
 /**

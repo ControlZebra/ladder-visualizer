@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.13.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.14.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -1031,6 +1031,21 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     coverage: ['UDT export', 'UDT members'],
   },
   {
+    id: 'aoi-defaults-v17',
+    file: 'aoi-defaults-v17.L5X',
+    studio5000Version: '17.00',
+    targetType: 'Controller',
+    artifactKind: 'controller',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, aois: 1, parameters: 1, localTags: 3, arrays: 2 },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, aois: 1, aoiParameters: 1, aoiLocalTags: 3 },
+    },
+    coverage: ['AOI export', 'AOI decorated array default', 'AOI decorated structure default', 'AOI raw default data', 'v17 export evidence'],
+  },
+  {
     id: 'aoi-v35',
     file: 'aoi-v35.L5X',
     studio5000Version: '35.01',
@@ -1150,7 +1165,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     targetType: 'AddOnInstructionDefinition',
     artifactKind: 'add-on-instruction',
     profiles: ['rockwell-full-project'],
-    expectedParseStatus: 'partial',
+    expectedParseStatus: 'complete',
     sourceCounts: {
       ...emptySourceCounts,
       controllers: 1,
@@ -1177,7 +1192,7 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       'AOI-owned FBD routine',
       'canonical FBD body',
       'AOI decorated structure default',
-      'partial diagnostic',
+      'typed AOI default data',
     ],
   },
   {

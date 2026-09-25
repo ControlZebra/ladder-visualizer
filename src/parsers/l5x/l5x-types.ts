@@ -416,13 +416,16 @@ export interface L5XTagData {
   '@_Length'?: string;
   '#text'?: string;
   '#cdata'?: string;
-  Structure?: L5XTagStructure;
-  DataValue?: L5XDataValue;
-  Array?: L5XArray;
+  Structure?: L5XTagStructure | L5XTagStructure[];
+  DataValue?: L5XDataValue | L5XDataValue[];
+  Array?: L5XArray | L5XArray[];
   AlarmAnalogParameters?: L5XAlarmParameters;
   AlarmDigitalParameters?: L5XAlarmParameters;
   AlarmConfig?: L5XAlarmConfig;
 }
+
+/** A raw text-only DefaultData node has no attributes and parses as a string. */
+export type L5XDefaultData = L5XTagData | string;
 
 export interface L5XTagStructure {
   '@_Name'?: string;
@@ -692,7 +695,7 @@ export interface L5XParameter {
   '@_Verified'?: string;
   Comments?: L5XComments;
   Description?: L5XDescription;
-  DefaultData?: L5XTagData;
+  DefaultData?: L5XDefaultData | L5XDefaultData[];
 }
 
 export interface L5XLocalTags {
@@ -706,7 +709,7 @@ export interface L5XLocalTag {
   '@_Dimensions'?: string;
   '@_ExternalAccess'?: string;
   Description?: L5XDescription;
-  DefaultData?: L5XTagData;
+  DefaultData?: L5XDefaultData | L5XDefaultData[];
 }
 
 // ============================================

@@ -1,0 +1,160 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { parseDocumentString, parseString } from '../../src/parsers';
+
+const fixture = (name: string) =>
+  readFileSync(join(__dirname, `../fixtures/l5x/${name}.L5X`), 'utf8');
+
+describe('AOI defaults', () => {
+  it.each(['33', '34', '35'])('retains v%s parameter and local composite defaults', (version) => {
+    const source = fixture(`normalization-coverage-v${version}`);
+    const controller = parseString(source, 'l5x');
+    const document = parseDocumentString(source, 'l5x');
+    const aois = [controller.data?.aois[0], document.data?.resources.find((r) => r.kind === 'aoi')?.data];
+
+    for (const aoi of aois) {
+      expect(aoi?.parameters[0]).toMatchObject({
+        name: 'ArrayDefault',
+        dimensions: [2],
+        defaultData: [{
+          format: 'Decorated',
+          values: [{ kind: 'array', dataType: 'DINT', dimensions: [2], radix: 'Decimal', elements: [
+            { index: [0], value: '7', structures: [] },
+            { index: [1], value: '9', structures: [] },
+          ] }],
+        }],
+      });
+      expect(aoi?.parameters[0].defaultValue).toBeUndefined();
+      expect(aoi?.localTags[0]).toMatchObject({
+        name: 'Matrix', dimensions: [2, 3],
+        defaultData: [{ format: 'Decorated', values: [{
+          kind: 'array', dataType: 'DINT', dimensions: [2, 3], elements: [
+            { index: [0, 0], value: '1', structures: [] },
+            { index: [1, 2], value: '6', structures: [] },
+          ],
+        }] }],
+      });
+      expect(aoi?.localTags[1].defaultData?.[0].values[0]).toMatchObject({
+        kind: 'structure', dataType: 'Pair', members: [
+          { kind: 'atomic', name: 'Left', value: '3' },
+          ...(version === '35' ? [
+            { kind: 'array', name: 'Samples', dimensions: [2], elements: [
+              { index: [1], value: '9' }, { index: [0], value: '7' },
+            ] },
+            { kind: 'structure', name: 'Meta', members: [{ kind: 'atomic', name: 'Ready', value: '1' }] },
+          ] : []),
+          { kind: 'atomic', name: 'Right', value: '4' },
+        ],
+      });
+    }
+    expect(controller.warnings?.filter((warning) => warning.code === 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA')).toEqual([]);
+    expect(document.warnings?.filter((warning) => warning.code === 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA')).toEqual([]);
+    expect(controller.warnings?.filter((warning) => warning.code === 'UNNORMALIZED_L5X_AOI_LOCAL_TAG_DIMENSIONS')).toEqual([]);
+  });
+
+  it('retains sanitized v17 export arrays, structures, and array elements with structures', () => {
+    const source = fixture('aoi-defaults-v17');
+    const controller = parseString(source, 'l5x');
+    const document = parseDocumentString(source, 'l5x');
+    expect(controller).toMatchObject({ success: true, status: 'partial' });
+    expect(document).toMatchObject({ success: true, status: 'partial' });
+    const aoi = controller.data?.aois[0];
+    expect(aoi?.parameters[0]).toMatchObject({ name: 'Input', defaultValue: 5,
+      defaultData: [{ format: 'L5K', text: '5', values: [] }] });
+    expect(aoi?.localTags[0]).toMatchObject({ name: 'CurrentTS', dimensions: [2], defaultData: [
+      { text: '00 00 00 00 00 00 00 00', values: [] },
+      { format: 'Decorated', values: [{ kind: 'array', dimensions: [2], elements: [
+        { index: [0], value: '0' }, { index: [1], value: '0' },
+      ] }] },
+    ] });
+    expect(aoi?.localTags[1].defaultData?.[1].values[0]).toMatchObject({
+      kind: 'structure', members: [
+        { kind: 'atomic', name: 'EnableIn', value: '1' },
+        { kind: 'atomic', name: 'In', value: '0.0' },
+        { kind: 'atomic', name: 'InFault', value: '0' },
+      ],
+    });
+    expect(aoi?.localTags[2].defaultData?.[1].values[0]).toMatchObject({
+      kind: 'array', dimensions: [10], elements: [{ index: [0], structures: [{
+        kind: 'structure', members: [
+          { kind: 'atomic', name: 'FLAGS', value: '0' },
+          { kind: 'atomic', name: 'EN', value: '0' },
+        ],
+      }] }],
+    });
+    expect(controller.warnings?.filter((warning) => warning.code === 'UNSUPPORTED_L5X_AOI_DEFAULT_DATA')).toHaveLength(3);
+    expect(document.data?.fragments).toContainEqual(expect.objectContaining({
+      path: expect.stringMatching(/\/LocalTags\[1\]$/),
+      reason: 'source-representation',
+      value: expect.objectContaining({ LocalTag: expect.arrayContaining([
+        expect.objectContaining({ DefaultData: expect.arrayContaining(['00 00 00 00 00 00 00 00']) }),
+      ]) }),
+    }));
+  });
+
+  it('prefers decorated scalar values to L5K text and retains both encodings', () => {
+    const source = fixture('aoi-v35')
+      .replace('<![CDATA[0]]></DefaultData>', '<![CDATA[2]]></DefaultData><DefaultData Format="Decorated"><DataValue DataType="BOOL" Value="9" /></DefaultData>')
+      .replace('<![CDATA[1]]></DefaultData>', '3</DefaultData><DefaultData Format="Decorated"><DataValue DataType="BOOL" Value="8" /></DefaultData>');
+    const result = parseString(source, 'l5x');
+    expect(result).toMatchObject({ success: true, status: 'complete' });
+    expect(result.data?.aois[0].parameters.find((p) => p.name === 'In')).toMatchObject({
+      defaultValue: 9, defaultData: [
+        { format: 'L5K', text: '2', values: [] },
+        { format: 'Decorated', values: [{ kind: 'atomic', value: '9' }] },
+      ],
+    });
+    expect(result.data?.aois[0].localTags[0]).toMatchObject({
+      defaultValue: 8, defaultData: [
+        { format: 'L5K', text: '3', values: [] },
+        { format: 'Decorated', values: [{ kind: 'atomic', value: '8' }] },
+      ],
+    });
+    const tagSource = fixture('tag-values-v35').replace('<![CDATA[10]]></Data>', '<![CDATA[2]]></Data>');
+    expect(parseString(tagSource, 'l5x').data?.tags.find((tag) => tag.name === 'ConstantCounter')?.value).toBe(10);
+  });
+
+  it('keeps missing defaults absent and reads String CDATA without inventing a number', () => {
+    const source = fixture('aoi-v35')
+      .replace('<DefaultData Format="L5K"><![CDATA[0]]></DefaultData>', '<DefaultData Format="String"><![CDATA[\'abc\']]></DefaultData>')
+      .replace('<DefaultData Format="L5K"><![CDATA[1]]></DefaultData>', '<DefaultData Format="Decorated"><DataValue DataType="BOOL" Value="" /></DefaultData>');
+    const result = parseString(source, 'l5x');
+    expect(result).toMatchObject({ success: true, status: 'complete' });
+    expect(result.data?.aois[0].parameters.find((p) => p.name === 'EnableIn')?.defaultData).toBeUndefined();
+    expect(result.data?.aois[0].parameters.find((p) => p.name === 'In')).toMatchObject({
+      defaultData: [{ format: 'String', text: "'abc'", values: [] }], defaultValue: "'abc'",
+    });
+    expect(result.data?.aois[0].localTags[0].defaultValue).toBe('');
+  });
+
+  it('reports dimensions that cannot be represented as integer extents', () => {
+    const source = fixture('normalization-coverage-v35').replace('Name="Matrix" DataType="DINT" Dimensions="2,3"', 'Name="Matrix" DataType="DINT" Dimensions="2,x"');
+    const result = parseString(source, 'l5x');
+    expect(result).toMatchObject({ success: true, status: 'partial' });
+    expect(result.data?.aois[0].localTags[0].dimensions).toEqual([]);
+    expect(result.warnings).toContainEqual(expect.objectContaining({
+      code: 'UNNORMALIZED_L5X_AOI_LOCAL_TAG_DIMENSIONS',
+      location: { path: '/RSLogix5000Content/Controller[1]/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[1]/LocalTags[1]/LocalTag[1]/@Dimensions' },
+    }));
+  });
+
+  it('keeps raw and unsupported data inspectable with precise partial warnings', () => {
+    const source = fixture('aoi-v35')
+      .replace('<DefaultData Format="L5K"><![CDATA[0]]></DefaultData>', '<DefaultData Format="Opaque">hidden</DefaultData>')
+      .replace('<DefaultData Format="L5K"><![CDATA[1]]></DefaultData>', '<DefaultData>00 00 00 00</DefaultData><DefaultData Format="Decorated"><AxisParameters MotionGroup="MotionGroup1" /></DefaultData>');
+    const result = parseDocumentString(source, 'l5x');
+    expect(result).toMatchObject({ success: true, status: 'partial' });
+    const aoi = result.data?.resources.find((r) => r.kind === 'aoi')?.data;
+    expect(aoi?.parameters.find((p) => p.name === 'In')?.defaultData).toMatchObject([{ format: 'Opaque', text: 'hidden', values: [] }]);
+    expect(aoi?.localTags[0].defaultData).toMatchObject([
+      { text: '00 00 00 00', values: [] },
+      { format: 'Decorated', values: [] },
+    ]);
+    expect(result.warnings?.filter((warning) => warning.code === 'UNSUPPORTED_L5X_AOI_DEFAULT_DATA').map((warning) => warning.location?.path)).toEqual([
+      '/RSLogix5000Content/Controller[1]/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[1]/Parameters[1]/Parameter[2]/DefaultData[1]/@Format',
+      '/RSLogix5000Content/Controller[1]/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[1]/LocalTags[1]/LocalTag[1]/DefaultData[1]',
+      '/RSLogix5000Content/Controller[1]/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[1]/LocalTags[1]/LocalTag[1]/DefaultData[2]/AxisParameters[1]',
+    ]);
+  });
+});

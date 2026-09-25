@@ -1147,7 +1147,7 @@ describe('L5XParser with real L5X file', () => {
     const onsTag = analogInputAOI?.localTags.find((t) => t.name === 'L_ONS');
     expect(onsTag).toBeDefined();
     expect(onsTag?.dataType).toBe('BOOL');
-    expect(onsTag?.dimensions).toBe(32);
+    expect(onsTag?.dimensions).toEqual([32]);
   });
 
   it('should correctly extract controller name and metadata from Program export', () => {
