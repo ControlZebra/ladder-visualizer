@@ -1,5 +1,5 @@
 import type { NormalizedDataType } from './data-type';
-import type { NormalizedTag, NormalizedTagData, ExternalAccess } from './tag';
+import type { NormalizedTag, NormalizedTagComment, NormalizedTagData, ExternalAccess } from './tag';
 import type { NormalizedProgram } from './program';
 import type { NormalizedRoutine } from './routine';
 import type { NormalizedTask } from './task';
@@ -40,10 +40,14 @@ export interface AOIParameter {
   required: boolean;
   /** Whether the parameter is visible in the instruction signature */
   visible: boolean;
+  /** Whether Studio marks this parameter constant; absent when not exported. */
+  constant?: boolean;
   /** External access level */
   externalAccess: ExternalAccess;
   /** Parameter description */
   description?: string;
+  /** Operand-scoped parameter comments in source order; absent when not exported. */
+  comments?: NormalizedTagComment[];
   /** Ordered source default representations, including recursive decorated values. */
   defaultData?: NormalizedTagData[];
   /** Scalar convenience value from Decorated data, then L5K/String text. */
@@ -64,6 +68,8 @@ export interface AOILocalTag {
   externalAccess: ExternalAccess;
   /** Description */
   description?: string;
+  /** Operand-scoped local-tag comments in source order; absent when not exported. */
+  comments?: NormalizedTagComment[];
   /** Ordered source default representations, including recursive decorated values. */
   defaultData?: NormalizedTagData[];
   /** Scalar convenience value from Decorated data, then L5K/String text. */

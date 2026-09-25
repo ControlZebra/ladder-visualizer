@@ -2217,8 +2217,10 @@ function normalizeAOIParameter(param: L5XParameter): AOIParameter {
     dimensions: parseIntegerList(param['@_Dimensions']),
     required: parseBoolean(param['@_Required']),
     visible: parseBoolean(param['@_Visible']),
+    ...(param['@_Constant'] !== undefined ? { constant: parseOptionalBoolean(param['@_Constant']) } : {}),
     externalAccess: normalizeExternalAccess(param['@_ExternalAccess']),
     description: extractText(param.Description),
+    ...(param.Comments !== undefined ? { comments: normalizeTagComments(param.Comments.Comment) } : {}),
     ...(param.DefaultData !== undefined ? { defaultData: ensureArray(param.DefaultData).map(normalizeTagData) } : {}),
     defaultValue: extractDefaultValue(param.DefaultData),
   };
@@ -2236,6 +2238,7 @@ function normalizeAOILocalTag(tag: L5XLocalTag): AOILocalTag {
     radix: tag['@_Radix'],
     externalAccess: normalizeExternalAccess(tag['@_ExternalAccess']),
     description: extractText(tag.Description),
+    ...(tag.Comments !== undefined ? { comments: normalizeTagComments(tag.Comments.Comment) } : {}),
     ...(tag.DefaultData !== undefined ? { defaultData: ensureArray(tag.DefaultData).map(normalizeTagData) } : {}),
     defaultValue: extractDefaultValue(tag.DefaultData),
     ...(tag['@_Dimensions'] !== undefined ? { dimensions: parseIntegerList(tag['@_Dimensions']) } : {}),

@@ -528,11 +528,11 @@ const AOI_PROPS = [
 
 const AOI_PARAMETER_PROPS = [
   'tagType', 'dataType', 'usage', 'radix', 'dimensions', 'required', 'visible',
-  'externalAccess', 'description', 'defaultValue', 'defaultData',
+  'constant', 'externalAccess', 'description', 'comments', 'defaultValue', 'defaultData',
 ];
 
 const AOI_LOCAL_TAG_PROPS = [
-  'dataType', 'radix', 'dimensions', 'externalAccess', 'description',
+  'dataType', 'radix', 'dimensions', 'externalAccess', 'description', 'comments',
   'defaultValue', 'defaultData',
 ];
 

@@ -297,7 +297,7 @@ describe('L5X compatibility contract', () => {
 
   it('reports status counts per profile without manufacturing an overall percentage', () => {
     expect(buildProfileStatusReport()).toEqual({
-      'rockwell-controller-rll': { complete: 19, partial: 0, failed: 0 },
+      'rockwell-controller-rll': { complete: 22, partial: 0, failed: 0 },
       'rockwell-program-rll': { complete: 6, partial: 2, failed: 0 },
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
