@@ -50,6 +50,7 @@ import {
   ensureArray,
   extractText,
   L5X_STRUCTURE_MEMBER_ORDER,
+  L5X_TAG_DATA_VALUE_ORDER,
   parseBoolean,
   parseInt,
 } from './l5x-types';
@@ -627,21 +628,32 @@ function normalizeTagData(data: L5XTagData | string): NormalizedTagData {
   if (typeof data === 'string') return { text: data, values: [] };
   const text = extractNodeText(data);
   const length = data['@_Length'] === undefined ? undefined : Number(data['@_Length']);
-  const values: NormalizedDecoratedTagValue[] = [];
-  values.push(...ensureArray(data.DataValue).map(normalizeAtomicValue));
-  values.push(...ensureArray(data.Array).map(normalizeArrayValue));
-  values.push(...ensureArray(data.Structure).map(normalizeStructureValue));
-  values.push(
-    ...ensureArray(data.AlarmDigitalParameters).map((alarm) =>
-      normalizeAlarmParameters(alarm, 'digital')
-    )
-  );
-  values.push(
-    ...ensureArray(data.AlarmAnalogParameters).map((alarm) =>
-      normalizeAlarmParameters(alarm, 'analog')
-    )
-  );
-  values.push(...ensureArray(data.AlarmConfig).map(normalizeAlarmConfig));
+  const orderedValues = data[L5X_TAG_DATA_VALUE_ORDER];
+  const values: NormalizedDecoratedTagValue[] = orderedValues
+    ? orderedValues.map((entry) => {
+        switch (entry.kind) {
+          case 'atomic':
+            return normalizeAtomicValue(entry.value);
+          case 'array':
+            return normalizeArrayValue(entry.value);
+          case 'structure':
+            return normalizeStructureValue(entry.value);
+          case 'alarmDigital':
+            return normalizeAlarmParameters(entry.value, 'digital');
+          case 'alarmAnalog':
+            return normalizeAlarmParameters(entry.value, 'analog');
+          case 'alarmConfig':
+            return normalizeAlarmConfig(entry.value);
+        }
+      })
+    : [
+        ...ensureArray(data.DataValue).map(normalizeAtomicValue),
+        ...ensureArray(data.Array).map(normalizeArrayValue),
+        ...ensureArray(data.Structure).map(normalizeStructureValue),
+        ...ensureArray(data.AlarmDigitalParameters).map((alarm) => normalizeAlarmParameters(alarm, 'digital')),
+        ...ensureArray(data.AlarmAnalogParameters).map((alarm) => normalizeAlarmParameters(alarm, 'analog')),
+        ...ensureArray(data.AlarmConfig).map(normalizeAlarmConfig),
+      ];
   return {
     ...(data['@_Format'] !== undefined ? { format: data['@_Format'] } : {}),
     ...(length !== undefined && Number.isSafeInteger(length) && length >= 0 ? { length } : {}),

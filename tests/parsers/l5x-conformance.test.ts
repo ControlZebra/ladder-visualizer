@@ -231,6 +231,7 @@ describe('L5X compatibility contract', () => {
       'produced tag',
       'consumed tag',
       'decorated array',
+      'AOI mixed decorated child order',
       'program parameter',
       'program local tag',
       'module connection',

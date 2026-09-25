@@ -419,10 +419,22 @@ export interface L5XTagData {
   Structure?: L5XTagStructure | L5XTagStructure[];
   DataValue?: L5XDataValue | L5XDataValue[];
   Array?: L5XArray | L5XArray[];
-  AlarmAnalogParameters?: L5XAlarmParameters;
-  AlarmDigitalParameters?: L5XAlarmParameters;
-  AlarmConfig?: L5XAlarmConfig;
+  AlarmAnalogParameters?: L5XAlarmParameters | L5XAlarmParameters[];
+  AlarmDigitalParameters?: L5XAlarmParameters | L5XAlarmParameters[];
+  AlarmConfig?: L5XAlarmConfig | L5XAlarmConfig[];
+  [L5X_TAG_DATA_VALUE_ORDER]?: L5XOrderedTagDataValue[];
 }
+
+/** Non-enumerable parser metadata for interleaved decorated Data children. */
+export const L5X_TAG_DATA_VALUE_ORDER = Symbol('l5xTagDataValueOrder');
+
+export type L5XOrderedTagDataValue =
+  | { kind: 'atomic'; value: L5XDataValue }
+  | { kind: 'array'; value: L5XArray }
+  | { kind: 'structure'; value: L5XTagStructure }
+  | { kind: 'alarmDigital'; value: L5XAlarmParameters }
+  | { kind: 'alarmAnalog'; value: L5XAlarmParameters }
+  | { kind: 'alarmConfig'; value: L5XAlarmConfig };
 
 /** A raw text-only DefaultData node has no attributes and parses as a string. */
 export type L5XDefaultData = L5XTagData | string;

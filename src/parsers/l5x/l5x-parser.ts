@@ -22,8 +22,10 @@ import {
 import {
   ensureArray,
   L5X_STRUCTURE_MEMBER_ORDER,
+  L5X_TAG_DATA_VALUE_ORDER,
   type L5XContent,
   type L5XOrderedStructureMember,
+  type L5XOrderedTagDataValue,
   type L5XRoutines,
   type L5XTag,
   type L5XTagData,
@@ -180,8 +182,8 @@ export class L5XParser extends BaseParser {
     let xml: L5XContent;
     try {
       xml = this.xmlParser.parse(content) as L5XContent;
-      if (content.includes('<Structure')) {
-        annotateStructureMemberOrder(
+      if (/<(?:Structure|DefaultData|Data)(?=[\s>])/.test(content)) {
+        annotateDecoratedChildOrder(
           xml as unknown as XmlNode,
           this.orderedXmlParser.parse(content) as OrderedXmlNode[]
         );
@@ -1126,12 +1128,21 @@ const STRUCTURE_MEMBER_KINDS = {
   ArrayMember: 'array',
 } as const;
 
+const TAG_DATA_VALUE_KINDS = {
+  DataValue: 'atomic',
+  Array: 'array',
+  Structure: 'structure',
+  AlarmDigitalParameters: 'alarmDigital',
+  AlarmAnalogParameters: 'alarmAnalog',
+  AlarmConfig: 'alarmConfig',
+} as const;
+
 function isXmlNode(value: unknown): value is XmlNode {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Overlay source child order onto the grouped fast-xml-parser object tree. */
-function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedXmlNode[]): void {
+function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXmlNode[]): void {
   function visit(
     parsedParent: XmlNode,
     orderedChildren: OrderedXmlNode[],
@@ -1139,6 +1150,7 @@ function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedX
   ): void {
     const occurrences = new Map<string, number>();
     const members: L5XOrderedStructureMember[] = [];
+    const dataValues: L5XOrderedTagDataValue[] = [];
 
     for (const orderedChild of orderedChildren) {
       const entry = Object.entries(orderedChild).find(
@@ -1165,6 +1177,15 @@ function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedX
         }
       }
 
+      if (parentElement === 'Data' || parentElement === 'DefaultData') {
+        const kind = TAG_DATA_VALUE_KINDS[
+          elementName as keyof typeof TAG_DATA_VALUE_KINDS
+        ];
+        if (kind && isXmlNode(parsedChild)) {
+          dataValues.push({ kind, value: parsedChild } as L5XOrderedTagDataValue);
+        }
+      }
+
       if (isXmlNode(parsedChild) && Array.isArray(children)) {
         visit(parsedChild, children as OrderedXmlNode[], elementName);
       }
@@ -1173,6 +1194,12 @@ function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedX
     if ((parentElement === 'Structure' || parentElement === 'StructureMember') && members.length) {
       Object.defineProperty(parsedParent as L5XTagStructure, L5X_STRUCTURE_MEMBER_ORDER, {
         value: members,
+        enumerable: false,
+      });
+    }
+    if ((parentElement === 'Data' || parentElement === 'DefaultData') && dataValues.length) {
+      Object.defineProperty(parsedParent as L5XTagData, L5X_TAG_DATA_VALUE_ORDER, {
+        value: dataValues,
         enumerable: false,
       });
     }

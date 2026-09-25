@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseDocumentString, parseString } from '../../src/parsers';
+import { diffControllers } from '../../src/diff/diffControllers';
 
 const fixture = (name: string) =>
   readFileSync(join(__dirname, `../fixtures/l5x/${name}.L5X`), 'utf8');
@@ -26,6 +27,18 @@ describe('AOI defaults', () => {
         }],
       });
       expect(aoi?.parameters[0].defaultValue).toBeUndefined();
+      expect(aoi?.parameters[1]).toMatchObject({
+        name: 'MixedDefault',
+        defaultData: [{ format: 'Decorated', values: [
+          { kind: 'atomic', dataType: 'DINT', value: '1' },
+          { kind: 'array', dataType: 'DINT', dimensions: [2], elements: [
+            { index: [1], value: '9', structures: [] },
+            { index: [0], value: '7', structures: [] },
+          ] },
+          { kind: 'atomic', dataType: 'DINT', value: '3' },
+        ] }],
+      });
+      expect(aoi?.parameters[1].defaultValue).toBeUndefined();
       expect(aoi?.localTags[0]).toMatchObject({
         name: 'Matrix', dimensions: [2, 3],
         defaultData: [{ format: 'Decorated', values: [{
@@ -156,5 +169,24 @@ describe('AOI defaults', () => {
       '/RSLogix5000Content/Controller[1]/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[1]/LocalTags[1]/LocalTag[1]/DefaultData[1]',
       '/RSLogix5000Content/Controller[1]/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[1]/LocalTags[1]/LocalTag[1]/DefaultData[2]/AxisParameters[1]',
     ]);
+  });
+
+  it('reports changed exported AOI parameter and local composite defaults in controller comparisons', () => {
+    const oldSource = fixture('normalization-coverage-v35');
+    const newSource = oldSource
+      .replace('<Element Index="[1]" Value="9" /><Element Index="[0]" Value="7" />', '<Element Index="[1]" Value="10" /><Element Index="[0]" Value="7" />')
+      .replace('<Element Index="[1,2]" Value="6" />', '<Element Index="[1,2]" Value="8" />');
+    const oldController = parseString(oldSource, 'l5x').data;
+    const newController = parseString(newSource, 'l5x').data;
+    expect(oldController).toBeDefined();
+    expect(newController).toBeDefined();
+
+    const diff = diffControllers(oldController!, newController!);
+    expect(diff.aois).toHaveLength(1);
+    expect(diff.aois[0]).toMatchObject({
+      name: 'CoverageAOI', kind: 'modified',
+      parameterSummary: { added: 0, removed: 0, modified: 1 },
+      localTagSummary: { added: 0, removed: 0, modified: 1 },
+    });
   });
 });

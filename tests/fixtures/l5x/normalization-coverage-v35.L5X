@@ -9,6 +9,9 @@
           <Parameter Name="ArrayDefault" TagType="Base" DataType="DINT" Dimensions="2" Usage="Input">
             <DefaultData Format="Decorated"><Array DataType="DINT" Dimensions="2" Radix="Decimal"><Element Index="[0]" Value="7" /><Element Index="[1]" Value="9" /></Array></DefaultData>
           </Parameter>
+          <Parameter Name="MixedDefault" TagType="Base" DataType="DINT" Usage="Input">
+            <DefaultData Format="Decorated"><DataValue DataType="DINT" Value="1" /><Array DataType="DINT" Dimensions="2"><Element Index="[1]" Value="9" /><Element Index="[0]" Value="7" /></Array><DataValue DataType="DINT" Value="3" /></DefaultData>
+          </Parameter>
         </Parameters>
         <LocalTags>
           <LocalTag Name="Matrix" DataType="DINT" Dimensions="2,3" Radix="Decimal">
