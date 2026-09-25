@@ -18,6 +18,7 @@
         <Data Format="String" Length="4"><![CDATA['0042']]></Data>
       </Tag>
       <Tag Name="Matrix" TagType="Base" DataType="DINT" Dimensions="2,2" Radix="Decimal" ExternalAccess="Read/Write">
+        <Data Format="L5K"><![CDATA[[[1,2],[3,4]]]]></Data>
         <Data Format="Decorated"><Array DataType="DINT" Dimensions="2,2" Radix="Decimal"><Element Index="[0,0]" Value="1" /><Element Index="[0,1]" Value="2" /><Element Index="[1,0]" Value="3" ForceValue="30" /><Element Index="[1,1]" Value="4" /></Array></Data>
       </Tag>
       <Tag Name="Recipe" TagType="Base" DataType="RecipeType" ExternalAccess="None">
@@ -26,6 +27,7 @@
           <Comment Operand=".Nested.Enabled"><![CDATA[Nested enabled flag]]></Comment>
           <Comment Operand=".Nested.Steps[1]"><![CDATA[Second recipe step]]></Comment>
         </Comments>
+        <Data Format="L5K"><![CDATA[[[[3,4],1],2]]]></Data>
         <Data Format="Decorated">
           <Structure DataType="RecipeType">
             <StructureMember Name="Nested" DataType="NestedType">

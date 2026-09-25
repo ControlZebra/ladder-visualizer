@@ -621,6 +621,19 @@ function normalizeExternalAccess(access: string | undefined): ExternalAccess {
 }
 
 function extractTagValue(tag: L5XTag): unknown {
+  const data = ensureArray(tag.Data);
+  // Studio exports can include both representations of a composite tag.
+  // Keep its L5K text as the tag's value shortcut; AOI defaults use the
+  // separate scalar-only rule in extractDefaultValue.
+  const hasDecoratedComposite = data.some((entry) =>
+    entry['@_Format'] === 'Decorated' &&
+    (entry.Array !== undefined || entry.Structure !== undefined)
+  );
+  if (hasDecoratedComposite) {
+    const l5kData = data.find((entry) => entry['@_Format'] === 'L5K');
+    const text = extractNodeText(l5kData)?.trim();
+    if (text) return parseScalarDefault(text);
+  }
   return extractDefaultValue(tag.Data);
 }
 
