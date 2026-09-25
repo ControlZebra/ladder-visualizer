@@ -22,8 +22,10 @@ import {
 import {
   ensureArray,
   L5X_STRUCTURE_MEMBER_ORDER,
+  L5X_TAG_DATA_VALUE_ORDER,
   type L5XContent,
   type L5XOrderedStructureMember,
+  type L5XOrderedTagDataValue,
   type L5XRoutines,
   type L5XTag,
   type L5XTagData,
@@ -180,8 +182,8 @@ export class L5XParser extends BaseParser {
     let xml: L5XContent;
     try {
       xml = this.xmlParser.parse(content) as L5XContent;
-      if (content.includes('<Structure')) {
-        annotateStructureMemberOrder(
+      if (/<(?:Structure|DefaultData|Data)(?=[\s>])/.test(content)) {
+        annotateDecoratedChildOrder(
           xml as unknown as XmlNode,
           this.orderedXmlParser.parse(content) as OrderedXmlNode[]
         );
@@ -593,7 +595,7 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
       const aoiPath = `${controllerPath}/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[${aoiIndex + 1}]`;
 
       ensureArray(aoi.Parameters?.Parameter).forEach((parameter, parameterIndex) => {
-        collectCompositeAOIDefaultWarnings(
+        collectUnsupportedAOIDefaultWarnings(
           parameter.DefaultData,
           parameter['@_Name'] ?? String(parameterIndex + 1),
           `${aoiPath}/Parameters[1]/Parameter[${parameterIndex + 1}]/DefaultData`,
@@ -607,7 +609,7 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
         if (dimensions !== undefined && !isFaithfullyNormalizedAOILocalDimension(dimensions)) {
           warnings.push(
             createParseWarning(
-              `AOI local tag ${tag['@_Name'] ?? tagIndex + 1} has dimensions that the scalar normalized field cannot represent faithfully.`,
+              `AOI local tag ${tag['@_Name'] ?? tagIndex + 1} has dimensions that cannot be represented as safe integer extents.`,
               {
                 code: 'UNNORMALIZED_L5X_AOI_LOCAL_TAG_DIMENSIONS',
                 location: { path: `${tagPath}/@Dimensions` },
@@ -615,7 +617,7 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
             )
           );
         }
-        collectCompositeAOIDefaultWarnings(
+        collectUnsupportedAOIDefaultWarnings(
           tag.DefaultData,
           tag['@_Name'] ?? String(tagIndex + 1),
           `${tagPath}/DefaultData`,
@@ -628,30 +630,46 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
   return warnings;
 }
 
-function collectCompositeAOIDefaultWarnings(
-  defaultData: L5XTagData | undefined,
+function collectUnsupportedAOIDefaultWarnings(
+  defaultData: L5XTagData | string | (L5XTagData | string)[] | undefined,
   ownerName: string,
   path: string,
   warnings: ParseWarning[]
 ): void {
   ensureArray(defaultData).forEach((data, dataIndex) => {
-    if (data.Array === undefined && data.Structure === undefined) return;
-    warnings.push(
-      createParseWarning(
-        `AOI value ${ownerName} has a decorated array or structure default that is preserved but not exposed by the scalar normalized default field.`,
+    const dataPath = `${path}[${dataIndex + 1}]`;
+    const format = typeof data === 'string' ? undefined : data['@_Format'];
+    if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
+      warnings.push(createParseWarning(
+        format === undefined
+          ? `AOI value ${ownerName} has raw default data without a Format attribute. Its source text is retained but not decoded.`
+          : `AOI value ${ownerName} uses unsupported default-data encoding ${format}. Its source is retained.`,
         {
-          code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
-          location: { path: `${path}[${dataIndex + 1}]` },
+          code: 'UNSUPPORTED_L5X_AOI_DEFAULT_DATA',
+          location: { path: format === undefined ? dataPath : `${dataPath}/@Format` },
         }
-      )
-    );
+      ));
+      return;
+    }
+    const supportedNodes = format === 'Decorated' || format === 'Alarm'
+      ? SUPPORTED_DECORATED_NODES
+      : new Set<string>();
+    for (const key of Object.keys(data)) {
+      if (key.startsWith('@_') || key.startsWith('#') || supportedNodes.has(key)) continue;
+      warnings.push(createParseWarning(
+        `AOI value ${ownerName} contains unsupported ${format} default-data node ${key}. Its source is retained.`,
+        {
+          code: 'UNSUPPORTED_L5X_AOI_DEFAULT_DATA',
+          location: { path: `${dataPath}/${key}[1]` },
+        }
+      ));
+    }
   });
 }
 
 function isFaithfullyNormalizedAOILocalDimension(value: string): boolean {
-  if (!/^\d+$/.test(value.trim())) return false;
-  const dimension = Number(value);
-  return Number.isSafeInteger(dimension) && dimension >= 0;
+  if (!/^\d+(?:[\s,]+\d+)*$/.test(value.trim())) return false;
+  return value.trim().split(/[\s,]+/).every((part) => Number.isSafeInteger(Number(part)));
 }
 
 const SUPPORTED_TAG_FORMATS = new Set(['L5K', 'String', 'Decorated', 'Alarm']);
@@ -1002,7 +1020,8 @@ function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarni
       ensureArray(program.Parameters?.Parameter).forEach((parameter, parameterIndex) => {
         if (!parameter.DefaultData) return;
         const dataPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/Parameters[1]/Parameter[${parameterIndex + 1}]/DefaultData[1]`;
-        const format = parameter.DefaultData['@_Format'];
+        const data = ensureArray(parameter.DefaultData)[0];
+        const format = typeof data === 'string' ? undefined : data['@_Format'];
         if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
           warnings.push(createParseWarning(
             format === undefined
@@ -1015,7 +1034,7 @@ function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarni
           ));
           return;
         }
-        for (const key of Object.keys(parameter.DefaultData)) {
+        for (const key of Object.keys(data)) {
           if (key.startsWith('@_') || key.startsWith('#') || SUPPORTED_PROGRAM_PARAMETER_DATA_NODES.has(key)) {
             continue;
           }
@@ -1109,12 +1128,21 @@ const STRUCTURE_MEMBER_KINDS = {
   ArrayMember: 'array',
 } as const;
 
+const TAG_DATA_VALUE_KINDS = {
+  DataValue: 'atomic',
+  Array: 'array',
+  Structure: 'structure',
+  AlarmDigitalParameters: 'alarmDigital',
+  AlarmAnalogParameters: 'alarmAnalog',
+  AlarmConfig: 'alarmConfig',
+} as const;
+
 function isXmlNode(value: unknown): value is XmlNode {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Overlay source child order onto the grouped fast-xml-parser object tree. */
-function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedXmlNode[]): void {
+function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXmlNode[]): void {
   function visit(
     parsedParent: XmlNode,
     orderedChildren: OrderedXmlNode[],
@@ -1122,6 +1150,7 @@ function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedX
   ): void {
     const occurrences = new Map<string, number>();
     const members: L5XOrderedStructureMember[] = [];
+    const dataValues: L5XOrderedTagDataValue[] = [];
 
     for (const orderedChild of orderedChildren) {
       const entry = Object.entries(orderedChild).find(
@@ -1148,6 +1177,15 @@ function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedX
         }
       }
 
+      if (parentElement === 'Data' || parentElement === 'DefaultData') {
+        const kind = TAG_DATA_VALUE_KINDS[
+          elementName as keyof typeof TAG_DATA_VALUE_KINDS
+        ];
+        if (kind && isXmlNode(parsedChild)) {
+          dataValues.push({ kind, value: parsedChild } as L5XOrderedTagDataValue);
+        }
+      }
+
       if (isXmlNode(parsedChild) && Array.isArray(children)) {
         visit(parsedChild, children as OrderedXmlNode[], elementName);
       }
@@ -1156,6 +1194,12 @@ function annotateStructureMemberOrder(parsedRoot: XmlNode, orderedRoot: OrderedX
     if ((parentElement === 'Structure' || parentElement === 'StructureMember') && members.length) {
       Object.defineProperty(parsedParent as L5XTagStructure, L5X_STRUCTURE_MEMBER_ORDER, {
         value: members,
+        enumerable: false,
+      });
+    }
+    if ((parentElement === 'Data' || parentElement === 'DefaultData') && dataValues.length) {
+      Object.defineProperty(parsedParent as L5XTagData, L5X_TAG_DATA_VALUE_ORDER, {
+        value: dataValues,
         enumerable: false,
       });
     }

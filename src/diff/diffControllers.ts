@@ -526,6 +526,16 @@ const AOI_PROPS = [
   'revisionNote', 'helpText',
 ];
 
+const AOI_PARAMETER_PROPS = [
+  'tagType', 'dataType', 'usage', 'radix', 'dimensions', 'required', 'visible',
+  'externalAccess', 'description', 'defaultValue', 'defaultData',
+];
+
+const AOI_LOCAL_TAG_PROPS = [
+  'dataType', 'radix', 'dimensions', 'externalAccess', 'description',
+  'defaultValue', 'defaultData',
+];
+
 function diffAOIs(
   oldAOIs: NormalizedAOI[],
   newAOIs: NormalizedAOI[],
@@ -560,9 +570,20 @@ function diffAOIs(
       const pChanges = diffProperties(
         oldP as unknown as Record<string, unknown>,
         newP as unknown as Record<string, unknown>,
-        ['dataType', 'usage', 'required', 'visible', 'externalAccess', 'description', 'defaultValue'],
+        AOI_PARAMETER_PROPS,
       );
       if (pChanges.length > 0) paramModified++;
+    }
+
+    const localMatch = matchByKey(oldItem.localTags, newItem.localTags, (tag) => tag.name);
+    let localModified = 0;
+    for (const { oldItem: oldTag, newItem: newTag } of localMatch.matched) {
+      const localChanges = diffProperties(
+        oldTag as unknown as Record<string, unknown>,
+        newTag as unknown as Record<string, unknown>,
+        AOI_LOCAL_TAG_PROPS,
+      );
+      if (localChanges.length > 0) localModified++;
     }
 
     // Check routines within the AOI
@@ -573,12 +594,20 @@ function diffAOIs(
       removed: paramMatch.removed.length,
       modified: paramModified,
     };
+    const localTagSummary = {
+      added: localMatch.added.length,
+      removed: localMatch.removed.length,
+      modified: localModified,
+    };
 
     const hasChanges =
       propertyChanges.length > 0 ||
       paramSummary.added > 0 ||
       paramSummary.removed > 0 ||
       paramSummary.modified > 0 ||
+      localTagSummary.added > 0 ||
+      localTagSummary.removed > 0 ||
+      localTagSummary.modified > 0 ||
       routineDiffs.length > 0;
 
     if (hasChanges) {
@@ -589,6 +618,7 @@ function diffAOIs(
         oldAOI: oldItem,
         newAOI: newItem,
         parameterSummary: paramSummary,
+        localTagSummary,
       });
     }
   }

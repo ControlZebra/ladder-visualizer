@@ -83,7 +83,9 @@ describe('L5X complete tag normalization', () => {
 
     const matrix = controller.tags.find((tag) => tag.name === 'Matrix')!;
     expect(matrix.dimensions).toEqual([2, 2]);
+    expect(matrix.value).toBe('[[1,2],[3,4]]');
     expect(matrix.data).toEqual([
+      { format: 'L5K', text: '[[1,2],[3,4]]', values: [] },
       {
         format: 'Decorated',
         values: [
@@ -104,6 +106,8 @@ describe('L5X complete tag normalization', () => {
     ]);
 
     const recipe = controller.tags.find((tag) => tag.name === 'Recipe')!;
+    expect(recipe.value).toBe('[[[3,4],1],2]');
+    expect(recipe.data?.[0]).toEqual({ format: 'L5K', text: '[[[3,4],1],2]', values: [] });
     expect(recipe.comments).toEqual([
       {
         operand: '.Count',
@@ -124,7 +128,7 @@ describe('L5X complete tag normalization', () => {
         localizedTexts: [],
       },
     ]);
-    expect(recipe.data?.[0].values).toEqual([
+    expect(recipe.data?.[1].values).toEqual([
       {
         kind: 'structure',
         dataType: 'RecipeType',
@@ -215,6 +219,16 @@ describe('L5X complete tag normalization', () => {
       externalAccess: 'None',
       dimensions: [],
     });
+  });
+
+  it('leaves the tag value shortcut absent for a Decorated-only array', () => {
+    const source = fixture('tag-values-v35.L5X')
+      .replace('<Data Format="L5K"><![CDATA[[[1,2],[3,4]]]]></Data>', '');
+    const result = parseString(source, 'l5x');
+    expect(result.success).toBe(true);
+    const matrix = result.data?.tags.find((tag) => tag.name === 'Matrix');
+    expect(matrix?.value).toBeUndefined();
+    expect(matrix?.data[0].values[0]).toMatchObject({ kind: 'array', dimensions: [2, 2] });
   });
 
   it.each(versions)('marks schema-valid unsupported v%s tag encodings partial (%s)', (version) => {

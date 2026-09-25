@@ -623,6 +623,50 @@ describe('diffControllers', () => {
         modified: 1,
       });
     });
+
+    it('detects a composite parameter default change when scalar defaults are absent', () => {
+      const parameter = (value: string) => ({
+        name: 'ArrayInput', tagType: 'Base', dataType: 'DINT', usage: 'Input' as const,
+        required: false, visible: true, externalAccess: 'ReadWrite' as const,
+        defaultData: [{ format: 'Decorated', values: [{
+          kind: 'array' as const, dataType: 'DINT', dimensions: [2],
+          elements: [{ index: [0], value, structures: [] }],
+        }] }],
+      });
+      const old = makeController({ aois: [makeAOI('MyAOI', { parameters: [parameter('7')] })] });
+      const nu = makeController({ aois: [makeAOI('MyAOI', { parameters: [parameter('9')] })] });
+
+      const diff = diffControllers(old, nu);
+
+      expect(diff.aois).toHaveLength(1);
+      expect(diff.aois[0].kind).toBe('modified');
+      expect(diff.aois[0].parameterSummary).toEqual({ added: 0, removed: 0, modified: 1 });
+      expect(diff.summary.aois.modified).toBe(1);
+    });
+
+    it('detects AOI local default changes and local additions and removals', () => {
+      const local = (name: string, value: string) => ({
+        name, dataType: 'DINT', externalAccess: 'ReadWrite' as const,
+        dimensions: [2],
+        defaultData: [{ format: 'Decorated', values: [{
+          kind: 'array' as const, dataType: 'DINT', dimensions: [2],
+          elements: [{ index: [0], value, structures: [] }],
+        }] }],
+      });
+      const old = makeController({ aois: [makeAOI('MyAOI', {
+        localTags: [local('State', '7'), local('Removed', '0')],
+      })] });
+      const nu = makeController({ aois: [makeAOI('MyAOI', {
+        localTags: [local('State', '9'), local('Added', '0')],
+      })] });
+
+      const diff = diffControllers(old, nu);
+
+      expect(diff.aois).toHaveLength(1);
+      expect(diff.aois[0].kind).toBe('modified');
+      expect(diff.aois[0].parameterSummary).toEqual({ added: 0, removed: 0, modified: 0 });
+      expect(diff.aois[0].localTagSummary).toEqual({ added: 1, removed: 1, modified: 1 });
+    });
   });
 
   describe('module changes', () => {

@@ -217,6 +217,12 @@ export interface AOIDiff {
     removed: number;
     modified: number;
   };
+  /** Summary: AOI local tags added/removed/modified count. */
+  localTagSummary?: {
+    added: number;
+    removed: number;
+    modified: number;
+  };
 }
 
 // ============================================================================

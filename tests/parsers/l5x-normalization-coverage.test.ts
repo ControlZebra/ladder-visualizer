@@ -150,28 +150,12 @@ describe('L5X normalization completeness', () => {
             code: 'UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG',
             location: { path: `${programPath}/LocalTags[1]/LocalTag[2]` },
           }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
-            location: { path: `${aoiPath}/Parameters[1]/Parameter[1]/DefaultData[1]` },
-          }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_AOI_LOCAL_TAG_DIMENSIONS',
-            location: { path: `${aoiPath}/LocalTags[1]/LocalTag[1]/@Dimensions` },
-          }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
-            location: { path: `${aoiPath}/LocalTags[1]/LocalTag[1]/DefaultData[1]` },
-          }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
-            location: { path: `${aoiPath}/LocalTags[1]/LocalTag[2]/DefaultData[1]` },
-          }),
         ])
       );
 
       expect(
         documentResult.warnings?.filter(({ code }) => code?.startsWith('UNNORMALIZED_L5X_'))
-      ).toHaveLength(6);
+      ).toHaveLength(2);
       expect(
         controllerResult.warnings?.filter(({ code }) => code?.startsWith('UNNORMALIZED_L5X_'))
       ).toEqual(

@@ -9,13 +9,16 @@
           <Parameter Name="ArrayDefault" TagType="Base" DataType="DINT" Dimensions="2" Usage="Input">
             <DefaultData Format="Decorated"><Array DataType="DINT" Dimensions="2" Radix="Decimal"><Element Index="[0]" Value="7" /><Element Index="[1]" Value="9" /></Array></DefaultData>
           </Parameter>
+          <Parameter Name="MixedDefault" TagType="Base" DataType="DINT" Usage="Input">
+            <DefaultData Format="Decorated"><DataValue DataType="DINT" Value="1" /><Array DataType="DINT" Dimensions="2"><Element Index="[1]" Value="9" /><Element Index="[0]" Value="7" /></Array><DataValue DataType="DINT" Value="3" /></DefaultData>
+          </Parameter>
         </Parameters>
         <LocalTags>
           <LocalTag Name="Matrix" DataType="DINT" Dimensions="2,3" Radix="Decimal">
             <DefaultData Format="Decorated"><Array DataType="DINT" Dimensions="2,3" Radix="Decimal"><Element Index="[0,0]" Value="1" /><Element Index="[1,2]" Value="6" /></Array></DefaultData>
           </LocalTag>
           <LocalTag Name="Composite" DataType="Pair">
-            <DefaultData Format="Decorated"><Structure DataType="Pair"><DataValueMember Name="Left" DataType="DINT" Radix="Decimal" Value="3" /><DataValueMember Name="Right" DataType="DINT" Radix="Decimal" Value="4" /></Structure></DefaultData>
+            <DefaultData Format="Decorated"><Structure DataType="Pair"><DataValueMember Name="Left" DataType="DINT" Radix="Decimal" Value="3" /><ArrayMember Name="Samples" DataType="DINT" Dimensions="2" Radix="Decimal"><Element Index="[1]" Value="9" /><Element Index="[0]" Value="7" /></ArrayMember><StructureMember Name="Meta" DataType="Meta"><DataValueMember Name="Ready" DataType="BOOL" Value="1" /></StructureMember><DataValueMember Name="Right" DataType="DINT" Radix="Decimal" Value="4" /></Structure></DefaultData>
           </LocalTag>
         </LocalTags>
       </AddOnInstructionDefinition>
