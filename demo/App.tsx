@@ -29,9 +29,9 @@ import type {
 import { TabBar, TabData } from './TabBar';
 import { useTabs } from './useTabs';
 
-// Import the single real-world sample as source text so the demo exercises the
-// same public L5X parsing path as uploaded files.
-import controllerSource from '../examples/Cooker_1_AutoLogic_Program.L5X?raw';
+// Import the sanitized example as source text so the demo exercises the same
+// public L5X parsing path as uploaded files.
+import controllerSource from '../examples/ACDTestsWithAOI.L5X?raw';
 
 // ============================================================================
 // MAIN APP COMPONENT
