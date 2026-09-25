@@ -161,4 +161,11 @@ network, project-serial, customer, and proprietary process information.
 
 ## License
 
-[MIT](LICENSE)
+Copyright (c) 2026 onwards ControlZebra.
+
+Ladder Visualizer is licensed under the [GNU Affero General Public License
+v3.0 or later](LICENSE) (`AGPL-3.0-or-later`). The corresponding source code
+is available in this repository.
+
+Third-party packages retain their own licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

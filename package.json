@@ -20,7 +20,8 @@
     "./styles/variables": "./dist/styles/variables.css"
   },
   "files": [
-    "dist"
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "peerDependencies": {
     "react": "^18.0.0",
@@ -59,8 +60,8 @@
     "rockwell",
     "visualization"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "ControlZebra",
+  "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/node": "^24.0.0",
