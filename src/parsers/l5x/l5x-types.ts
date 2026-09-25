@@ -720,6 +720,7 @@ export interface L5XLocalTag {
   '@_Radix'?: string;
   '@_Dimensions'?: string;
   '@_ExternalAccess'?: string;
+  Comments?: L5XComments;
   Description?: L5XDescription;
   DefaultData?: L5XDefaultData | L5XDefaultData[];
 }
