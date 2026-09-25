@@ -129,6 +129,8 @@ enables the built-in dark-mode variables.
 
 ## Development
 
+Development and CI use Node.js 24.
+
 ```bash
 npm install
 npm run dev        # start the demo application
