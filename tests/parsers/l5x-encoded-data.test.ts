@@ -120,6 +120,31 @@ describe('standalone L5X EncodedData', () => {
     expect(document(escaped).encodedData[2].payload).toBe('a&amp;b');
   });
 
+  it('keeps original CRLF in encoded CDATA and detects line-ending-only changes', async () => {
+    const { diffEncodedData } = await import('../../src/diff');
+    const lf = read('encoded-mixed-v35').replace('<![CDATA[st-payload]]>', '<![CDATA[first\nsecond]]>');
+    const crlf = lf.replace('<![CDATA[first\nsecond]]>', '<![CDATA[first\r\nsecond]]>');
+    const before = document(lf);
+    const after = document(crlf);
+    expect(after.encodedData[2].payload).toBe('first\r\nsecond');
+    expect(diffEncodedData(before, after).map((change) => change.kind)).toEqual([
+      'unchanged', 'unchanged', 'changed',
+    ]);
+    const plain = read('encoded-mixed-v35').replace(
+      'plain-routine-payload',
+      'first\r\nsecond'
+    );
+    expect(document(plain).encodedData[1].payload).toBe('\nfirst\r\nsecond');
+  });
+
+  it('matches an encoded AOI after its context controller is renamed', async () => {
+    const { diffEncodedData } = await import('../../src/diff');
+    const source = read('encoded-aoi-v35');
+    const before = document(source);
+    const after = document(source.replace('Name="FixtureController"', 'Name="RenamedController"'));
+    expect(diffEncodedData(before, after).map((change) => change.kind)).toEqual(['unchanged']);
+  });
+
   it('compares exact payload text without treating metadata changes as decoded changes', async () => {
     const { diffEncodedData } = await import('../../src/diff');
     const source = read('encoded-mixed-v35');

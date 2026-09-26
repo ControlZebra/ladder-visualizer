@@ -35,7 +35,7 @@ import {
 } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
 import { l5xToDocument, L5XDocumentError, L5X_TARGET_TYPES } from './l5x-document';
-import { collectEncodedData } from './l5x-encoded-data';
+import { collectEncodedData, preserveEncodedLineEndings } from './l5x-encoded-data';
 import { finalizeController } from '../aoi-registration';
 import {
   checkParseExecution,
@@ -194,9 +194,12 @@ export class L5XParser extends BaseParser {
       const hasDecoratedData = /<(?:Structure|DefaultData|Data)(?=[\s>])/.test(content);
       const hasEncodedData = /<EncodedData(?=[\s>])/.test(content);
       if (hasDecoratedData || hasEncodedData) {
-        const ordered = this.orderedXmlParser.parse(content) as OrderedXmlNode[];
+        const orderedSource = hasEncodedData
+          ? preserveEncodedLineEndings(content)
+          : { xml: content, restore: (value: string) => value };
+        const ordered = this.orderedXmlParser.parse(orderedSource.xml) as OrderedXmlNode[];
         if (hasDecoratedData) annotateDecoratedChildOrder(xml as unknown as XmlNode, ordered);
-        if (hasEncodedData) encodedData = collectEncodedData(ordered);
+        if (hasEncodedData) encodedData = collectEncodedData(ordered, orderedSource.restore);
       }
     } catch (error) {
       return createFailureResult([

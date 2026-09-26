@@ -36,6 +36,8 @@ function identity(document: PlcDocument, item: PlcEncodedData): string {
     .filter((resource) => item.containerPath.startsWith(`${resource.sourcePath}/`))
     .sort((left, right) => right.sourcePath.length - left.sourcePath.length)[0];
   const ownerName = owner?.data && 'name' in owner.data ? owner.data.name : '';
-  const scope = owner ? `${owner.kind}\0${ownerName}` : item.containerPath;
+  const scope = owner?.kind === 'controller'
+    ? 'controller'
+    : owner ? `${owner.kind}\0${ownerName}` : item.containerPath;
   return `${scope}\0${item.attributes.EncodedType ?? ''}\0${item.attributes.Name ?? ''}`;
 }
