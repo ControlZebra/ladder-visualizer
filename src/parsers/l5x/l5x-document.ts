@@ -1,6 +1,7 @@
 import type {
   NormalizedController,
   PlcDocument,
+  PlcEncodedData,
   PlcResource,
   PlcResourceData,
   PlcResourceRole,
@@ -53,7 +54,11 @@ function role(value: unknown): PlcResourceRole | undefined {
 }
 
 /** Build resource wrappers over the same finalized objects used by compatibility callers. */
-export function l5xToDocument(xml: L5XContent, controller: NormalizedController): PlcDocument {
+export function l5xToDocument(
+  xml: L5XContent,
+  controller: NormalizedController,
+  encodedData: PlcEncodedData[] = []
+): PlcDocument {
   const root = xml.RSLogix5000Content;
   const doc: PlcDocument = {
     source: {
@@ -68,6 +73,7 @@ export function l5xToDocument(xml: L5XContent, controller: NormalizedController)
         : {}),
     },
     resources: [],
+    encodedData,
     targetIds: [],
     fragments: [],
     mappings: [],
@@ -114,20 +120,6 @@ export function l5xToDocument(xml: L5XContent, controller: NormalizedController)
             wrapper['@_Use']
           );
       });
-      if (childKind === 'routine') {
-        array(wrapper.EncodedData).forEach((item, index) => {
-          const data = normalized[ordinary.length + index];
-          if (data)
-            add(
-              childKind,
-              item,
-              data,
-              `${path}/${container}[1]/EncodedData[${index + 1}]`,
-              path,
-              wrapper['@_Use']
-            );
-        });
-      }
     };
     if (kind === 'controller') {
       const c = data as NormalizedController;
@@ -162,24 +154,32 @@ export function l5xToDocument(xml: L5XContent, controller: NormalizedController)
     }
   }
   add('controller', root.Controller, controller, `${rootPath}/Controller[1]`);
-  const candidates = doc.resources.filter((r) => r.kind === targetKinds[doc.source.targetType]);
-  const eligible = candidates.filter(
-    (r) => !explicitRoles.has(r.id) || explicitRoles.get(r.id) === 'target'
-  );
-  let selected = eligible.filter((r) => explicitRoles.get(r.id) === 'target');
+  const resourceCandidates = doc.resources
+    .filter((resource) => resource.kind === targetKinds[doc.source.targetType])
+    .map((resource) => ({
+      id: resource.id,
+      name: resourceNodes.get(resource.id)?.['@_Name'],
+      explicit: explicitRoles.get(resource.id),
+    }));
+  const encodedCandidates = doc.encodedData
+    .filter((item) => item.attributes.EncodedType === doc.source.targetType)
+    .map((item) => ({
+      id: item.sourcePath,
+      name: item.attributes.Name,
+      explicit: role(item.attributes.Use),
+    }));
+  const eligible = [...resourceCandidates, ...encodedCandidates]
+    .filter((candidate) => !candidate.explicit || candidate.explicit === 'target');
+  let selected = eligible.filter((candidate) => candidate.explicit === 'target');
   if (!selected.length) {
-    selected =
-      doc.source.containsContext === false
-        ? eligible
-        : eligible.filter((r) => resourceNodes.get(r.id)?.['@_Name'] === doc.source.targetName);
+    selected = doc.source.containsContext === false
+      ? eligible
+      : eligible.filter((candidate) => candidate.name === doc.source.targetName);
     if (!selected.length && eligible.length === 1) selected = eligible;
-    if (
-      selected.length > 1 &&
-      doc.source.containsContext !== false &&
-      doc.source.targetCount !== String(selected.length)
-    ) {
+    if (selected.length > 1 && doc.source.containsContext !== false &&
+      doc.source.targetCount !== String(selected.length)) {
       targetError(
-        'More than one resource matches the export target. Supply an unambiguous export.',
+        'More than one item matches the export target. Supply an unambiguous export.',
         'AMBIGUOUS_L5X_TARGET'
       );
     }
@@ -203,11 +203,11 @@ export function l5xToDocument(xml: L5XContent, controller: NormalizedController)
       'TargetCount'
     );
   }
-  doc.targetIds = selected.map((r) => r.id);
-  const selectedIds = new Set(doc.targetIds);
+  doc.targetIds = selected.map((candidate) => candidate.id);
+  const selectedIdSet = new Set(doc.targetIds);
   const roles = new Map<string, PlcResourceRole>();
   for (const resource of doc.resources) {
-    resource.role = selectedIds.has(resource.id)
+    resource.role = selectedIdSet.has(resource.id)
       ? 'target'
       : (explicitRoles.get(resource.id) ??
         (resource.ownerId ? roles.get(resource.ownerId) : undefined) ??

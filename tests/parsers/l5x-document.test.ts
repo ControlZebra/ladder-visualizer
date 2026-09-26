@@ -58,7 +58,7 @@ const validFixtures = L5X_FIXTURES.filter(
 );
 describe('L5X target-aware document contract', () => {
   it.each(validFixtures)(
-    '$id exposes the declared targets with owned typed resources',
+    '$id exposes declared resource or standalone encoded targets',
     (fixture) => {
       const source = read(fixture.id);
       const doc = document(source);
@@ -68,12 +68,18 @@ describe('L5X target-aware document contract', () => {
         softwareRevision: fixture.studio5000Version,
         targetType: fixture.targetType,
       });
-      expect(targets(doc).length).toBeGreaterThan(0);
+      const encodedTargets = (doc.encodedData ?? []).filter((item) => doc.targetIds.includes(item.sourcePath));
+      expect(targets(doc).length + encodedTargets.length).toBeGreaterThan(0);
       expect(
         targets(doc).every(
           (resource) => resource.kind === kinds[fixture.targetType] && resource.role === 'target'
         )
       ).toBe(true);
+      expect(encodedTargets.every((item) => item.attributes.EncodedType === fixture.targetType)).toBe(true);
+      expect(doc.targetIds.every((id) =>
+        doc.resources.some((resource) => resource.id === id) ||
+        doc.encodedData?.some((item) => item.sourcePath === id)
+      )).toBe(true);
       expect(new Set(doc.resources.map((resource) => resource.id)).size).toBe(doc.resources.length);
       for (const resource of doc.resources) {
         expect(resource.sourcePath).toBe(resource.id);
@@ -323,14 +329,16 @@ describe('L5X target-aware document contract', () => {
   );
 
   it.each([33, 34, 35])(
-    'v%i returns encoded routine targets with an inspectable protected body',
+    'v%i returns encoded routine targets as standalone document items',
     (major) => {
       const doc = document(read(`document-encoded-v${major}`));
-      const target = targets(doc)[0];
-      expect(target).toMatchObject({
-        kind: 'routine',
-        data: { name: 'Secret', type: 'RLL', rungs: [] },
-      });
+      expect(targets(doc)).toEqual([]);
+      expect(doc.encodedData).toMatchObject([{
+        attributes: { Name: 'Secret', Type: 'RLL', EncodedType: 'Routine' },
+        payload: 'synthetic-encoded-marker',
+      }]);
+      const target = doc.encodedData[0];
+      expect(doc.targetIds).toEqual([target.sourcePath]);
       expect(doc.fragments).toContainEqual({
         path: target.sourcePath,
         reason: 'protected',

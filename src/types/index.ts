@@ -4,6 +4,14 @@
 
 export type {
   NormalizedController,
+  PlcDocument,
+  PlcEncodedData,
+  PlcResource,
+  PlcResourceRole,
+  PlcExportTarget,
+  PlcVendorFragment,
+  PlcSourceMapping,
+  ParsedXmlValue,
   NormalizedProgram,
   NormalizedProgramParameter,
   ProgramParameterUsage,
