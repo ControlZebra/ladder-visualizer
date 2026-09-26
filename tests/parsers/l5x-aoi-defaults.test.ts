@@ -152,6 +152,74 @@ describe('AOI defaults', () => {
     }));
   });
 
+  it.each([
+    {
+      name: 'parameter dimensions',
+      before: 'Name="ArrayDefault" TagType="Base" DataType="DINT" Dimensions="2"',
+      after: 'Name="ArrayDefault" TagType="Base" DataType="DINT" Dimensions="2,x"',
+      code: 'UNNORMALIZED_L5X_AOI_PARAMETER_DIMENSIONS',
+      path: '/Parameters[1]/Parameter[1]/@Dimensions',
+    },
+    {
+      name: 'decorated array dimensions',
+      before: '<Array DataType="DINT" Dimensions="2" Radix="Decimal">',
+      after: '<Array DataType="DINT" Dimensions="2,x" Radix="Decimal">',
+      code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
+      path: '/Parameters[1]/Parameter[1]/DefaultData[1]/Array[1]/@Dimensions',
+    },
+    {
+      name: 'decorated array element index',
+      before: '<Element Index="[0]" Value="7" />',
+      after: '<Element Index="[x]" Value="7" />',
+      code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
+      path: '/Parameters[1]/Parameter[1]/DefaultData[1]/Array[1]/Element[1]/@Index',
+    },
+    {
+      name: 'missing decorated array element index',
+      before: '<Element Index="[0]" Value="7" />',
+      after: '<Element Value="7" />',
+      code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
+      path: '/Parameters[1]/Parameter[1]/DefaultData[1]/Array[1]/Element[1]',
+    },
+    {
+      name: 'nested array member dimensions',
+      before: '<ArrayMember Name="Samples" DataType="DINT" Dimensions="2" Radix="Decimal">',
+      after: '<ArrayMember Name="Samples" DataType="DINT" Dimensions="2,x" Radix="Decimal">',
+      code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
+      path: '/LocalTags[1]/LocalTag[2]/DefaultData[1]/Structure[1]/ArrayMember[1]/@Dimensions',
+    },
+    {
+      name: 'nested array member element index',
+      before: '<ArrayMember Name="Samples" DataType="DINT" Dimensions="2" Radix="Decimal"><Element Index="[1]"',
+      after: '<ArrayMember Name="Samples" DataType="DINT" Dimensions="2" Radix="Decimal"><Element Index="[x]"',
+      code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
+      path: '/LocalTags[1]/LocalTag[2]/DefaultData[1]/Structure[1]/ArrayMember[1]/Element[1]/@Index',
+    },
+  ])('reports unrepresentable $name without claiming complete coverage', ({ before, after, code, path }) => {
+    const base = fixture('normalization-coverage-v35').replace(/<Programs>[\s\S]*?<\/Programs>/, '');
+    expect(base).toContain(before);
+    const source = base.replace(before, after);
+    expect(source).toContain(after);
+    const controller = parseString(source, 'l5x');
+    const document = parseDocumentString(source, 'l5x');
+    const aoiPath = '/RSLogix5000Content/Controller[1]/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[1]';
+    const expectedPath = aoiPath + path;
+
+    for (const result of [controller, document]) {
+      expect(result).toMatchObject({ success: true, status: 'partial' });
+      expect(result.warnings).toContainEqual(expect.objectContaining({
+        code,
+        location: { path: expectedPath },
+      }));
+    }
+    const collectionPath = aoiPath + (path.startsWith('/Parameters') ? '/Parameters[1]' : '/LocalTags[1]');
+    const original = document.data?.fragments.find(({ path: fragmentPath }) => fragmentPath === collectionPath);
+    expect(original).toBeDefined();
+    expect(JSON.stringify(original?.value)).toContain(
+      after.includes('2,x') ? '2,x' : after.includes('[x]') ? '[x]' : '"@_Value":"7"'
+    );
+  });
+
   it('keeps raw and unsupported data inspectable with precise partial warnings', () => {
     const source = fixture('aoi-v35')
       .replace('<DefaultData Format="L5K"><![CDATA[0]]></DefaultData>', '<DefaultData Format="Opaque">hidden</DefaultData>')

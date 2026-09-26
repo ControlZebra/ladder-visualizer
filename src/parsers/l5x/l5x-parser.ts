@@ -30,6 +30,8 @@ import {
   type L5XTag,
   type L5XTagData,
   type L5XTagStructure,
+  type L5XArray,
+  type L5XArrayMember,
 } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
 import { l5xToDocument, L5XDocumentError, L5X_TARGET_TYPES } from './l5x-document';
@@ -595,10 +597,21 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
       const aoiPath = `${controllerPath}/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[${aoiIndex + 1}]`;
 
       ensureArray(aoi.Parameters?.Parameter).forEach((parameter, parameterIndex) => {
+        const parameterPath = `${aoiPath}/Parameters[1]/Parameter[${parameterIndex + 1}]`;
+        const dimensions = parameter['@_Dimensions'];
+        if (dimensions !== undefined && !isFaithfullyNormalizedIntegerList(dimensions)) {
+          warnings.push(createParseWarning(
+            `AOI parameter ${parameter['@_Name'] ?? parameterIndex + 1} has dimensions that cannot be represented as safe integer extents.`,
+            {
+              code: 'UNNORMALIZED_L5X_AOI_PARAMETER_DIMENSIONS',
+              location: { path: `${parameterPath}/@Dimensions` },
+            }
+          ));
+        }
         collectUnsupportedAOIDefaultWarnings(
           parameter.DefaultData,
           parameter['@_Name'] ?? String(parameterIndex + 1),
-          `${aoiPath}/Parameters[1]/Parameter[${parameterIndex + 1}]/DefaultData`,
+          `${parameterPath}/DefaultData`,
           warnings
         );
       });
@@ -606,7 +619,7 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
       ensureArray(aoi.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
         const tagPath = `${aoiPath}/LocalTags[1]/LocalTag[${tagIndex + 1}]`;
         const dimensions = tag['@_Dimensions'];
-        if (dimensions !== undefined && !isFaithfullyNormalizedAOILocalDimension(dimensions)) {
+        if (dimensions !== undefined && !isFaithfullyNormalizedIntegerList(dimensions)) {
           warnings.push(
             createParseWarning(
               `AOI local tag ${tag['@_Name'] ?? tagIndex + 1} has dimensions that cannot be represented as safe integer extents.`,
@@ -664,12 +677,75 @@ function collectUnsupportedAOIDefaultWarnings(
         }
       ));
     }
+    if (format === 'Decorated' || format === 'Alarm') {
+      if (typeof data === 'string') return;
+      ensureArray(data.Array).forEach((array, index) =>
+        collectUnnormalizedAOIArrayWarnings(array, `${dataPath}/Array[${index + 1}]`, ownerName, warnings)
+      );
+      ensureArray(data.Structure).forEach((structure, index) =>
+        collectUnnormalizedAOIStructureWarnings(structure, `${dataPath}/Structure[${index + 1}]`, ownerName, warnings)
+      );
+    }
   });
 }
 
-function isFaithfullyNormalizedAOILocalDimension(value: string): boolean {
-  if (!/^\d+(?:[\s,]+\d+)*$/.test(value.trim())) return false;
-  return value.trim().split(/[\s,]+/).every((part) => Number.isSafeInteger(Number(part)));
+function collectUnnormalizedAOIArrayWarnings(
+  array: L5XArray | L5XArrayMember,
+  path: string,
+  ownerName: string,
+  warnings: ParseWarning[]
+): void {
+  const dimensions = array['@_Dimensions'];
+  if (dimensions !== undefined && !isFaithfullyNormalizedIntegerList(dimensions)) {
+    warnings.push(createParseWarning(
+      `AOI value ${ownerName} has array dimensions that cannot be represented as safe integer extents.`,
+      { code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA', location: { path: `${path}/@Dimensions` } }
+    ));
+  }
+  ensureArray(array.Element).forEach((element, index) => {
+    const elementPath = `${path}/Element[${index + 1}]`;
+    const sourceIndex = element['@_Index'];
+    if (sourceIndex === undefined || !isFaithfullyNormalizedIntegerList(sourceIndex)) {
+      warnings.push(createParseWarning(
+        `AOI value ${ownerName} has a missing or unrepresentable array element index.`,
+        {
+          code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
+          location: { path: sourceIndex === undefined ? elementPath : `${elementPath}/@Index` },
+        }
+      ));
+    }
+    ensureArray(element.Structure).forEach((structure, structureIndex) =>
+      collectUnnormalizedAOIStructureWarnings(
+        structure,
+        `${elementPath}/Structure[${structureIndex + 1}]`,
+        ownerName,
+        warnings
+      )
+    );
+  });
+}
+
+function collectUnnormalizedAOIStructureWarnings(
+  structure: L5XTagStructure,
+  path: string,
+  ownerName: string,
+  warnings: ParseWarning[]
+): void {
+  ensureArray(structure.ArrayMember).forEach((array, index) =>
+    collectUnnormalizedAOIArrayWarnings(array, `${path}/ArrayMember[${index + 1}]`, ownerName, warnings)
+  );
+  ensureArray(structure.StructureMember).forEach((member, index) =>
+    collectUnnormalizedAOIStructureWarnings(member, `${path}/StructureMember[${index + 1}]`, ownerName, warnings)
+  );
+}
+
+function isFaithfullyNormalizedIntegerList(value: string): boolean {
+  const trimmed = value.trim();
+  const unwrapped = trimmed.startsWith('[') && trimmed.endsWith(']')
+    ? trimmed.slice(1, -1)
+    : trimmed;
+  if (!/^\d+(?:[\s,]+\d+)*$/.test(unwrapped)) return false;
+  return unwrapped.split(/[\s,]+/).every((part) => Number.isSafeInteger(Number(part)));
 }
 
 const SUPPORTED_TAG_FORMATS = new Set(['L5K', 'String', 'Decorated', 'Alarm']);
