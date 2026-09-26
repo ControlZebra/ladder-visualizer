@@ -480,16 +480,16 @@ describe('L5X target-aware document contract', () => {
     expect(parseDocumentString(source).errors?.[0]?.code).toBe('UNSUPPORTED_FORMAT');
   });
 
-  it('parses the existing real export through the public document API', () => {
+  it('parses the sanitized example through the public document API', () => {
     const source = readFileSync(
-      join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X'),
+      join(__dirname, '../../examples/ACDTestsWithAOI.L5X'),
       'utf8'
     );
     const result = document(source);
     expect(targets(result)[0]).toMatchObject({
-      kind: 'program',
-      data: { name: 'Cooker_1_AutoLogic' },
+      kind: 'controller',
+      data: { name: 'ACDTests' },
     });
-    expect(result.resources.some((r) => r.role === 'reference')).toBe(true);
+    expect(result.resources.some((r) => r.kind === 'aoi')).toBe(true);
   });
 });

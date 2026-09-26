@@ -8,7 +8,7 @@ export default defineConfig({
     outDir: '.performance-dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'tests/visual/fbd.html'),
+      input: resolve(import.meta.dirname, 'tests/visual/fbd.html'),
     },
   },
 });

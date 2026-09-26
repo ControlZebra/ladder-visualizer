@@ -90,7 +90,8 @@ L5X parsing rejects XML `DOCTYPE` declarations and custom entities. Built-in
 XML entities such as `&amp;` remain supported. The default resource guard accepts
 at most 10 MiB of UTF-8 source, 100,000 XML elements, and 64 nested elements.
 These defaults cover normal controller exports while preventing unbounded input
-work; the real example export in this repository is about 2.1 MiB.
+work. The repository includes a small, sanitized controller example for local
+development and integration testing.
 
 Pass controlled overrides for trusted inputs, and use standard cancellation or
 timeout controls at any public parsing entry point:
@@ -128,6 +129,8 @@ enables the built-in dark-mode variables.
 
 ## Development
 
+Development and CI use Node.js 24.
+
 ```bash
 npm install
 npm run dev        # start the demo application
@@ -152,6 +155,17 @@ examples/      small, representative controller exports
 tests/         unit and integration tests
 ```
 
+The example controller contains synthetic test logic and sanitized metadata. Do
+not commit production controller exports without first removing personal,
+network, project-serial, customer, and proprietary process information.
+
 ## License
 
-[MIT](LICENSE)
+Copyright (c) 2026 onwards ControlZebra.
+
+Ladder Visualizer is licensed under the [GNU Affero General Public License
+v3.0 or later](LICENSE) (`AGPL-3.0-or-later`). The corresponding source code
+is available in this repository.
+
+Third-party packages retain their own licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
