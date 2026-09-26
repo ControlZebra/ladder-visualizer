@@ -9,7 +9,7 @@ import {
   registerAOI,
 } from '../../src/types';
 
-const l5xPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+const l5xPath = join(__dirname, '../../examples/ACDTestsWithAOI.L5X');
 const l5xContent = readFileSync(l5xPath, 'utf-8');
 const parsedExample = parseString(l5xContent, 'l5x');
 
@@ -55,15 +55,15 @@ function createAOIController(parameterName: string): string {
 </RSLogix5000Content>`;
 }
 
-describe('Integration: Real L5X Controller Export', () => {
-  it('parses the restored real controller export', () => {
-    expect(controller.name).toBe('PLC100_Mashing');
+describe('Integration: Sanitized L5X Controller Export', () => {
+  it('parses the sanitized controller export', () => {
+    expect(controller.name).toBe('ACDTests');
     expect(controller.dataTypes.length).toBeGreaterThan(0);
     expect(controller.tags.length).toBeGreaterThan(0);
     expect(controller.programs.length).toBeGreaterThan(0);
   });
 
-  it('parses ladder instructions across real routines', () => {
+  it('parses ladder instructions across example routines', () => {
     const rllRoutines = controller.programs
       .flatMap((program) => program.routines)
       .filter((routine) => routine.type === 'RLL' && routine.rungs.length > 0);
@@ -79,37 +79,37 @@ describe('Integration: Real L5X Controller Export', () => {
     }
   });
 
-  it('resolves tags used by the real controller', () => {
+  it('indexes tags and data types from the example controller', () => {
     const resolver = createTagResolver(controller);
 
     expect(resolver.getAllTags().length).toBeGreaterThan(0);
-    expect(resolver.getUsedTags().length).toBeGreaterThan(0);
+    expect(resolver.getTag('DINT')?.dataType).toBe('DINT');
+    expect(resolver.getDataType('UDT_Test')).toBeDefined();
   });
 
-  it('parses complex CPT expressions from the real controller', () => {
-    const cptInstruction = controller.programs
+  it('parses contact and coil instructions from the example controller', () => {
+    const instructions = controller.programs
       .flatMap((program) => program.routines)
       .flatMap((routine) => routine.rungs)
-      .flatMap((rung) => rung.instructions)
-      .find((instruction) => instruction.mnemonic === 'CPT');
+      .flatMap((rung) => rung.instructions);
 
-    expect(cptInstruction).toBeDefined();
-    expect(cptInstruction?.operands.length).toBe(2);
+    expect(instructions.some((instruction) => instruction.mnemonic === 'XIC')).toBe(true);
+    expect(instructions.some((instruction) => instruction.mnemonic === 'OTE')).toBe(true);
   });
 });
 
 describe('Integration: Unified parseString API', () => {
-  it('auto-detects the restored L5X example', () => {
+  it('auto-detects the sanitized L5X example', () => {
     const result = parseString(l5xContent);
 
     expect(result.success).toBe(true);
     expect(result.data?.sourceFormat).toBe('l5x');
-    expect(result.data?.name).toBe('PLC100_Mashing');
+    expect(result.data?.name).toBe('ACDTests');
     expect(result.data?.programs.length).toBeGreaterThan(0);
     expect(result.data?.dataTypes.length).toBeGreaterThan(0);
   });
 
-  it('parses the restored L5X example with an explicit format hint', () => {
+  it('parses the sanitized L5X example with an explicit format hint', () => {
     const result = parseString(l5xContent, 'l5x');
 
     expect(result.success).toBe(true);

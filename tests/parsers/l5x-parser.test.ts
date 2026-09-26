@@ -11,7 +11,7 @@ import {
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-const exampleL5XPath = join(__dirname, '../../examples/Cooker_1_AutoLogic_Program.L5X');
+const exampleL5XPath = join(__dirname, '../../examples/ACDTestsWithAOI.L5X');
 const exampleL5XContent = readFileSync(exampleL5XPath, 'utf-8');
 const fixtureDirectory = join(__dirname, '../fixtures/l5x');
 
@@ -1014,189 +1014,55 @@ And Path OK]]></Comment>
   });
 });
 
-describe('L5XParser with real L5X file', () => {
-  it('should parse the example Cooker_1_AutoLogic_Program.L5X file', () => {
+describe('L5XParser with sanitized example', () => {
+  it('parses the ACDTestsWithAOI controller export', () => {
     const result = l5xParser.parse(exampleL5XContent);
 
     expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
     expect(result.parseTimeMs).toBeDefined();
-
-    // Verify basic structure
-    expect(result.data?.name).toBe('PLC100_Mashing');
-    expect(result.data?.vendor).toBe('rockwell');
-    expect(result.data?.sourceFormat).toBe('l5x');
-
-    // Check vendor metadata
-    expect(result.data?.vendorMetadata?.targetType).toBe('Program');
-    expect(result.data?.vendorMetadata?.targetName).toBe('Cooker_1_AutoLogic');
-
-    // Should have data types
-    expect(result.data?.dataTypes.length).toBeGreaterThan(0);
-
-    // Find specific data type from the file
-    const analogValveUDT = result.data?.dataTypes.find((dt) => dt.name === 'Analog_Valve_UDT');
-    expect(analogValveUDT).toBeDefined();
-    expect(analogValveUDT?.class).toBe('User');
-    expect(analogValveUDT?.members.length).toBeGreaterThan(0);
-
-    // Should have programs
-    expect(result.data?.programs.length).toBeGreaterThan(0);
-
-    // Find the Cooker_1_AutoLogic program
-    const cookerProgram = result.data?.programs.find((p) => p.name === 'Cooker_1_AutoLogic');
-    expect(cookerProgram).toBeDefined();
-    expect(cookerProgram?.routines.length).toBeGreaterThan(0);
-
-    // Check for RLL routines with rungs
-    const rllRoutine = cookerProgram?.routines.find((r) => r.type === 'RLL' && r.rungs.length > 0);
-    expect(rllRoutine).toBeDefined();
-
-    // Verify rungs are parsed
-    const firstRung = rllRoutine?.rungs[0];
-    expect(firstRung).toBeDefined();
-    expect(typeof firstRung?.number).toBe('number');
-    expect(typeof firstRung?.raw).toBe('string');
+    expect(result.data).toMatchObject({
+      name: 'ACDTests',
+      vendor: 'rockwell',
+      sourceFormat: 'l5x',
+    });
+    expect(result.data?.vendorMetadata).toMatchObject({
+      targetType: 'Controller',
+      targetName: 'ACDTests',
+      controllerName: 'ACDTests',
+    });
+    expect(result.data?.dataTypes.some((dataType) => dataType.name === 'UDT_Test')).toBe(true);
+    expect(result.data?.programs.some((program) => program.name === 'MainProgram')).toBe(true);
+    expect(result.data?.modules.map((module) => module.name)).toEqual(
+      expect.arrayContaining(['Local', 'ETH_MODULE'])
+    );
   });
 
-  it('should parse AOIs with full metadata from example file', () => {
+  it('parses the example AOI metadata, parameters, local tags, and logic', () => {
     const result = l5xParser.parse(exampleL5XContent);
+    const aoi = result.data?.aois.find(({ name }) => name === 'AddOnInstruction');
 
     expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-
-    // Should have AOIs
-    expect(result.data?.aois.length).toBeGreaterThan(0);
-
-    // Find the Analog_Input AOI
-    const analogInputAOI = result.data?.aois.find((aoi) => aoi.name === 'Analog_Input');
-    expect(analogInputAOI).toBeDefined();
-
-    // Check basic metadata
-    expect(analogInputAOI?.class).toBe('Standard');
-    expect(analogInputAOI?.revision).toBe('1.1');
-
-    // Check execution options
-    expect(analogInputAOI?.executePrescan).toBe(false);
-    expect(analogInputAOI?.executePostscan).toBe(false);
-    expect(analogInputAOI?.executeEnableInFalse).toBe(false);
-
-    // Check parameters
-    expect(analogInputAOI?.parameters.length).toBeGreaterThan(0);
-
-    // Find EnableIn parameter (standard AOI parameter)
-    const enableInParam = analogInputAOI?.parameters.find((p) => p.name === 'EnableIn');
-    expect(enableInParam).toBeDefined();
-    expect(enableInParam?.usage).toBe('Input');
-    expect(enableInParam?.dataType).toBe('BOOL');
-    expect(enableInParam?.visible).toBe(false);
-    expect(enableInParam?.required).toBe(false);
-
-    // Find a visible input parameter
-    const inRawParam = analogInputAOI?.parameters.find((p) => p.name === 'In_Raw');
-    expect(inRawParam).toBeDefined();
-    expect(inRawParam?.usage).toBe('Input');
-    expect(inRawParam?.visible).toBe(true);
-    expect(inRawParam?.required).toBe(true);
-
-    // Check local tags
-    expect(analogInputAOI?.localTags.length).toBeGreaterThan(0);
-
-    // Check that AOI has routines (internal logic)
-    expect(analogInputAOI?.routines.length).toBeGreaterThan(0);
-
-    // Find the Logic routine
-    const logicRoutine = analogInputAOI?.routines.find((r) => r.name === 'Logic');
-    expect(logicRoutine).toBeDefined();
-    expect(logicRoutine?.type).toBe('RLL');
-    expect(logicRoutine?.rungs.length).toBeGreaterThan(0);
+    expect(aoi).toMatchObject({
+      revision: '1.7',
+      revisionExtension: 'ExtendedText',
+      executePrescan: false,
+      executePostscan: false,
+      executeEnableInFalse: false,
+    });
+    expect(aoi?.parameters.map((parameter) => parameter.name)).toEqual(
+      expect.arrayContaining(['EnableIn', 'EnableOut'])
+    );
+    expect(aoi?.localTags.some(({ name }) => name === 'AOIDINTLocalTag')).toBe(true);
+    expect(aoi?.routines.find(({ name }) => name === 'Logic')?.rungs[0]?.raw).toBe('NOP();');
   });
 
-  it('should parse VFD AOI with InOut parameters', () => {
+  it('parses the example RLL program routines', () => {
     const result = l5xParser.parse(exampleL5XContent);
+    const main = result.data?.programs.find(({ name }) => name === 'MainProgram');
+    const routine = main?.routines.find(({ name }) => name === 'MainRoutine');
 
     expect(result.success).toBe(true);
-
-    // Find the PF525_VFD_E_ENET AOI
-    const vfdAOI = result.data?.aois.find((aoi) => aoi.name === 'PF525_VFD_E_ENET');
-    expect(vfdAOI).toBeDefined();
-
-    // Check revision extension
-    expect(vfdAOI?.revisionExtension).toBe('Deluxe Edition');
-
-    // Check for InOut parameters
-    const pf525InParam = vfdAOI?.parameters.find((p) => p.name === 'PF525_In');
-    expect(pf525InParam).toBeDefined();
-    expect(pf525InParam?.usage).toBe('InOut');
-
-    const pf525OutParam = vfdAOI?.parameters.find((p) => p.name === 'PF525_Out');
-    expect(pf525OutParam).toBeDefined();
-    expect(pf525OutParam?.usage).toBe('InOut');
-  });
-
-  it('should parse AOI local tags with dimensions (arrays)', () => {
-    const result = l5xParser.parse(exampleL5XContent);
-
-    expect(result.success).toBe(true);
-
-    // Find the Analog_Input AOI
-    const analogInputAOI = result.data?.aois.find((aoi) => aoi.name === 'Analog_Input');
-    expect(analogInputAOI).toBeDefined();
-
-    // Find the L_ONS local tag which is an array
-    const onsTag = analogInputAOI?.localTags.find((t) => t.name === 'L_ONS');
-    expect(onsTag).toBeDefined();
-    expect(onsTag?.dataType).toBe('BOOL');
-    expect(onsTag?.dimensions).toEqual([32]);
-  });
-
-  it('should correctly extract controller name and metadata from Program export', () => {
-    const result = l5xParser.parse(exampleL5XContent);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-
-    // Controller name should be extracted from Controller element
-    expect(result.data?.name).toBe('PLC100_Mashing');
-
-    // Vendor metadata should include both controller name and target name
-    expect(result.data?.vendorMetadata?.controllerName).toBe('PLC100_Mashing');
-    expect(result.data?.vendorMetadata?.targetName).toBe('Cooker_1_AutoLogic');
-    expect(result.data?.vendorMetadata?.targetType).toBe('Program');
-  });
-
-  it('should parse data types with usage context information', () => {
-    const result = l5xParser.parse(exampleL5XContent);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-
-    // Data types from context should have usage set to 'Context'
-    const analogValveUDT = result.data?.dataTypes.find((dt) => dt.name === 'Analog_Valve_UDT');
-    expect(analogValveUDT).toBeDefined();
-    expect(analogValveUDT?.class).toBe('User');
-    expect(analogValveUDT?.usage).toBe('Context');
-  });
-
-  it('should parse modules with name and usage information', () => {
-    const result = l5xParser.parse(exampleL5XContent);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-
-    // Should have modules
-    expect(result.data?.modules.length).toBeGreaterThan(0);
-
-    // Find a specific module by name
-    const aiModule = result.data?.modules.find((m) => m.name === 'AI_ECP100_C_2');
-    expect(aiModule).toBeDefined();
-    expect(aiModule?.usage).toBe('Reference');
-
-    // Check that all modules have names
-    for (const module of result.data?.modules || []) {
-      expect(module.name).toBeDefined();
-      expect(typeof module.name).toBe('string');
-      expect(module.name.length).toBeGreaterThan(0);
-    }
+    expect(routine?.rungs).toHaveLength(3);
+    expect(routine?.rungs[1]?.instructions.map(({ mnemonic }) => mnemonic)).toEqual(['XIC', 'OTE']);
   });
 });
