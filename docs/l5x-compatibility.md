@@ -1,6 +1,6 @@
 # L5X compatibility contract
 
-Compatibility matrix version: **1.12.0**
+Compatibility matrix version: **1.15.0**
 
 This document defines the narrow, testable claims Ladder Visualizer may make about Rockwell L5X input. A profile is a promise about named constructs and export shapes. It is not a percentage derived from the number of entities that happened to survive normalization.
 
@@ -8,7 +8,7 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 ## Compatibility profiles
 
-| Profile                   | Version 1.12.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
+| Profile                   | Version 1.15.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
 | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `rockwell-controller-rll` | Supported            | Controller identity/communication metadata, UDT headers, controller and program tags, program hierarchy, Equipment Phase metadata, tasks and schedules, trends and quick-watch lists, AOIs, modules, RLL routines/rungs, and Program/AOI Structured Text source lines | Rockwell-specific controller configuration and SFC-based equipment sequences are preserved rather than normalized |
 | `rockwell-program-rll`    | Supported            | Program target exports with identity/hierarchy attributes, parameters, program state, program tags, RLL routines, and Structured Text source lines | A parent omitted from a component export is not treated as invalid; resource IDs are document-local |
@@ -48,6 +48,8 @@ Focused v33-v35 FBD fixtures, an AOI-owned FBD fixture, a complete FBD collectio
 
 Public parser results expose both the legacy `success` boolean and a `status` of `complete`, `partial`, or `failed`. Built-in parsers and result helpers always provide `status`. The field remains optional on the `PLCParser` implementation contract so custom parsers compiled against the earlier boolean-only result remain source-compatible; registry and document orchestration fill a missing status deterministically.
 
+The v33-v35 matrix now covers `EncodedData` routine targets, encoded AOI targets, and mixed documents. The v35 AOI fixture is a sanitized, schema-valid derivative of the public Studio 5000 v35.00 export [`Par_Cast_AOI.L5X` at `b27a0e7`](https://github.com/JeremyMedders/LogixLibraries/blob/b27a0e7fdf99f644d3d32fb84d45810db469a8f7/src/Parameter/Par_Cast_AOI.L5X). Its wrapper attributes and placement follow that export; payload, names, and children were reduced to synthetic content. The public document parser also recognizes the original export and selects its encoded AOI target. The original export includes fields that the pinned v35 XSD rejects, so the derivative is the schema fixture, while the original is shape evidence. The v33-v34 encoded AOI cases and all encoded routine cases are schema-backed synthetic boundaries, not claims of observed exports for those versions.
+
 Completeness is evaluated against the exact encountered construct, not merely whether its source survives in a document fragment. Program `LocalTags` are currently preserved but not exposed by `NormalizedProgram`, so each encountered local emits `UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG` and makes the result `partial`. AOI parameters and local tags expose ordered `defaultData` representations with typed recursive decorated arrays and structures, while `defaultValue` remains a scalar convenience field. AOI local dimensions retain their ordered extents. Parameter and local-tag default changes participate in AOI comparison. Raw or unsupported AOI default formats and nodes emit `UNSUPPORTED_L5X_AOI_DEFAULT_DATA`; unrepresentable local or parameter dimensions and decorated array dimensions or indexes emit precise `UNNORMALIZED_L5X_AOI_*` diagnostics. These cases make the result `partial` while the source remains inspectable. AOI revision notes and additional help text are normalized documentation fields and do not become gaps merely because their source representation is also retained.
 
 The tracked `AB-samples` exports at `68a6a4c05552f9837c95d0bb0accc20c98d7f9e5` contain AOI decorated arrays and structures, but no Program `LocalTags` or multidimensional AOI locals. The v33–v35 fixtures for the latter constructs are schema-valid status probes; they do not establish a Studio export compatibility claim for those shapes.
@@ -64,13 +66,15 @@ Controller name, description, project serial, project dates, processor type, and
 
 ## Target-aware document API
 
-`parseDocumentString`, `parseDocumentBuffer`, `parseDocumentFile`, and `L5XParser.parseDocument` return a `PlcDocument`. All eight target families appear in `resources`, including context and reference dependencies. Each discriminated resource has a `kind`, typed `data`, a `role`, a one-based XML `sourcePath` used as its document-local `id`, and an `ownerId` where applicable. `targetIds` identifies only the declared export family; owned descendants inherit target roles unless explicitly overridden. IDs are not stable across exports.
+`parseDocumentString`, `parseDocumentBuffer`, `parseDocumentFile`, and `L5XParser.parseDocument` return a `PlcDocument`. Ordinary members of all eight target families appear in `resources`, including context and reference dependencies. Each discriminated resource has a `kind`, typed `data`, a `role`, a one-based XML `sourcePath` used as its document-local `id`, and an `ownerId` where applicable. `targetIds` identifies only the declared export family; it can point to a resource or an opaque encoded item. Owned descendants inherit target roles unless explicitly overridden. IDs are not stable across exports.
+
+Every `<EncodedData>` wrapper appears in XML order at `PlcDocument.encodedData`, independently of Routine, AOI, UDT, and Tag models. Each item retains its source path, containing path, wrapper attributes, and untrimmed direct text or CDATA payload. Its capabilities say the payload can be inspected while decoded visualization and semantic queries are unavailable. Encoded routine and AOI targets select the encoded item's path without making an empty normalized routine or AOI. `diffEncodedData` compares exact payload text for matched items; it does not infer decoded changes or Studio importability. The controller-shaped entry point remains partial for encoded content and does not expose the payload collection.
 
 Explicit resource `Use` takes precedence over the immediate collection's `Use`. Otherwise targets are selected by name, a unique eligible candidate, or an export without context. The parser checks declared target counts and reports `AMBIGUOUS_L5X_TARGET` instead of choosing between unresolved candidates. Missing targets produce `MISSING_L5X_TARGET` through document and controller-shaped APIs.
 
 `fragments` retains unmodeled elements, protected/encoded content, and source representations that extend or overlap existing normalized fields. Each fragment has a path, parsed subtree, and reason (`unmodeled`, `protected`, or `source-representation`). Attributes use `@_`; text and CDATA use `#text` and `#cdata`. `mappings` accounts for source leaves represented by typed fields. Tests require every parsed leaf to be mapped or preserved. This is parsed-subtree preservation, without a byte-perfect XML or comment guarantee. Normalized decorated structures retain heterogeneous member declaration order. Opaque trend templates are retained as source representations.
 
-A successful result means a usable document was returned, not that all content was normalized. `PRESERVED_L5X_CONTENT` identifies results with retained fragments. Standard tag metadata outside the normalized contract, explicitly preserved Rockwell controller configuration, recovered FBD placeholders, and SFC bodies can make a result partial. Encoded routines expose their headers and retain the body as a protected fragment.
+A successful result means a usable document was returned, not that all content was normalized. `PRESERVED_L5X_CONTENT` identifies results with retained fragments. Standard tag metadata outside the normalized contract, explicitly preserved Rockwell controller configuration, recovered FBD placeholders, and SFC bodies can make a result partial. Encoded wrappers and their additional source children remain protected fragments and make the result partial.
 
 ### FBD compatibility boundary
 
@@ -109,7 +113,7 @@ Every fixture declares both `sourceCounts` and `normalizedCounts`:
 - Source counts are lexical counts of the entity elements present in the L5X input. This remains deterministic even for intentionally malformed files.
 - Normalized counts describe the current `NormalizedController` result. They are `null` when parsing fails.
 - AOI routines and rungs are included in the aggregate routine and rung totals.
-- Counts include ST lines, canonical FBD bodies/sheets/elements/connections/attachments/placeholders, program parameters, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, trends, pens, quick-watch lists, watch tags, decorated arrays, protected-content containers, and every remaining controller-configuration family and repeated port child where applicable.
+- Counts include ST lines, canonical FBD bodies/sheets/elements/connections/attachments/placeholders, program parameters, AOI parameters/local tags, module ports/connections, tasks, scheduled-program relationships, trends, pens, quick-watch lists, watch tags, decorated arrays, `EncodedData` wrappers, other protected-content containers, and every remaining controller-configuration family and repeated port child where applicable.
 - A count change requires an intentional manifest update and review; tests must not silently regenerate baselines.
 
 ## Schema validation
@@ -133,4 +137,4 @@ Report corpus results by profile and Studio 5000 version, including complete, pa
 
 ## Format reference
 
-The fixture taxonomy follows Rockwell Automation publication 1756-RM014D-EN-P, _Logix 5000 Controllers Import/Export_ (September 2025). Fixtures are continuously checked against the corresponding `l5x-v33.xsd`, `l5x-v34.xsd`, or `l5x-v35.xsd` from the pinned ControlZebra `l5x-schema` revision. Public vendor-generated component exports were used only to corroborate root target spellings; committed fixtures are synthetic and contain no third-party project logic.
+The fixture taxonomy follows Rockwell Automation publication 1756-RM014D-EN-P, _Logix 5000 Controllers Import/Export_ (September 2025). Fixtures are continuously checked against the corresponding `l5x-v33.xsd`, `l5x-v34.xsd`, or `l5x-v35.xsd` from the pinned ControlZebra `l5x-schema` revision. Public vendor-generated component exports corroborate root target spellings and the v35 encoded AOI wrapper shape; committed fixtures contain synthetic payloads and no third-party project logic.
