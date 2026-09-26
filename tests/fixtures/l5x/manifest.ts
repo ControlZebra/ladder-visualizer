@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.14.1';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.15.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -48,6 +48,7 @@ export interface L5XSourceCounts {
   ports: number;
   connections: number;
   arrays: number;
+  encodedData: number;
   externalContents: number;
   wallClockTimes: number;
   scheduledPrograms: number;
@@ -138,6 +139,7 @@ const emptySourceCounts: L5XSourceCounts = {
   ports: 0,
   connections: 0,
   arrays: 0,
+  encodedData: 0,
   externalContents: 0,
   wallClockTimes: 0,
   scheduledPrograms: 0,
@@ -633,25 +635,57 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
     id: 'document-encoded-v33', file: 'document-encoded-v33.L5X',
     studio5000Version: '33.00', targetType: 'Routine', artifactKind: 'protected-content',
     profiles: ['rockwell-full-project'], expectedParseStatus: 'partial',
-    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1 },
-    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 } },
-    coverage: ['encoded routine target', 'preserved protected body'],
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, encodedData: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1 } },
+    coverage: ['standalone encoded routine target', 'preserved opaque payload'],
   },
   {
     id: 'document-encoded-v34', file: 'document-encoded-v34.L5X',
     studio5000Version: '34.01', targetType: 'Routine', artifactKind: 'protected-content',
     profiles: ['rockwell-full-project'], expectedParseStatus: 'partial',
-    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1 },
-    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 } },
-    coverage: ['encoded routine target', 'preserved protected body'],
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, encodedData: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1 } },
+    coverage: ['standalone encoded routine target', 'preserved opaque payload'],
   },
   {
     id: 'document-encoded-v35', file: 'document-encoded-v35.L5X',
     studio5000Version: '35.01', targetType: 'Routine', artifactKind: 'protected-content',
     profiles: ['rockwell-full-project'], expectedParseStatus: 'partial',
-    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1 },
-    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 1 } },
-    coverage: ['encoded routine target', 'preserved protected body'],
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, encodedData: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1 } },
+    coverage: ['standalone encoded routine target', 'preserved opaque payload'],
+  },
+  {
+    id: 'encoded-aoi-v33', file: 'encoded-aoi-v33.L5X',
+    studio5000Version: '33.00', targetType: 'AddOnInstructionDefinition', artifactKind: 'protected-content',
+    profiles: ['rockwell-full-project'], expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, encodedData: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts } },
+    coverage: ['schema-backed encoded AOI target', 'synthetic v33 behavior boundary'],
+  },
+  {
+    id: 'encoded-aoi-v34', file: 'encoded-aoi-v34.L5X',
+    studio5000Version: '34.01', targetType: 'AddOnInstructionDefinition', artifactKind: 'protected-content',
+    profiles: ['rockwell-full-project'], expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, encodedData: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts } },
+    coverage: ['schema-backed encoded AOI target', 'synthetic v34 behavior boundary'],
+  },
+  {
+    id: 'encoded-aoi-v35', file: 'encoded-aoi-v35.L5X',
+    studio5000Version: '35.00', targetType: 'AddOnInstructionDefinition', artifactKind: 'protected-content',
+    profiles: ['rockwell-full-project'], expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, encodedData: 1 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts } },
+    coverage: ['v35 export-derived encoded AOI target', 'standalone payload and attributes'],
+  },
+  {
+    id: 'encoded-mixed-v35', file: 'encoded-mixed-v35.L5X',
+    studio5000Version: '35.01', targetType: 'Controller', artifactKind: 'protected-content',
+    profiles: ['rockwell-full-project'], expectedParseStatus: 'partial',
+    sourceCounts: { ...emptySourceCounts, controllers: 1, programs: 1, routines: 2, rungs: 1, encodedData: 3 },
+    currentParser: { success: true, normalizedCounts: { ...emptyNormalizedCounts, programs: 1, routines: 2, rungs: 1 } },
+    coverage: ['mixed AOI and routine EncodedData', 'ordinary and empty routine distinction', 'repeated wrappers'],
   },
   {
     id: 'document-targets-v33', file: 'document-targets-v33.L5X',

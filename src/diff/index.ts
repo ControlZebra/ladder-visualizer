@@ -14,6 +14,8 @@
 
 // Core diff function
 export { diffControllers } from './diffControllers';
+export { diffEncodedData } from './diffEncodedData';
+export type { EncodedDataChange } from './diffEncodedData';
 
 // All diff types
 export type {

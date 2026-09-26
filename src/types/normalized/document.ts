@@ -53,6 +53,20 @@ export interface PlcSourceMapping {
   /** Dot-separated field path on resource.data or document.source. */
   field: string;
 }
+/** An opaque EncodedData wrapper, independent of the model containing its XML. */
+export interface PlcEncodedData {
+  sourcePath: string;
+  containerPath: string;
+  /** Wrapper attribute names omit XML parser prefixes; values retain their source spelling. */
+  attributes: Record<string, string>;
+  /** Direct encoded text/CDATA, retained without trimming or decoding. */
+  payload: string;
+  capabilities: {
+    inspectPayload: true;
+    decodedView: false;
+    semanticQuery: false;
+  };
+}
 export interface PlcDocument {
   source: {
     format: 'l5x';
@@ -66,7 +80,9 @@ export interface PlcDocument {
   };
   /** Includes export targets, owned children and contextual dependencies. */
   resources: PlcResource[];
-  /** Only the declared export family; descendants can also have role=target. */
+  /** Opaque wrappers in XML source order, separate from normalized resources. */
+  encodedData: PlcEncodedData[];
+  /** Paths of the declared export family; may refer to encodedData source paths. */
   targetIds: string[];
   fragments: PlcVendorFragment[];
   /** Accounting for source leaves represented by typed fields. */

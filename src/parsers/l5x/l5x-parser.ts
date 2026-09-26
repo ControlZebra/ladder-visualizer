@@ -35,6 +35,7 @@ import {
 } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
 import { l5xToDocument, L5XDocumentError, L5X_TARGET_TYPES } from './l5x-document';
+import { collectEncodedData, preserveEncodedLineEndings } from './l5x-encoded-data';
 import { finalizeController } from '../aoi-registration';
 import {
   checkParseExecution,
@@ -116,7 +117,12 @@ export class L5XParser extends BaseParser {
   constructor() {
     super();
     this.xmlParser = new XMLParser(XML_PARSER_OPTIONS);
-    this.orderedXmlParser = new XMLParser({ ...XML_PARSER_OPTIONS, preserveOrder: true });
+    this.orderedXmlParser = new XMLParser({
+      ...XML_PARSER_OPTIONS,
+      preserveOrder: true,
+      trimValues: false,
+      processEntities: false,
+    });
   }
 
   /**
@@ -182,13 +188,18 @@ export class L5XParser extends BaseParser {
 
     // Parse XML
     let xml: L5XContent;
+    let encodedData: ReturnType<typeof collectEncodedData> = [];
     try {
       xml = this.xmlParser.parse(content) as L5XContent;
-      if (/<(?:Structure|DefaultData|Data)(?=[\s>])/.test(content)) {
-        annotateDecoratedChildOrder(
-          xml as unknown as XmlNode,
-          this.orderedXmlParser.parse(content) as OrderedXmlNode[]
-        );
+      const hasDecoratedData = /<(?:Structure|DefaultData|Data)(?=[\s>])/.test(content);
+      const hasEncodedData = /<EncodedData(?=[\s>])/.test(content);
+      if (hasDecoratedData || hasEncodedData) {
+        const orderedSource = hasEncodedData
+          ? preserveEncodedLineEndings(content)
+          : { xml: content, restore: (value: string) => value };
+        const ordered = this.orderedXmlParser.parse(orderedSource.xml) as OrderedXmlNode[];
+        if (hasDecoratedData) annotateDecoratedChildOrder(xml as unknown as XmlNode, ordered);
+        if (hasEncodedData) encodedData = collectEncodedData(ordered, orderedSource.restore);
       }
     } catch (error) {
       return createFailureResult([
@@ -218,7 +229,7 @@ export class L5XParser extends BaseParser {
     // Transform to normalized model
     try {
       const { controller, context } = finalizeController(l5xToNormalized(xml));
-      const document = l5xToDocument(xml, controller);
+      const document = l5xToDocument(xml, controller, encodedData);
       const tagWarnings = collectUnsupportedTagWarnings(xml);
       const taskWarnings = collectTaskWarnings(xml, controller);
       const programNumericWarnings = collectUnsupportedProgramNumericWarnings(xml);

@@ -1124,15 +1124,7 @@ function normalizeRoutines(
   routines: L5XRoutines | undefined,
   fbdContext: FBDNormalizationContext
 ): NormalizedRoutine[] {
-  return [
-    ...ensureArray(routines?.Routine).map((routine) => normalizeRoutine(routine, fbdContext)),
-    ...ensureArray(routines?.EncodedData).map((encoded) => ({
-      name: encoded['@_Name'],
-      type: encoded['@_Type'] ?? ('Encrypted' as const),
-      description: extractText(encoded.Description),
-      rungs: [],
-    })),
-  ];
+  return ensureArray(routines?.Routine).map((routine) => normalizeRoutine(routine, fbdContext));
 }
 
 function normalizeRoutine(
