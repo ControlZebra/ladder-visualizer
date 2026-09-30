@@ -4,7 +4,7 @@ import { diffFBD, type FBDSheetDiff } from '../../diff';
 import { buildFBDConnectorIndex, buildFBDSheetLayout, type FBDSheetLayout } from '../../layout';
 import { mergeTheme, type LadderDiagramTheme, type NormalizedFBDBody } from '../../types';
 import { FBDDiffArtworkNode, type FBDDiffCanvasNode } from './FBDDiffArtwork';
-import { buildFBDDiffArtwork, type FBDVersion } from './fbdDiffLayout';
+import { buildFBDDiffArtwork } from './fbdDiffLayout';
 
 export type FBDDiffView = 'overlay' | 'side-by-side';
 export interface FBDDiffDiagramProps {
@@ -55,40 +55,67 @@ function sheetLabel(pair: FBDSheetDiff): string {
         : '';
   return `Sheet ${sheet.number.source === 'declared' ? sheet.number.value : '(number unavailable)'}${suffix}`;
 }
+function metadataFields(
+  body?: NormalizedFBDBody,
+  sheet?: FBDSheetDiff['oldValue']
+): Map<string, string> {
+  const fields = new Map<string, string>();
+  fields.set(
+    'name',
+    sheet
+      ? `${sheet.name.value || `Sheet ${sheet.number.value}`}${sheet.name.source === 'fallback' ? ' (default name)' : ''}`
+      : 'No sheet in this version'
+  );
+  sheet?.descriptions.forEach((text, index) => fields.set(`description:${index}`, text));
+  if (body) {
+    fields.set(
+      'size',
+      `${body.sheetSize.value}${body.sheetSize.source === 'fallback' ? ' (default)' : ''}`
+    );
+    fields.set(
+      'orientation',
+      `${body.orientation.value}${body.orientation.source === 'fallback' ? ' (default)' : ''}`
+    );
+  }
+  return fields;
+}
 function Metadata({
-  body,
+  oldBody,
+  newBody,
   pair,
-  version,
+  view,
 }: {
-  body?: NormalizedFBDBody;
+  oldBody?: NormalizedFBDBody;
+  newBody?: NormalizedFBDBody;
   pair?: FBDSheetDiff;
-  version: FBDVersion;
+  view: FBDDiffView;
 }) {
-  const sheet = version === 'older' ? pair?.oldValue : pair?.newValue;
+  const older = metadataFields(oldBody, pair?.oldValue),
+    newer = metadataFields(newBody, pair?.newValue);
   return (
-    <div className={`fbd-diff-metadata fbd-diff-${version}`}>
-      <strong>{version === 'older' ? 'Older' : 'Newer'}</strong>
-      {!sheet ? (
-        <span>No sheet in this version</span>
-      ) : (
-        <>
-          <span>
-            {sheet.name.value || `Sheet ${sheet.number.value}`}{' '}
-            {sheet.name.source === 'fallback' ? '(default name)' : ''}
-          </span>
-          {sheet.descriptions.map((description, index) => (
-            <p key={index}>{description}</p>
-          ))}
-        </>
-      )}
-      {body && (
-        <small>
-          {body.sheetSize.value} · {body.orientation.value}
-          {body.sheetSize.source === 'fallback' || body.orientation.source === 'fallback'
-            ? ' (includes default metadata)'
-            : ''}
-        </small>
-      )}
+    <div className="fbd-diff-metadata-row">
+      {[...new Set([...older.keys(), ...newer.keys()])].map((key) => {
+        const oldText = older.get(key),
+          newText = newer.get(key);
+        return (
+          <div className="fbd-diff-metadata-field" key={key} data-field={key}>
+            {view === 'overlay' && oldText === newText ? (
+              <span className="fbd-diff-neutral" data-tone="neutral">
+                {newText}
+              </span>
+            ) : (
+              <>
+                <span className="fbd-diff-older" data-tone="older">
+                  {oldText}
+                </span>
+                <span className="fbd-diff-newer" data-tone="newer">
+                  {newText}
+                </span>
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -97,13 +124,18 @@ function Canvas({
   newer,
   theme,
   name,
+  comparison,
 }: {
   older?: FBDSheetLayout;
   newer?: FBDSheetLayout;
   theme: Required<LadderDiagramTheme>;
   name: string;
+  comparison?: FBDSheetDiff;
 }) {
-  const artwork = useMemo(() => buildFBDDiffArtwork(older, newer), [older, newer]);
+  const artwork = useMemo(
+    () => buildFBDDiffArtwork(older, newer, comparison),
+    [older, newer, comparison]
+  );
   const nodes = useMemo<FBDDiffCanvasNode[]>(
     () => [
       {
@@ -148,7 +180,7 @@ function Canvas({
   );
 }
 
-/** Complete red/green source-coordinate comparison with a separate-version fallback. */
+/** Source-coordinate comparison with neutral context and colored changes. */
 export function FBDDiffDiagram({
   oldBody,
   newBody,
@@ -238,11 +270,9 @@ export function FBDDiffDiagram({
       <div className="fbd-diff-legend" aria-label="Version colors">
         <span className="fbd-diff-older">− Older</span>
         <span className="fbd-diff-newer">+ Newer</span>
+        {actualView === 'overlay' && <span>Unchanged</span>}
       </div>
-      <div className="fbd-diff-metadata-row">
-        <Metadata body={oldBody} pair={pair} version="older" />
-        <Metadata body={newBody} pair={pair} version="newer" />
-      </div>
+      <Metadata oldBody={oldBody} newBody={newBody} pair={pair} view={actualView} />
       {messages.length > 0 && (
         <details
           className="fbd-diff-diagnostics"
@@ -263,6 +293,7 @@ export function FBDDiffDiagram({
           newer={newer.layout}
           theme={theme}
           name="FBD overlay"
+          comparison={pair}
         />
       ) : (
         <div className="fbd-diff-panes">

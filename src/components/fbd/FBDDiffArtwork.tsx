@@ -1,13 +1,18 @@
 import { memo } from 'react';
 import type { Node, NodeProps } from '@xyflow/react';
-import type { FBDElementLayout, FBDSheetLayout } from '../../layout';
+import type { FBDElementLayout } from '../../layout';
 import type { LadderDiagramTheme } from '../../types';
-import type { FBDDiffArtwork as Artwork, FBDVersion } from './fbdDiffLayout';
+import type { FBDDiffArtwork as Artwork, FBDTone } from './fbdDiffLayout';
 
 export type FBDDiffCanvasNode = Node<
   { artwork: Artwork; theme: Required<LadderDiagramTheme> },
   'fbdComparison'
 >;
+
+// Separate coincident colored strokes without changing source coordinates or neutral context.
+function strokeOffset(tone: FBDTone) {
+  return tone === 'neutral' ? undefined : `translate(${tone === 'older' ? '-1 -1' : '1 1'})`;
+}
 
 function outline(layout: FBDElementLayout) {
   const { bounds: b, element } = layout;
@@ -35,63 +40,15 @@ function outline(layout: FBDElementLayout) {
     />
   );
 }
-function Geometry({
-  layout,
-  version,
-  color,
-  offset,
-}: {
-  layout: FBDSheetLayout;
-  version: FBDVersion;
-  color: string;
-  offset: number;
-}) {
-  return (
-    <g
-      className={`fbd-diff-layer fbd-diff-${version}`}
-      data-version={version}
-      stroke={color}
-      fill="none"
-      strokeWidth={1.5}
-      transform={`translate(${offset} ${offset})`}
-    >
-      {layout.connections.map((connection, index) => (
-        <path
-          key={`wire-${index}`}
-          d={connection.path}
-          className={`fbd-diff-wire fbd-diff-${connection.connection.kind}`}
-        />
-      ))}
-      {layout.attachments.map((attachment, index) => (
-        <path
-          key={`attachment-${index}`}
-          d={attachment.path}
-          className="fbd-diff-attachment"
-          strokeDasharray="3 3"
-        />
-      ))}
-      {layout.elements.map((element, index) => (
-        <g
-          key={index}
-          className={`fbd-diff-element fbd-diff-element-${element.element.kind}`}
-          data-element-id={element.element.id}
-          data-source-x={element.element.position?.x}
-          data-source-y={element.element.position?.y}
-        >
-          <title>{`${version === 'older' ? 'Older' : 'Newer'} ${element.element.kind} ${element.element.id ?? '(no ID)'}`}</title>
-          {outline(element)}
-          {element.ports.map((port, i) => (
-            <circle key={i} cx={port.point.x} cy={port.point.y} r={2.5} />
-          ))}
-        </g>
-      ))}
-    </g>
-  );
-}
 function ArtworkNode({ data }: NodeProps<FBDDiffCanvasNode>) {
   const { artwork, theme } = data;
   const { bounds: b } = artwork;
-  const overlay = Boolean(artwork.older && artwork.newer);
+  const color = (tone: FBDTone, neutral: string) =>
+    tone === 'neutral'
+      ? neutral
+      : tone === 'older'
+        ? theme.diffOldTextColor
+        : theme.diffNewTextColor;
   return (
     <svg
       className="fbd-diff-artwork"
@@ -99,38 +56,67 @@ function ArtworkNode({ data }: NodeProps<FBDDiffCanvasNode>) {
       height={b.height}
       viewBox={`${b.x} ${b.y} ${b.width} ${b.height}`}
       role="img"
-      aria-label={overlay ? 'Older red and newer green FBD overlay' : 'FBD version'}
+      aria-label="FBD revision comparison"
     >
-      {artwork.older && (
-        <Geometry
-          layout={artwork.older}
-          version="older"
-          color={theme.diffRemovedBorderColor}
-          offset={overlay ? -2 : 0}
+      {artwork.paths.map(({ value, tone }, index) => (
+        <path
+          key={`path-${index}`}
+          className={`fbd-diff-wire fbd-diff-${value.kind}`}
+          data-tone={tone}
+          d={value.path}
+          transform={strokeOffset(tone)}
+          fill="none"
+          stroke={color(tone, theme.wireColor)}
+          strokeWidth={1.5}
+          strokeDasharray={value.kind === 'attachment' ? '3 3' : undefined}
         />
-      )}
-      {artwork.newer && (
-        <Geometry
-          layout={artwork.newer}
-          version="newer"
-          color={theme.diffAddedBorderColor}
-          offset={overlay ? 2 : 0}
+      ))}
+      {artwork.outlines.map(({ value, tone }, index) => (
+        <g
+          key={`outline-${index}`}
+          className={`fbd-diff-element fbd-diff-element-${value.element.kind}`}
+          data-tone={tone}
+          data-element-id={value.element.id}
+          data-source-x={value.element.position?.x}
+          data-source-y={value.element.position?.y}
+          transform={strokeOffset(tone)}
+          fill="none"
+          stroke={color(tone, theme.boxBorderColor)}
+          strokeWidth={1.5}
+        >
+          <title>{`${tone} ${value.element.kind} ${value.element.id ?? '(no ID)'}`}</title>
+          {outline(value)}
+        </g>
+      ))}
+      {artwork.pins.map(({ value, tone }, index) => (
+        <circle
+          key={`pin-${index}`}
+          className="fbd-diff-pin"
+          data-tone={tone}
+          data-port-id={value.port.id}
+          transform={strokeOffset(tone)}
+          cx={value.point.x}
+          cy={value.point.y}
+          r={2.5}
+          fill="none"
+          stroke={color(tone, theme.boxBorderColor)}
+          strokeWidth={1.5}
         />
-      )}
+      ))}
       {artwork.labels.map((label, index) => {
-        const color = label.version === 'older' ? theme.diffOldTextColor : theme.diffNewTextColor;
+        const labelColor = color(label.tone, theme.boxTextColor);
         const moved = Math.abs(label.y + 5 - label.anchorY) > 14;
         return (
           <g
             key={index}
             className="fbd-diff-label"
-            data-version={label.version}
+            data-tone={label.tone}
             data-element-id={label.elementId}
           >
             {moved && (
               <path
                 d={`M ${label.anchorX} ${label.anchorY} L ${label.x + label.width / 2} ${label.y + 5}`}
-                stroke={color}
+                stroke={labelColor}
                 strokeWidth={0.6}
                 fill="none"
               />
@@ -142,7 +128,13 @@ function ArtworkNode({ data }: NodeProps<FBDDiffCanvasNode>) {
               height={label.height}
               fill={theme.bgPrimary}
             />
-            <text x={label.x + 4} y={label.y + 8} fill={color} fontSize={9} fontFamily="monospace">
+            <text
+              x={label.x + 4}
+              y={label.y + 8}
+              fill={labelColor}
+              fontSize={9}
+              fontFamily="monospace"
+            >
               {label.text}
             </text>
           </g>

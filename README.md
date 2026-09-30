@@ -78,9 +78,12 @@ import { FBDDiffDiagram } from 'ladder-visualizer';
 <FBDDiffDiagram oldBody={olderRoutine.fbd} newBody={newerRoutine.fbd} height={700} />
 ```
 
-The default overlay shows the older version in red and the newer version in green,
-including unchanged content. Source positions stay fixed; slightly offset outlines
-and collision-aware labels keep both versions visible. A side-by-side switch,
+The default overlay draws unchanged content once in normal theme colors. Changed
+fields show their older values in red and newer values in green; moved blocks are
+colored in full at their original positions. Added/deleted elements and changed wire
+routes use the same green/red colors. Slightly offset strokes and collision-aware
+labels keep both versions visible. Side-by-side views remain fully red/green.
+A side-by-side switch,
 source sheet number selection, version metadata, pan/zoom controls, and explicit
 diagnostics are included. Missing or duplicate sheet numbers force separate views
 without guessing a match. Omit either body to display an added or removed routine.

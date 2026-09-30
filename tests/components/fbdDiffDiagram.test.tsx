@@ -5,6 +5,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { diffFBD } from '../../src/diff';
 import { FBDDiffDiagram } from '../../src/components';
 import { buildFBDDiffArtwork } from '../../src/components/fbd/fbdDiffLayout';
 import { buildFBDSheetLayout } from '../../src/layout';
@@ -63,7 +64,7 @@ describe('FBD diff visualization', () => {
     expect(html).toContain('InOut: NewTag');
   });
 
-  it('renders both full revisions at their source coordinates, with both label values on the canvas', () => {
+  it('keeps neutral context with changed values and moved blocks at source coordinates', () => {
     const oldBody = body(),
       newBody = changedFBDRevision(oldBody);
     const html = renderToStaticMarkup(createElement(FBDDiffDiagram, { oldBody, newBody }));
@@ -73,18 +74,18 @@ describe('FBD diff visualization', () => {
     expect(html).toContain('>ADD_01</text>');
     expect(html).toContain('>ADD_02</text>');
     expect(html.match(/class="fbd-diff-element /g)).toHaveLength(
-      oldBody.sheets[0].elements.length + newBody.sheets[0].elements.length
+      oldBody.sheets[0].elements.length + 2
     );
     expect(html).toContain('data-element-id="5" data-source-x="40"');
     expect(html).toContain('data-element-id="5" data-source-x="140"');
     expect(html).toContain('Level control — revised feed and output');
   });
 
-  it('keeps both copies of unchanged labels and avoids all label collisions', () => {
+  it('draws unchanged geometry and labels once in neutral colors', () => {
     const original = body();
     const layout = buildFBDSheetLayout(original.sheets[0]);
-    const artwork = buildFBDDiffArtwork(layout, layout);
-    expect(artwork.labels.filter((label) => label.text === 'ADD_01')).toHaveLength(2);
+    const artwork = buildFBDDiffArtwork(layout, layout, diffFBD(original, original).sheets[0]);
+    expect(artwork.labels.filter((label) => label.text === 'ADD_01')).toHaveLength(1);
     for (let i = 0; i < artwork.labels.length; i++) {
       const a = artwork.labels[i];
       for (const b of artwork.labels.slice(i + 1)) {
@@ -93,8 +94,81 @@ describe('FBD diff visualization', () => {
         ).toBe(false);
       }
     }
-    expect(artwork.older).toBe(layout);
-    expect(artwork.newer).toBe(layout);
+    expect(artwork.outlines).toHaveLength(layout.elements.length);
+    expect(
+      [...artwork.outlines, ...artwork.pins, ...artwork.paths, ...artwork.labels].every(
+        (part) => part.tone === 'neutral'
+      )
+    ).toBe(true);
+  });
+
+  it('colors changed fields and rerouted wires while retaining neutral frames and unchanged fields', () => {
+    const oldBody = body(),
+      newBody = changedFBDRevision(oldBody);
+    const oldLayout = buildFBDSheetLayout(oldBody.sheets[0]),
+      newLayout = buildFBDSheetLayout(newBody.sheets[0]);
+    const comparison = diffFBD(oldBody, newBody).sheets[0];
+    const artwork = buildFBDDiffArtwork(oldLayout, newLayout, comparison);
+    expect(
+      artwork.outlines.filter((part) => part.value.element.id === '2').map((part) => part.tone)
+    ).toEqual(['neutral']);
+    expect(
+      artwork.labels.filter((label) => label.text === 'ADD').map((label) => label.tone)
+    ).toEqual(['neutral']);
+    expect(artwork.labels.find((label) => label.text === 'ADD_01')?.tone).toBe('older');
+    expect(artwork.labels.find((label) => label.text === 'ADD_02')?.tone).toBe('newer');
+    expect(
+      artwork.outlines.filter((part) => part.value.element.id === '5').map((part) => part.tone)
+    ).toEqual(['older', 'newer']);
+    expect(
+      artwork.labels
+        .filter((label) => label.text === 'LDLG_01')
+        .map((label) => label.tone)
+        .sort()
+    ).toEqual(['newer', 'older']);
+    expect(artwork.outlines.find((part) => part.value.element.id === '100')?.tone).toBe('newer');
+    const rerouted = oldLayout.connections.find((wire) => wire.connection.to.elementId === '5')!;
+    const newRoute = newLayout.connections.find((wire) => wire.connection.to.elementId === '5')!;
+    expect(newRoute.path).not.toBe(rerouted.path);
+    expect(artwork.paths.find((part) => part.value.path === rerouted.path)?.tone).toBe('older');
+    expect(artwork.paths.find((part) => part.value.path === newRoute.path)?.tone).toBe('newer');
+  });
+
+  it('shows deleted elements red and preserves full color in a separate-version view', () => {
+    const oldBody = body(),
+      newBody = structuredClone(oldBody);
+    newBody.sheets[0].elements = newBody.sheets[0].elements.filter((element) => element.id !== '0');
+    const oldLayout = buildFBDSheetLayout(oldBody.sheets[0]);
+    const overlay = buildFBDDiffArtwork(
+      oldLayout,
+      buildFBDSheetLayout(newBody.sheets[0]),
+      diffFBD(oldBody, newBody).sheets[0]
+    );
+    expect(overlay.outlines.find((part) => part.value.element.id === '0')?.tone).toBe('older');
+    const separate = buildFBDDiffArtwork(oldLayout);
+    expect(
+      [...separate.outlines, ...separate.pins, ...separate.paths, ...separate.labels].every(
+        (part) => part.tone === 'older'
+      )
+    ).toBe(true);
+  });
+
+  it('makes unchanged metadata neutral only in overlay mode', () => {
+    const oldBody = body(),
+      newBody = changedFBDRevision(oldBody);
+    const root = document.createElement('div');
+    root.innerHTML = renderToStaticMarkup(createElement(FBDDiffDiagram, { oldBody, newBody }));
+    expect(root.querySelectorAll('[data-field="name"] [data-tone="neutral"]')).toHaveLength(1);
+    expect(root.querySelectorAll('[data-field="description:0"] [data-tone="older"]')).toHaveLength(
+      1
+    );
+    expect(root.querySelectorAll('[data-field="description:0"] [data-tone="newer"]')).toHaveLength(
+      1
+    );
+    root.innerHTML = renderToStaticMarkup(
+      createElement(FBDDiffDiagram, { oldBody, newBody, initialView: 'side-by-side' })
+    );
+    expect(root.querySelectorAll('[data-tone="neutral"]')).toHaveLength(0);
   });
 
   it('switches to side-by-side and pairs reordered sheets by source number', async () => {
@@ -142,12 +216,12 @@ describe('FBD diff visualization', () => {
       reasonCodes: ['missing-position'],
     });
     const html = renderToStaticMarkup(createElement(FBDDiffDiagram, { newBody }));
-    expect(html).toContain('fbd-diff-layer fbd-diff-newer');
-    expect(html).not.toContain('fbd-diff-layer fbd-diff-older');
+    expect(html).toContain('data-tone="newer"');
+    expect(html).not.toContain('class="fbd-diff-label" data-tone="older"');
     expect(html).toContain('comparison diagnostics');
     expect(html).toContain('has no usable position');
     const removed = renderToStaticMarkup(createElement(FBDDiffDiagram, { oldBody: body() }));
-    expect(removed).toContain('fbd-diff-layer fbd-diff-older');
-    expect(removed).not.toContain('fbd-diff-layer fbd-diff-newer');
+    expect(removed).toContain('class="fbd-diff-label" data-tone="older"');
+    expect(removed).not.toContain('class="fbd-diff-label" data-tone="newer"');
   });
 });

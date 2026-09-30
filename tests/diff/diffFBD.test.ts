@@ -129,6 +129,37 @@ describe('normalized FBD comparison', () => {
     expect(changed[0].newValue?.to.port).toBe('ChangedPort');
   });
 
+  it.each(['connections', 'attachments'] as const)(
+    'reserves exact duplicate %s matches before pairing changes',
+    (collection) => {
+      const old = body();
+      if (collection === 'connections') {
+        const wire = old.sheets[0].connections[0];
+        old.sheets[0].connections = [
+          { ...wire, verified: true },
+          { ...wire, verified: false },
+        ];
+      } else {
+        old.sheets[0].attachments = [
+          { fromElementId: '9', toElementId: '2', verified: true },
+          { fromElementId: '9', toElementId: '2', verified: false },
+        ];
+      }
+      const next = structuredClone(old);
+      next.sheets[0][collection][0].verified = undefined;
+      next.sheets[0][collection][1].verified = true;
+      for (const reorderOld of [false, true]) {
+        if (reorderOld) old.sheets[0][collection].reverse();
+        for (const reorderNew of [false, true]) {
+          if (reorderNew) next.sheets[0][collection].reverse();
+          const changes = diffFBD(old, next).sheets[0][collection];
+          expect(changes.map((item) => item.kind).sort()).toEqual(['modified', 'unchanged']);
+          expect(changes.find((item) => item.kind === 'unchanged')?.oldValue?.verified).toBe(true);
+        }
+      }
+    }
+  );
+
   it('detects attachments, text, placeholder payloads, ports and body metadata', () => {
     const old = body(),
       next = structuredClone(old);

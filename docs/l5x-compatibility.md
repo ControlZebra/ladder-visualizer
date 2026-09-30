@@ -98,7 +98,8 @@ Sheets match by declared source number and elements by unique source ID within a
 sheet. Decimal IDs are matched without lossy JavaScript number conversion. Reordered
 sheets retain their matches and produce a presentation change. Connections and
 attachments match as multisets of endpoints, so a rewire is a removal plus an
-addition. All entries, including unchanged ones, retain both source versions for
+addition. Exact duplicate-edge matches are reserved before pairing modified edges.
+All entries, including unchanged ones, retain both source versions for
 rendering. Property changes distinguish known presentation fields from logic and
 unknown fields. Missing or duplicate identities are retained as unpaired
 added/removed entries with diagnostics and `complete: false`; those entries do not
@@ -106,11 +107,14 @@ establish that the source entities were actually added or removed. Parser diagno
 are not treated as source edits. The API compares normalized content only and does
 not establish whole-document equivalence or compare preserved XML fragments.
 
-`FBDDiffDiagram` renders both complete versions at their source positions: older red,
-newer green, with small visual outline offsets and separate labels. Label placement
-may move text to avoid collisions and draw a leader to its original anchor; source
-geometry and semantic results are unchanged. Sheet metadata is shown for both
-versions, including when only metadata changed. Ambiguous sheet numbers force
+`FBDDiffDiagram` draws unchanged overlay content once in normal theme colors. For
+stationary blocks, only changed fields show older red/newer green values; moved
+blocks are colored in full at each version's source position. Added/deleted elements
+and changed wire routes are green/red. Small stroke offsets keep coincident changed
+geometry visible. Label placement may move text to avoid collisions and draw a
+leader to its original anchor; source geometry and semantic results are unchanged.
+Unchanged metadata appears once; changed metadata shows both colored values.
+Side-by-side views retain full version colors. Ambiguous sheet numbers force
 separate-version rendering. Layout failures, unplaceable elements and unresolved
 connections remain explicit diagnostics. The viewer offers side-by-side mode and
 native pan/zoom, and uses the existing light/dark diff theme colors. No change list,

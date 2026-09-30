@@ -199,10 +199,15 @@ function edgeDiffs<T>(
     buckets.set(key, [...(buckets.get(key) ?? []), index]);
   });
   const used = new Set<number>();
+  // Reserve every exact match before a modified edge can consume its candidate.
+  const exactMatches = newItems.map((value) => {
+    const candidates = buckets.get(keyOf(value)) ?? [];
+    const exact = candidates.findIndex((index) => stable(oldItems[index]) === stable(value));
+    return exact < 0 ? undefined : candidates.splice(exact, 1)[0];
+  });
   const result = newItems.map((newValue, newIndex) => {
     const candidates = buckets.get(keyOf(newValue)) ?? [];
-    const exact = candidates.findIndex((index) => stable(oldItems[index]) === stable(newValue));
-    const oldIndex = candidates.splice(exact < 0 ? 0 : exact, 1)[0];
+    const oldIndex = exactMatches[newIndex] ?? candidates.shift();
     if (oldIndex !== undefined) used.add(oldIndex);
     return itemDiff(
       {

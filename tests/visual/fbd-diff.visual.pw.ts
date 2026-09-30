@@ -6,7 +6,7 @@ for (const theme of ['light', 'dark']) {
     page.on('pageerror', (error) => errors.push(error.message));
     await page.setViewportSize({ width: 1440, height: 950 });
     await page.goto(`/tests/visual/fbd-diff.html?theme=${theme}`);
-    await expect(page.locator('.fbd-diff-layer')).toHaveCount(2);
+    await expect(page.locator('.fbd-diff-element[data-tone="neutral"]')).not.toHaveCount(0);
     await expect(
       page.locator('.fbd-diff-label').getByText('ADD_01', { exact: true })
     ).toBeVisible();
@@ -42,6 +42,7 @@ for (const theme of ['light', 'dark']) {
     await expect.poll(() => viewport.getAttribute('style')).not.toBe(zoomed);
     await page.getByRole('button', { name: 'Side by side' }).click();
     await expect(page.locator('.fbd-diff-artwork')).toHaveCount(2);
+    await expect(page.locator('.fbd-diff-artwork [data-tone="neutral"]')).toHaveCount(0);
     await expect(page.locator('#stage')).toHaveScreenshot(`fbd-diff-separate-${theme}.png`, {
       animations: 'disabled',
     });
@@ -66,10 +67,10 @@ test('sheet matching, fallback and keyboard controls', async ({ page }) => {
   await expect(page.locator('.fbd-diff-metadata-row')).toContainText('revised feed');
   await page.goto('/tests/visual/fbd-diff.html?added');
   await page.getByRole('combobox').selectOption({ label: 'Sheet 3 — added' });
-  await expect(page.locator('.fbd-diff-layer')).toHaveCount(1);
-  await expect(page.locator('.fbd-diff-layer')).toHaveAttribute('data-version', 'newer');
+  await expect(page.locator('.fbd-diff-element')).not.toHaveCount(0);
+  await expect(page.locator('.fbd-diff-element:not([data-tone="newer"])')).toHaveCount(0);
   await page.getByRole('combobox').selectOption({ label: 'Sheet 2 — removed' });
-  await expect(page.locator('.fbd-diff-layer')).toHaveAttribute('data-version', 'older');
+  await expect(page.locator('.fbd-diff-element:not([data-tone="older"])')).toHaveCount(0);
 });
 
 for (const width of [768, 390]) {
