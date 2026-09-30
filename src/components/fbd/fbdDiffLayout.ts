@@ -1,3 +1,4 @@
+import { FBD_LABEL_STYLES, type FBDLabelRole } from './fbdAppearance';
 import {
   getFBDElementFooterLabels,
   wrapFBDText,
@@ -15,6 +16,7 @@ export interface DrawingPart<T> {
   tone: FBDTone;
 }
 interface Field {
+  role: FBDLabelRole;
   key: string;
   text: string;
   x: number;
@@ -22,6 +24,8 @@ interface Field {
   align: 'start' | 'middle' | 'end';
 }
 export interface FBDDiffLabel extends FBDRect {
+  role: FBDLabelRole;
+  surface: 'node' | 'box' | 'header' | 'canvas';
   text: string;
   tone: FBDTone;
   elementId?: string;
@@ -64,9 +68,10 @@ function fields(layout: FBDElementLayout): Field[] {
     text: string,
     x: number,
     y: number,
-    align: Field['align'] = 'middle'
+    align: Field['align'] = 'middle',
+    role: FBDLabelRole = 'text'
   ) => {
-    if (text) result.push({ key, text, x, y, align });
+    if (text) result.push({ key, text, x, y, align, role });
   };
   if (element.kind === 'text-box' || element.kind === 'placeholder') {
     wrapFBDText(title(layout), Math.max(140, b.width)).forEach((line, i) =>
@@ -74,14 +79,21 @@ function fields(layout: FBDElementLayout): Field[] {
     );
   } else {
     const terminal = element.kind === 'reference' || element.kind === 'connector';
-    add('title', title(layout), b.x + b.width / 2, b.y + (terminal ? b.height / 2 : 13));
+    add(
+      'title',
+      title(layout),
+      b.x + b.width / 2,
+      b.y + (terminal ? b.height / 2 : 13),
+      'middle',
+      terminal ? 'terminal' : 'title'
+    );
     const subtitle =
       'operand' in element && !terminal
         ? element.operand
         : element.kind === 'routine-control'
           ? element.routine
           : undefined;
-    if (subtitle) add('subtitle', subtitle, b.x + b.width / 2, b.y + 37);
+    if (subtitle) add('subtitle', subtitle, b.x + b.width / 2, b.y + 39, 'middle', 'subtitle');
   }
   const footer =
     element.kind === 'placeholder'
@@ -90,7 +102,14 @@ function fields(layout: FBDElementLayout): Field[] {
         )
       : getFBDElementFooterLabels(element);
   footer.forEach((text, i) =>
-    add(`footer:${i}`, text, b.x + b.width / 2, b.y + b.height - (footer.length - i) * 24 + 12)
+    add(
+      `footer:${i}`,
+      text,
+      b.x + b.width / 2,
+      b.y + b.height - (footer.length - i) * 24 + 12,
+      'middle',
+      'footer'
+    )
   );
   if (element.kind !== 'reference' && element.kind !== 'connector') {
     layout.ports.forEach((port) =>
@@ -99,7 +118,8 @@ function fields(layout: FBDElementLayout): Field[] {
         port.port.label,
         port.port.side === 'left' ? b.x + 12 : b.x + b.width - 12,
         port.point.y,
-        port.port.side === 'left' ? 'start' : 'end'
+        port.port.side === 'left' ? 'start' : 'end',
+        'port'
       )
     );
   }
@@ -152,24 +172,33 @@ export function buildFBDDiffArtwork(
     pins: FBDDiffArtwork['pins'] = [],
     paths: FBDDiffArtwork['paths'] = [];
   const labels: FBDDiffLabel[] = [];
-  const addLabel = (field: Field, tone: FBDTone, elementId?: string) => {
-    const width = [...field.text].reduce((sum, c) => sum + (c.codePointAt(0)! > 255 ? 10 : 5.6), 8);
-    labels.push({
+  const labelLayouts = new Map<FBDDiffLabel, FBDElementLayout>();
+  const addLabel = (field: Field, tone: FBDTone, layout: FBDElementLayout) => {
+    const { fontSize } = FBD_LABEL_STYLES[field.role];
+    const width = [...field.text].reduce(
+      (sum, c) => sum + (c.codePointAt(0)! > 255 ? fontSize : fontSize * 0.7),
+      8
+    );
+    const label: FBDDiffLabel = {
+      role: field.role,
+      surface: 'canvas',
       text: field.text,
       tone,
-      elementId,
+      elementId: layout.element.id,
       x: field.x - (field.align === 'middle' ? width / 2 : field.align === 'end' ? width : 0),
-      y: field.y - 5,
+      y: field.y - (fontSize + 4) / 2,
       width,
-      height: 11,
+      height: fontSize + 4,
       anchorX: field.x,
       anchorY: field.y,
-    });
+    };
+    labels.push(label);
+    labelLayouts.set(label, layout);
   };
   const addElement = (layout: FBDElementLayout, tone: FBDTone) => {
     outlines.push({ value: layout, tone });
     layout.ports.forEach((value) => pins.push({ value, tone }));
-    fields(layout).forEach((field) => addLabel(field, tone, layout.element.id));
+    fields(layout).forEach((field) => addLabel(field, tone, layout));
   };
   if (comparison) {
     const oldLayouts = new Map(older?.elements.map((layout) => [layout.element, layout]));
@@ -204,7 +233,7 @@ export function buildFBDDiffArtwork(
         fields(next),
         (field) => field.key,
         (a, b) => a.text === b.text,
-        (field, tone) => addLabel(field, tone, next.element.id)
+        (field, tone) => addLabel(field, tone, tone === 'older' ? old : next)
       );
     });
     const addPaths = <T>(
@@ -272,6 +301,21 @@ export function buildFBDDiffArtwork(
       ))
     )
       label.y = collision.y + collision.height;
+    const layout = labelLayouts.get(label)!;
+    const b = layout.bounds;
+    if (
+      label.x >= b.x &&
+      label.x + label.width <= b.x + b.width &&
+      label.y >= b.y &&
+      label.y + label.height <= b.y + b.height
+    ) {
+      label.surface =
+        layout.element.kind === 'text-box' || layout.element.kind === 'placeholder'
+          ? 'box'
+          : label.role === 'title' && label.y + label.height <= b.y + 26
+            ? 'header'
+            : 'node';
+    }
     placed.push(label);
   }
   const rectangles = [older?.bounds, newer?.bounds, ...labels].filter((r): r is FBDRect =>

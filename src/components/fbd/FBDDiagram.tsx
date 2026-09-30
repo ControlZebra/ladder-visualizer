@@ -1,3 +1,4 @@
+import { FBD_FONT_FAMILY, fbdNodeBackground } from './fbdAppearance';
 import {
   useEffect,
   useId,
@@ -417,12 +418,12 @@ export function FBDDiagram({
       style={{
         width: width ?? fallbackWidth,
         height: height ?? fallbackHeight,
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        fontFamily: FBD_FONT_FAMILY,
         background: theme.bgPrimary,
         '--fbd-background': theme.bgPrimary,
         '--fbd-border': theme.boxBorderColor,
         '--fbd-border-subtle': theme.borderColor,
-        '--fbd-node-background': `color-mix(in srgb, ${theme.rungNumberBg} 50%, ${theme.boxBgColor})`,
+        '--fbd-node-background': fbdNodeBackground(theme),
         '--fbd-surface': theme.rungNumberBg,
         '--fbd-text': theme.boxTextColor,
         '--fbd-muted': theme.addressColor,

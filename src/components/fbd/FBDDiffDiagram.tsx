@@ -1,3 +1,4 @@
+import { FBD_FONT_FAMILY, fbdNodeBackground } from './fbdAppearance';
 import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
 import { Background, BackgroundVariant, Controls, ReactFlow, type NodeTypes } from '@xyflow/react';
 import { diffFBD, type FBDSheetDiff } from '../../diff';
@@ -220,9 +221,11 @@ export function FBDDiffDiagram({
         {
           width,
           height,
+          fontFamily: FBD_FONT_FAMILY,
           color: theme.boxTextColor,
           background: theme.bgPrimary,
           '--fbd-background': theme.bgPrimary,
+          '--fbd-node-background': fbdNodeBackground(theme),
           '--fbd-text': theme.boxTextColor,
           '--fbd-muted': theme.addressColor,
           '--fbd-border': theme.boxBorderColor,
