@@ -44,6 +44,8 @@ import type {
   ModuleDiff,
 } from './types';
 
+import { diffFBD } from './diffFBD';
+
 import { matchByKey, matchByNumericKey, diffProperties, valuesEqual } from './matching';
 
 // ============================================================================
@@ -130,6 +132,7 @@ function diffPrograms(
         kind: 'added' as const,
         routineType: r.type,
         newRoutine: r,
+        fbdDiff: r.fbd ? diffFBD(undefined, r.fbd) : undefined,
         summary: r.type === 'RLL' ? { rungsAdded: r.rungs.length, rungsRemoved: 0, rungsModified: 0 } : undefined,
       })),
       tagDiffs: prog.tags.map((t) => ({
@@ -150,6 +153,7 @@ function diffPrograms(
         kind: 'removed' as const,
         routineType: r.type,
         oldRoutine: r,
+        fbdDiff: r.fbd ? diffFBD(r.fbd, undefined) : undefined,
         summary: r.type === 'RLL' ? { rungsAdded: 0, rungsRemoved: r.rungs.length, rungsModified: 0 } : undefined,
       })),
       tagDiffs: prog.tags.map((t) => ({
@@ -213,6 +217,7 @@ function diffRoutines(
       kind: 'added',
       routineType: routine.type,
       newRoutine: routine,
+      fbdDiff: routine.fbd ? diffFBD(undefined, routine.fbd) : undefined,
       summary: routine.type === 'RLL'
         ? { rungsAdded: routine.rungs.length, rungsRemoved: 0, rungsModified: 0 }
         : undefined,
@@ -225,6 +230,7 @@ function diffRoutines(
       kind: 'removed',
       routineType: routine.type,
       oldRoutine: routine,
+      fbdDiff: routine.fbd ? diffFBD(routine.fbd, undefined) : undefined,
       summary: routine.type === 'RLL'
         ? { rungsAdded: 0, rungsRemoved: routine.rungs.length, rungsModified: 0 }
         : undefined,
@@ -255,9 +261,10 @@ function diffRoutines(
       stDiff = diffStructuredText(oldItem.stContent, newItem.stContent);
     }
 
+    const fbdDiff = oldItem.fbd || newItem.fbd ? diffFBD(oldItem.fbd, newItem.fbd) : undefined;
     const hasRungChanges = rungDiffs !== undefined && rungDiffs.length > 0;
     const hasSTChanges = stDiff !== undefined && stDiff.oldText !== stDiff.newText;
-    const hasChanges = propertyChanges.length > 0 || hasRungChanges || hasSTChanges;
+    const hasChanges = propertyChanges.length > 0 || hasRungChanges || hasSTChanges || fbdDiff?.hasChanges;
 
     if (hasChanges) {
       diffs.push({
@@ -266,6 +273,7 @@ function diffRoutines(
         routineType: newItem.type,
         rungDiffs: hasRungChanges ? rungDiffs : undefined,
         stDiff: hasSTChanges ? stDiff : undefined,
+        fbdDiff: fbdDiff?.hasChanges ? fbdDiff : undefined,
         propertyChanges: propertyChanges.length > 0 ? propertyChanges : undefined,
         oldRoutine: oldItem,
         newRoutine: newItem,
@@ -617,6 +625,7 @@ function diffAOIs(
         propertyChanges: propertyChanges.length > 0 ? propertyChanges : undefined,
         oldAOI: oldItem,
         newAOI: newItem,
+        routineDiffs,
         parameterSummary: paramSummary,
         localTagSummary,
       });

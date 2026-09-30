@@ -8,6 +8,8 @@
  * and classified as added, removed, or modified.
  */
 
+import type { FBDDiff } from './diffFBD';
+
 import type {
   NormalizedRoutine,
   NormalizedRung,
@@ -111,6 +113,8 @@ export interface RoutineDiff {
   rungDiffs?: RungDiff[];
   /** For ST routines: text diff. Only present when kind is 'modified'. */
   stDiff?: STDiff;
+  /** Normalized FBD comparison, including complete sheet pairs for visualization. */
+  fbdDiff?: FBDDiff;
   /** Property-level changes (description, type). */
   propertyChanges?: PropertyChange[];
   /** The old routine (for removed or modified). */
@@ -211,6 +215,8 @@ export interface AOIDiff {
   oldAOI?: NormalizedAOI;
   /** The new AOI definition. */
   newAOI?: NormalizedAOI;
+  /** Routine changes within the AOI, including FBD bodies. */
+  routineDiffs?: RoutineDiff[];
   /** Summary: parameters added/removed/modified count. */
   parameterSummary?: {
     added: number;
