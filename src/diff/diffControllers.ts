@@ -557,11 +557,11 @@ function diffAOIs(
   const diffs: AOIDiff[] = [];
 
   for (const aoi of added) {
-    diffs.push({ name: aoi.name, kind: 'added', newAOI: aoi });
+    diffs.push({ name: aoi.name, kind: 'added', newAOI: aoi, routineDiffs: diffRoutines([], aoi.routines) });
   }
 
   for (const aoi of removed) {
-    diffs.push({ name: aoi.name, kind: 'removed', oldAOI: aoi });
+    diffs.push({ name: aoi.name, kind: 'removed', oldAOI: aoi, routineDiffs: diffRoutines(aoi.routines, []) });
   }
 
   for (const { oldItem, newItem } of matched) {

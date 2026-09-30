@@ -86,6 +86,40 @@ Accepted static bodies normalize to `NormalizedRoutine.fbd` for Program-owned an
 
 Existing controller-shaped APIs use the same document pipeline and support the newly accepted target families. They return warnings, while the document APIs provide access to fragments. A `TargetType="Program"` envelope without an actual Program target returns `MISSING_L5X_TARGET` through both API families; the parser never fabricates a Program that is absent from the source.
 
+### FBD comparison
+
+`diffFBD` compares normalized body and sheet metadata, elements, ports, operands,
+wires (including feedback), attachments and placeholders. `diffControllers` exposes
+these results on `RoutineDiff.fbdDiff` for program routines and through
+`AOIDiff.routineDiffs` for AOI routines. FBD changes contribute to the existing
+routine/program or AOI summary counts; nested FBD entities are not counted again.
+
+Sheets match by declared source number and elements by unique source ID within a
+sheet. Decimal IDs are matched without lossy JavaScript number conversion. Reordered
+sheets retain their matches and produce a presentation change. Connections and
+attachments match as multisets of endpoints, so a rewire is a removal plus an
+addition. All entries, including unchanged ones, retain both source versions for
+rendering. Property changes distinguish known presentation fields from logic and
+unknown fields. Missing or duplicate identities are retained as unpaired
+added/removed entries with diagnostics and `complete: false`; those entries do not
+establish that the source entities were actually added or removed. Parser diagnostics
+are not treated as source edits. The API compares normalized content only and does
+not establish whole-document equivalence or compare preserved XML fragments.
+
+`FBDDiffDiagram` renders both complete versions at their source positions: older red,
+newer green, with small visual outline offsets and separate labels. Label placement
+may move text to avoid collisions and draw a leader to its original anchor; source
+geometry and semantic results are unchanged. Sheet metadata is shown for both
+versions, including when only metadata changed. Ambiguous sheet numbers force
+separate-version rendering. Layout failures, unplaceable elements and unresolved
+connections remain explicit diagnostics. The viewer offers side-by-side mode and
+native pan/zoom, and uses the existing light/dark diff theme colors. No change list,
+live state or composed-document validation is involved.
+
+The comparison tests use the existing sanitized v35 level-control export fixture
+and controlled normalized deltas. These tests exercise comparisons and rendering;
+they do not expand the parser's export compatibility claims or conformance counts.
+
 ### Structured Text boundary
 
 Program-owned and AOI-owned `Type="ST"` routines normalize their ordered `STContent/Line` collections across v33-v35. Each `STLine` retains its declared numeric line number and exact body whether Rockwell encoded it as CDATA or ordinary XML text; an absent line collection normalizes to an empty array. This is source preservation for viewing and diffing, not an ST grammar, symbol model, or execution engine. The real v17 `Equipment_Phase_Sequencer.L5X` export from AB-samples is exercised as a regression input, but does not expand the XSD conformance matrix beyond v33-v35.

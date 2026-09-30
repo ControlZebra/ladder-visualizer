@@ -69,6 +69,28 @@ Run `npm run preview:fbd` to open the dedicated FBD previewer. It includes the
 topology and element-family fixtures, accessible sheet tabs, light/dark themes, grid
 and minimap toggles, viewport controls, and renderer diagnostics.
 
+Compare two normalized FBD revisions with `diffFBD(oldBody, newBody)` or read
+`routineDiff.fbdDiff` from `diffControllers()`. Render both revisions with:
+
+```tsx
+import { FBDDiffDiagram } from 'ladder-visualizer';
+
+<FBDDiffDiagram oldBody={olderRoutine.fbd} newBody={newerRoutine.fbd} height={700} />
+```
+
+The default overlay shows the older version in red and the newer version in green,
+including unchanged content. Source positions stay fixed; slightly offset outlines
+and collision-aware labels keep both versions visible. A side-by-side switch,
+source sheet number selection, version metadata, pan/zoom controls, and explicit
+diagnostics are included. Missing or duplicate sheet numbers force separate views
+without guessing a match. Omit either body to display an added or removed routine.
+Import `ladder-visualizer/styles` as for the other viewers. `theme`, `width`,
+`height`, `initialView`, and `onDiagnostics` configure the component.
+
+For a local comparison preview, run `npm run dev` and open
+`/tests/visual/fbd-diff.html` (add `?theme=dark` for dark mode). The preview uses
+controlled comparison deltas on the existing export-derived level-control fixture.
+
 Use `parseFile()` for browser file uploads and `parseBuffer()` for an
 `ArrayBuffer`. Parsers are registered automatically when importing from the
 package root.
