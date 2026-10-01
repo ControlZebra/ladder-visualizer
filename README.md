@@ -69,6 +69,39 @@ Run `npm run preview:fbd` to open the dedicated FBD previewer. It includes the
 topology and element-family fixtures, accessible sheet tabs, light/dark themes, grid
 and minimap toggles, viewport controls, and renderer diagnostics.
 
+Compare two normalized FBD revisions with `diffFBD(oldBody, newBody)` or read
+`routineDiff.fbdDiff` from `diffControllers()`. Render both revisions with:
+
+```tsx
+import { FBDDiffDiagram } from 'ladder-visualizer';
+
+<FBDDiffDiagram oldBody={olderRoutine.fbd} newBody={newerRoutine.fbd} height={700} />
+```
+
+The default overlay draws unchanged content once in normal theme colors. Changed
+fields show their older values in red and newer values in green; moved blocks are
+colored in full at their original positions. Automatic resizing retains both frame
+and pin positions, and changed wires draw above block backgrounds. Added/deleted elements and changed wire
+routes use the same green/red colors. Slightly offset strokes and collision-aware
+labels keep both versions visible. Side-by-side views remain fully red/green.
+A side-by-side switch,
+source sheet number selection, version metadata, pan/zoom controls, and explicit
+diagnostics are included. Missing or duplicate sheet numbers force separate views
+without guessing a match. Omit either body to display an added or removed routine.
+Import `ladder-visualizer/styles` as for the other viewers. `theme`, `width`,
+`height`, `initialView`, and `onDiagnostics` configure the component.
+
+Both FBD viewers use the internal `src/components/fbd/elements` library for
+reference and connector shapes, instruction frames, pins, field labels, and theme
+styles. The regular viewer adds React Flow handles; the comparison viewer adds
+revision matching, colors, and collision placement. The static SVG renderer also
+uses these shared elements. Add or change element artwork in that library so all
+viewers stay consistent.
+
+For a local comparison preview, run `npm run dev` and open
+`/tests/visual/fbd-diff.html` (add `?theme=dark` for dark mode). The preview uses
+controlled comparison deltas on the existing export-derived level-control fixture.
+
 Use `parseFile()` for browser file uploads and `parseBuffer()` for an
 `ArrayBuffer`. Parsers are registered automatically when importing from the
 package root.

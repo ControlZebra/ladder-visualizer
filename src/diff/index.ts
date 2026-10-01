@@ -63,3 +63,6 @@ export {
 
 // Matching utilities (useful for custom diffing or testing)
 export { matchByKey, matchByNumericKey, diffProperties, valuesEqual } from './matching';
+
+export { diffFBD } from './diffFBD';
+export type { FBDDiff, FBDSheetDiff, FBDItemDiff, FBDPropertyChange, FBDChangeCategory, FBDDiffDiagnostic } from './diffFBD';
