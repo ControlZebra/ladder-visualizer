@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { diffFBD } from '../../src/diff';
-import { FBDDiffDiagram } from '../../src/components';
+import { FBDDiagram, FBDDiffDiagram } from '../../src/components';
 import { buildFBDDiffArtwork } from '../../src/components/fbd/fbdDiffLayout';
 import { buildFBDSheetLayout } from '../../src/layout';
 import { parseString } from '../../src/parsers';
@@ -151,6 +151,63 @@ describe('FBD diff visualization', () => {
         (part) => part.tone === 'older'
       )
     ).toBe(true);
+  });
+
+  it('retains both reference shapes when the direction changes in place', () => {
+    const oldBody = body(),
+      newBody = structuredClone(oldBody);
+    const reference = newBody.sheets[0].elements.find((element) => element.kind === 'reference')!;
+    if (reference.kind !== 'reference') throw new Error('Expected reference');
+    reference.referenceType = reference.referenceType === 'input' ? 'output' : 'input';
+    const artwork = buildFBDDiffArtwork(
+      buildFBDSheetLayout(oldBody.sheets[0]),
+      buildFBDSheetLayout(newBody.sheets[0]),
+      diffFBD(oldBody, newBody).sheets[0]
+    );
+    expect(
+      artwork.outlines
+        .filter((part) => part.value.element.id === reference.id)
+        .map((part) => part.tone)
+    ).toEqual(['older', 'newer']);
+  });
+
+  it('keeps old and new port labels with reordered pins', () => {
+    const oldBody = body(),
+      newBody = structuredClone(oldBody);
+    const block = newBody.sheets[0].elements.find((element) => element.id === '2')!;
+    const inputs = block.ports.filter((port) => port.direction === 'input');
+    [inputs[0].order, inputs[1].order] = [inputs[1].order, inputs[0].order];
+    const artwork = buildFBDDiffArtwork(
+      buildFBDSheetLayout(oldBody.sheets[0]),
+      buildFBDSheetLayout(newBody.sheets[0]),
+      diffFBD(oldBody, newBody).sheets[0]
+    );
+    for (const port of inputs) {
+      expect(
+        artwork.labels
+          .filter((label) => label.elementId === '2' && label.text === port.label)
+          .map((label) => label.tone)
+          .sort()
+      ).toEqual(['newer', 'older']);
+    }
+  });
+
+  it('uses identical terminal shapes and pins in regular and unchanged comparison views', () => {
+    const original = body();
+    for (const sheetIndex of [0, 1]) {
+      const singleSheet = { ...original, sheets: [original.sheets[sheetIndex]] };
+      const regular = document.createElement('div'),
+        comparison = document.createElement('div');
+      regular.innerHTML = renderToStaticMarkup(createElement(FBDDiagram, { body: singleSheet }));
+      comparison.innerHTML = renderToStaticMarkup(
+        createElement(FBDDiffDiagram, { oldBody: singleSheet, newBody: singleSheet })
+      );
+      for (const selector of ['.fbd-reference-shape', '.fbd-connector-shape', '.fbd-port-pin']) {
+        const shapes = (root: Element) =>
+          [...root.querySelectorAll(selector)].map((element) => element.outerHTML);
+        expect(shapes(comparison)).toEqual(shapes(regular));
+      }
+    }
   });
 
   it('makes unchanged metadata neutral only in overlay mode', () => {

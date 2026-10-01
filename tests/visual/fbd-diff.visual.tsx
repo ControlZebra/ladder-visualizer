@@ -24,6 +24,13 @@ if (query.has('degraded'))
     sourceKind: 'Unsupported block',
     reasonCodes: ['unsupported-kind'],
   });
+if (query.has('wide-label')) {
+  for (const revision of [original, revised]) {
+    const block = revision.sheets[0].elements.find((element) => element.id === '2');
+    if (block?.kind === 'block')
+      block.operand = revision === original ? 'WWWWWWWWWW' : 'MMMMMMMMMM';
+  }
+}
 const theme = query.get('theme') === 'dark' ? DARK_THEME : DEFAULT_THEME;
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

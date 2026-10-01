@@ -1,4 +1,4 @@
-import { FBD_FONT_FAMILY, fbdNodeBackground } from './fbdAppearance';
+import { FBD_FONT_FAMILY, fbdNodeBackground } from './elements';
 import {
   useEffect,
   useId,

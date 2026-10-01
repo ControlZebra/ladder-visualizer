@@ -1,4 +1,4 @@
-import { FBD_FONT_FAMILY, fbdNodeBackground } from './fbdAppearance';
+import { FBD_FONT_FAMILY, fbdNodeBackground } from './elements';
 import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
 import { Background, BackgroundVariant, Controls, ReactFlow, type NodeTypes } from '@xyflow/react';
 import { diffFBD, type FBDSheetDiff } from '../../diff';

@@ -1,11 +1,7 @@
-import { memo, type CSSProperties, type ReactNode } from 'react';
+import { memo } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import {
-  FBD_TEXT_LINE_HEIGHT,
-  getFBDElementFooterLabels,
-  wrapFBDText,
-  type FBDElementLayout,
-} from '../../layout';
+import type { FBDElementLayout } from '../../layout';
+import { FBDElement, FBD_FONT_FAMILY } from './elements';
 import type { LadderDiagramTheme, NormalizedFBDElement } from '../../types';
 
 export type FBDFlowNodeData = {
@@ -19,20 +15,6 @@ export type FBDAttachmentSide = 'left' | 'right' | 'top' | 'bottom';
 
 function elementId(element: NormalizedFBDElement): string | undefined {
   return 'id' in element ? element.id : undefined;
-}
-
-function terminalLabel(element: NormalizedFBDElement): string {
-  if (element.kind === 'reference') {
-    return element.operand ?? (element.referenceType === 'input' ? 'Input' : 'Output');
-  }
-  if (element.kind === 'connector') return element.name ?? 'Connector';
-  return '';
-}
-
-function terminalEmitsValue(element: NormalizedFBDElement): boolean {
-  return element.kind === 'reference'
-    ? element.referenceType === 'input'
-    : element.kind === 'connector' && element.connectorType === 'input';
 }
 
 function portHandleId(direction: 'input' | 'output', id: string): string {
@@ -53,7 +35,7 @@ const attachmentPositions: Record<FBDAttachmentSide, Position> = {
 function AttachmentHandles() {
   return (
     <>
-      {(Object.keys(attachmentPositions) as FBDAttachmentSide[]).flatMap((side) => (
+      {(Object.keys(attachmentPositions) as FBDAttachmentSide[]).flatMap((side) =>
         (['source', 'target'] as const).map((role) => (
           <Handle
             key={`${role}-${side}`}
@@ -65,246 +47,32 @@ function AttachmentHandles() {
             style={{ visibility: 'hidden', width: 1, height: 1 }}
           />
         ))
-      ))}
+      )}
     </>
   );
 }
 
-function PortHandles({ layout, theme, showLabels = true }: {
-  layout: FBDElementLayout;
-  theme: Required<LadderDiagramTheme>;
-  showLabels?: boolean;
-}) {
+function PortHandles({ layout }: { layout: FBDElementLayout }) {
   return (
     <>
-      {layout.ports.map((port, index) => {
-        const side = port.port.side === 'left' ? Position.Left : Position.Right;
-        const top = port.point.y - layout.bounds.y;
-        const labelStyle: CSSProperties = {
-          color: theme.addressColor,
-          top,
-          [port.port.side === 'left' ? 'left' : 'right']: 10,
-          transform: 'translateY(-50%)',
-        };
-        return (
-          <div
-            key={`${port.port.side}-${port.port.id}-${index}`}
-            className={`fbd-port-label-wrap fbd-port-${port.port.direction}`}
-            data-port-id={port.port.id}
-            data-port-direction={port.port.direction}
-          >
-            <Handle
-              id={portHandleId(port.port.direction, port.port.id)}
-              type={port.port.direction === 'output' ? 'source' : 'target'}
-              position={side}
-              isConnectable={false}
-              className="fbd-port-handle"
-              style={{
-                top,
-                width: 1,
-                height: 1,
-                opacity: 0,
-              }}
-            />
-            <span
-              aria-hidden="true"
-              className={`fbd-port-pin fbd-port-pin-${port.port.side}`}
-              style={{
-                top,
-                background: 'var(--fbd-element-background)',
-                borderColor: theme.boxBorderColor,
-              }}
-            />
-            {showLabels && (
-              <span className="fbd-port-label" style={labelStyle}>
-                {port.port.label}
-              </span>
-            )}
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-function TerminalNode({ layout, theme }: FBDFlowNodeData) {
-  const { element } = layout;
-  if (element.kind !== 'reference' && element.kind !== 'connector') return null;
-  const emitsValue = terminalEmitsValue(element);
-  const kindClass = element.kind === 'reference'
-    ? `fbd-reference-shape fbd-reference-${emitsValue ? 'source' : 'target'}`
-    : `fbd-connector-shape fbd-connector-${emitsValue ? 'source' : 'target'}`;
-
-  return (
-    <div className="fbd-terminal-node">
-      <PortHandles layout={layout} theme={theme} showLabels={false} />
-      <div className={`fbd-terminal-shape ${kindClass}`}>
-        <span className="fbd-terminal-label" style={{ color: theme.boxTextColor }}>
-          {terminalLabel(element)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-interface InstructionFrameProps {
-  layout: FBDElementLayout;
-  theme: Required<LadderDiagramTheme>;
-  title: string;
-  subtitle?: string;
-  footerLines?: string[];
-}
-
-function InstructionFrame({ layout, theme, title, subtitle, footerLines = [] }: InstructionFrameProps) {
-  return (
-    <div className="fbd-instruction-node">
-      <PortHandles layout={layout} theme={theme} />
-      <div className="fbd-instruction-frame" style={{ borderColor: theme.boxBorderColor }}>
-        <div
-          className="fbd-instruction-header"
-          style={{
-            background: theme.rungNumberBg,
-            borderColor: theme.boxBorderColor,
-          }}
-        >
-          <strong className="fbd-instruction-title" style={{ color: theme.boxTextColor }}>
-            {title}
-          </strong>
-          <span className="fbd-instruction-menu" aria-hidden="true">•••</span>
-        </div>
-        {subtitle && (
-          <span className="fbd-instruction-subtitle" style={{ color: theme.boxTextColor }}>
-            {subtitle}
-          </span>
-        )}
-        {footerLines.length > 0 && (
-          <div className="fbd-instruction-footer" style={{ color: theme.addressColor }}>
-            {footerLines.map((line, index) => {
-              const [label, ...valueParts] = line.split(': ');
-              const value = valueParts.join(': ');
-              return (
-                <span className="fbd-binding" key={`${line}-${index}`}>
-                  <span>{label}</span>
-                  {value ? (
-                    <span className="fbd-binding-value" style={{ color: theme.boxTextColor }}>
-                      {value}
-                    </span>
-                  ) : (
-                    <span className="fbd-instruction-help" aria-label="No source value">?</span>
-                  )}
-                </span>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InstructionNode({ layout, theme }: FBDFlowNodeData): ReactNode {
-  const { element } = layout;
-  if (element.kind === 'block') {
-    return (
-      <InstructionFrame
-        layout={layout}
-        theme={theme}
-        title={element.instruction ?? 'Block'}
-        subtitle={element.operand}
-        footerLines={getFBDElementFooterLabels(element)}
-      />
-    );
-  }
-  if (element.kind === 'function') {
-    return <InstructionFrame layout={layout} theme={theme} title={element.instruction} />;
-  }
-  if (element.kind === 'add-on-instruction') {
-    return (
-      <InstructionFrame
-        layout={layout}
-        theme={theme}
-        title={element.name ?? 'Add-On Instruction'}
-        subtitle={element.operand}
-        footerLines={getFBDElementFooterLabels(element)}
-      />
-    );
-  }
-  if (element.kind === 'routine-control') {
-    return (
-      <InstructionFrame
-        layout={layout}
-        theme={theme}
-        title={element.operation}
-        subtitle={element.routine}
-        footerLines={getFBDElementFooterLabels(element)}
-      />
-    );
-  }
-  return null;
-}
-
-function TextBoxNode({ layout, theme }: FBDFlowNodeData) {
-  if (layout.element.kind !== 'text-box') return null;
-  const lines = wrapFBDText(layout.element.text, layout.bounds.width);
-  return (
-    <div className="fbd-text-box" style={{ borderColor: theme.boxBorderColor }}>
-      {lines.map((line, index) => (
-        <span
-          key={`${line}-${index}`}
-          className="fbd-text-line"
-          style={{ minHeight: FBD_TEXT_LINE_HEIGHT }}
-        >
-          {line || '\u00a0'}
-        </span>
+      {layout.ports.map((port, index) => (
+        <Handle
+          key={`${port.port.direction}-${port.port.id}-${index}`}
+          id={portHandleId(port.port.direction, port.port.id)}
+          type={port.port.direction === 'output' ? 'source' : 'target'}
+          position={port.port.side === 'left' ? Position.Left : Position.Right}
+          isConnectable={false}
+          className="fbd-port-handle"
+          style={{ top: port.point.y - layout.bounds.y, width: 1, height: 1, opacity: 0 }}
+        />
       ))}
-    </div>
-  );
-}
-
-function placeholderReason(element: Extract<NormalizedFBDElement, { kind: 'placeholder' }>): string {
-  return element.reasonCodes.map((reason) => reason.replace(/-/g, ' ')).join(', ')
-    || 'unsupported content';
-}
-
-function PlaceholderNode({ layout, theme }: FBDFlowNodeData) {
-  if (layout.element.kind !== 'placeholder') return null;
-  return (
-    <div className="fbd-placeholder" style={{ borderColor: theme.contactNCColor }}>
-      <strong style={{ color: theme.contactNCColor }}>{layout.element.sourceKind}</strong>
-      <span>{`ID ${layout.element.id ?? 'unknown'}`}</span>
-      <small style={{ color: theme.addressColor }}>{placeholderReason(layout.element)}</small>
-      <PortHandles layout={layout} theme={theme} />
-    </div>
+    </>
   );
 }
 
 function FBDNodeComponent({ data }: NodeProps<FBDFlowNode>) {
   const { layout, theme } = data;
   const { element } = layout;
-  let content: ReactNode;
-  switch (element.kind) {
-    case 'reference':
-    case 'connector':
-      content = <TerminalNode layout={layout} theme={theme} />;
-      break;
-    case 'block':
-    case 'function':
-    case 'add-on-instruction':
-    case 'routine-control':
-      content = <InstructionNode layout={layout} theme={theme} />;
-      break;
-    case 'text-box':
-      content = <TextBoxNode layout={layout} theme={theme} />;
-      break;
-    case 'placeholder':
-      content = <PlaceholderNode layout={layout} theme={theme} />;
-      break;
-  }
-  const usesNodeSurface = element.kind !== 'text-box' && element.kind !== 'placeholder';
-  const elementBackground = usesNodeSurface
-    ? 'var(--fbd-node-background)'
-    : theme.boxBgColor;
-
   return (
     <div
       className={`fbd-element fbd-element-${element.kind}`}
@@ -312,9 +80,7 @@ function FBDNodeComponent({ data }: NodeProps<FBDFlowNode>) {
         width: layout.bounds.width,
         height: layout.bounds.height,
         color: theme.boxTextColor,
-        background: elementBackground,
-        '--fbd-element-background': elementBackground,
-      } as CSSProperties}
+      }}
       data-element-id={elementId(element)}
       data-element-kind={element.kind}
       data-terminal-type={
@@ -326,7 +92,16 @@ function FBDNodeComponent({ data }: NodeProps<FBDFlowNode>) {
       }
     >
       <AttachmentHandles />
-      {content}
+      <PortHandles layout={layout} />
+      <svg
+        className="fbd-element-artwork"
+        width={layout.bounds.width}
+        height={layout.bounds.height}
+        viewBox={`${layout.bounds.x} ${layout.bounds.y} ${layout.bounds.width} ${layout.bounds.height}`}
+        style={{ fontFamily: FBD_FONT_FAMILY }}
+      >
+        <FBDElement layout={layout} theme={theme} />
+      </svg>
     </div>
   );
 }

@@ -90,6 +90,13 @@ without guessing a match. Omit either body to display an added or removed routin
 Import `ladder-visualizer/styles` as for the other viewers. `theme`, `width`,
 `height`, `initialView`, and `onDiagnostics` configure the component.
 
+Both FBD viewers use the internal `src/components/fbd/elements` library for
+reference and connector shapes, instruction frames, pins, field labels, and theme
+styles. The regular viewer adds React Flow handles; the comparison viewer adds
+revision matching, colors, and collision placement. The static SVG renderer also
+uses these shared elements. Add or change element artwork in that library so all
+viewers stay consistent.
+
 For a local comparison preview, run `npm run dev` and open
 `/tests/visual/fbd-diff.html` (add `?theme=dark` for dark mode). The preview uses
 controlled comparison deltas on the existing export-derived level-control fixture.

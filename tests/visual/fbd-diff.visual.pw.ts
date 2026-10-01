@@ -89,3 +89,27 @@ for (const width of [768, 390]) {
     });
   });
 }
+
+test('wide glyphs stay inside measured labels in both comparison modes', async ({ page }) => {
+  await page.goto('/tests/visual/fbd-diff.html?wide-label');
+  for (const mode of ['Overlay', 'Side by side']) {
+    await page.getByRole('button', { name: mode, exact: true }).click();
+    for (const text of ['WWWWWWWWWW', 'MMMMMMMMMM']) {
+      const label = page
+        .locator('.fbd-diff-label')
+        .filter({ has: page.getByText(text, { exact: true }) });
+      await expect(label).toBeVisible();
+      const contained = await label.evaluate((element) => {
+        const text = element.querySelector('text')!.getBBox(),
+          rect = element.querySelector('rect')!.getBBox();
+        return (
+          text.x >= rect.x &&
+          text.y >= rect.y &&
+          text.x + text.width <= rect.x + rect.width &&
+          text.y + text.height <= rect.y + rect.height
+        );
+      });
+      expect(contained).toBe(true);
+    }
+  }
+});

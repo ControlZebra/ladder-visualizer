@@ -1,7 +1,13 @@
-import { FBD_LABEL_STYLES, type FBDLabelRole } from './fbdAppearance';
 import {
-  getFBDElementFooterLabels,
-  wrapFBDText,
+  FBD_LABEL_STYLES,
+  measureFBDText,
+  type FBDLabelRole,
+  getFBDFields,
+  portKey,
+  type FBDField,
+  fbdShapeKey,
+} from './elements';
+import {
   type FBDElementLayout,
   type FBDPortLayout,
   type FBDRect,
@@ -14,14 +20,6 @@ export type FBDTone = FBDVersion | 'neutral';
 export interface DrawingPart<T> {
   value: T;
   tone: FBDTone;
-}
-interface Field {
-  role: FBDLabelRole;
-  key: string;
-  text: string;
-  x: number;
-  y: number;
-  align: 'start' | 'middle' | 'end';
 }
 export interface FBDDiffLabel extends FBDRect {
   role: FBDLabelRole;
@@ -38,95 +36,6 @@ export interface FBDDiffArtwork {
   paths: DrawingPart<{ path: string; kind: string }>[];
   labels: FBDDiffLabel[];
   bounds: FBDRect;
-}
-
-function title({ element }: FBDElementLayout): string {
-  switch (element.kind) {
-    case 'reference':
-      return element.operand ?? (element.referenceType === 'input' ? 'Input' : 'Output');
-    case 'connector':
-      return element.name ?? 'Connector';
-    case 'block':
-      return element.instruction ?? 'Block';
-    case 'function':
-      return element.instruction;
-    case 'add-on-instruction':
-      return element.name ?? 'Add-On Instruction';
-    case 'routine-control':
-      return element.operation;
-    case 'placeholder':
-      return `${element.sourceKind} · ${element.reasonCodes.join(', ')}`;
-    case 'text-box':
-      return element.text ?? '';
-  }
-}
-function fields(layout: FBDElementLayout): Field[] {
-  const { bounds: b, element } = layout;
-  const result: Field[] = [];
-  const add = (
-    key: string,
-    text: string,
-    x: number,
-    y: number,
-    align: Field['align'] = 'middle',
-    role: FBDLabelRole = 'text'
-  ) => {
-    if (text) result.push({ key, text, x, y, align, role });
-  };
-  if (element.kind === 'text-box' || element.kind === 'placeholder') {
-    wrapFBDText(title(layout), Math.max(140, b.width)).forEach((line, i) =>
-      add(`text:${i}`, line, b.x + b.width / 2, b.y + 20 + i * 16)
-    );
-  } else {
-    const terminal = element.kind === 'reference' || element.kind === 'connector';
-    add(
-      'title',
-      title(layout),
-      b.x + b.width / 2,
-      b.y + (terminal ? b.height / 2 : 13),
-      'middle',
-      terminal ? 'terminal' : 'title'
-    );
-    const subtitle =
-      'operand' in element && !terminal
-        ? element.operand
-        : element.kind === 'routine-control'
-          ? element.routine
-          : undefined;
-    if (subtitle) add('subtitle', subtitle, b.x + b.width / 2, b.y + 39, 'middle', 'subtitle');
-  }
-  const footer =
-    element.kind === 'placeholder'
-      ? (element.bindings ?? []).map(
-          (binding) => `${binding.name ?? '(unnamed)'}: ${binding.argument ?? '(no value)'}`
-        )
-      : getFBDElementFooterLabels(element);
-  footer.forEach((text, i) =>
-    add(
-      `footer:${i}`,
-      text,
-      b.x + b.width / 2,
-      b.y + b.height - (footer.length - i) * 24 + 12,
-      'middle',
-      'footer'
-    )
-  );
-  if (element.kind !== 'reference' && element.kind !== 'connector') {
-    layout.ports.forEach((port) =>
-      add(
-        portKey(port),
-        port.port.label,
-        port.port.side === 'left' ? b.x + 12 : b.x + b.width - 12,
-        port.point.y,
-        port.port.side === 'left' ? 'start' : 'end',
-        'port'
-      )
-    );
-  }
-  return result;
-}
-function portKey(port: FBDPortLayout): string {
-  return `${port.port.direction}:${port.port.id}`;
 }
 
 /** Unique matching parts draw once. Duplicate keys remain separate rather than guessed. */
@@ -173,12 +82,9 @@ export function buildFBDDiffArtwork(
     paths: FBDDiffArtwork['paths'] = [];
   const labels: FBDDiffLabel[] = [];
   const labelLayouts = new Map<FBDDiffLabel, FBDElementLayout>();
-  const addLabel = (field: Field, tone: FBDTone, layout: FBDElementLayout) => {
+  const addLabel = (field: FBDField, tone: FBDTone, layout: FBDElementLayout) => {
     const { fontSize } = FBD_LABEL_STYLES[field.role];
-    const width = [...field.text].reduce(
-      (sum, c) => sum + (c.codePointAt(0)! > 255 ? fontSize : fontSize * 0.7),
-      8
-    );
+    const width = measureFBDText(field.text, field.role) + 8;
     const label: FBDDiffLabel = {
       role: field.role,
       surface: 'canvas',
@@ -198,7 +104,7 @@ export function buildFBDDiffArtwork(
   const addElement = (layout: FBDElementLayout, tone: FBDTone) => {
     outlines.push({ value: layout, tone });
     layout.ports.forEach((value) => pins.push({ value, tone }));
-    fields(layout).forEach((field) => addLabel(field, tone, layout));
+    getFBDFields(layout).forEach((field) => addLabel(field, tone, layout));
   };
   if (comparison) {
     const oldLayouts = new Map(older?.elements.map((layout) => [layout.element, layout]));
@@ -215,7 +121,10 @@ export function buildFBDDiffArtwork(
         return;
       }
       // Automatic text measurement is not a source geometry edit. Use the current frame.
-      if (pair.propertyChanges.some((change) => change.property === 'width')) {
+      if (
+        fbdShapeKey(old.element) !== fbdShapeKey(next.element) ||
+        pair.propertyChanges.some((change) => change.property === 'width')
+      ) {
         outlines.push({ value: old, tone: 'older' }, { value: next, tone: 'newer' });
       } else outlines.push({ value: next, tone: 'neutral' });
       compareParts(
@@ -229,10 +138,12 @@ export function buildFBDDiffArtwork(
         (value, tone) => pins.push({ value, tone })
       );
       compareParts(
-        fields(old),
-        fields(next),
+        getFBDFields(old),
+        getFBDFields(next),
         (field) => field.key,
-        (a, b) => a.text === b.text,
+        (a, b) =>
+          a.text === b.text &&
+          (a.role !== 'port' || (a.x === b.x && a.y === b.y && a.align === b.align)),
         (field, tone) => addLabel(field, tone, tone === 'older' ? old : next)
       );
     });
