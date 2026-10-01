@@ -120,9 +120,12 @@ export function buildFBDDiffArtwork(
         if (next) addElement(next, 'newer');
         return;
       }
-      // Automatic text measurement is not a source geometry edit. Use the current frame.
+      // Layout changes matter even when source positions and port properties are unchanged.
       if (
         fbdShapeKey(old.element) !== fbdShapeKey(next.element) ||
+        (['x', 'y', 'width', 'height'] as const).some(
+          (key) => old.bounds[key] !== next.bounds[key]
+        ) ||
         pair.propertyChanges.some((change) => change.property === 'width')
       ) {
         outlines.push({ value: old, tone: 'older' }, { value: next, tone: 'newer' });
@@ -134,7 +137,9 @@ export function buildFBDDiffArtwork(
         (a, b) =>
           a.port.side === b.port.side &&
           a.port.order === b.port.order &&
-          a.port.visible === b.port.visible,
+          a.port.visible === b.port.visible &&
+          a.point.x === b.point.x &&
+          a.point.y === b.point.y,
         (value, tone) => pins.push({ value, tone })
       );
       compareParts(

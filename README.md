@@ -80,7 +80,8 @@ import { FBDDiffDiagram } from 'ladder-visualizer';
 
 The default overlay draws unchanged content once in normal theme colors. Changed
 fields show their older values in red and newer values in green; moved blocks are
-colored in full at their original positions. Added/deleted elements and changed wire
+colored in full at their original positions. Automatic resizing retains both frame
+and pin positions, and changed wires draw above block backgrounds. Added/deleted elements and changed wire
 routes use the same green/red colors. Slightly offset strokes and collision-aware
 labels keep both versions visible. Side-by-side views remain fully red/green.
 A side-by-side switch,

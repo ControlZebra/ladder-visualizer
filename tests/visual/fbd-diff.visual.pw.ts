@@ -113,3 +113,25 @@ test('wide glyphs stay inside measured labels in both comparison modes', async (
     }
   }
 });
+
+for (const direction of ['grow', 'shrink']) {
+  test(`automatic operand sizing keeps both frame and pin positions: ${direction}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 950 });
+    await page.goto(`/tests/visual/fbd-diff.html?resize=${direction}`);
+    const frames = page.locator('.fbd-diff-element[data-element-id="2"]');
+    await expect(frames).toHaveCount(2);
+    await expect(
+      page.locator('.fbd-diff-element[data-element-id="2"][data-tone="neutral"]')
+    ).toHaveCount(0);
+    for (const tone of ['older', 'newer']) {
+      await expect(
+        page.locator(`.fbd-diff-pin[data-tone="${tone}"] .fbd-port-pin[data-port-id="Dest"]`)
+      ).toBeVisible();
+    }
+    await expect(page.locator('#stage')).toHaveScreenshot(`fbd-diff-resize-${direction}.png`, {
+      animations: 'disabled',
+    });
+  });
+}

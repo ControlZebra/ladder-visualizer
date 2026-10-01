@@ -74,7 +74,7 @@ describe('FBD diff visualization', () => {
     expect(html).toContain('>ADD_01</text>');
     expect(html).toContain('>ADD_02</text>');
     expect(html.match(/class="fbd-diff-element /g)).toHaveLength(
-      oldBody.sheets[0].elements.length + 2
+      oldBody.sheets[0].elements.length + 3
     );
     expect(html).toContain('data-element-id="5" data-source-x="40"');
     expect(html).toContain('data-element-id="5" data-source-x="140"');
@@ -133,6 +133,73 @@ describe('FBD diff visualization', () => {
     expect(artwork.paths.find((part) => part.value.path === rerouted.path)?.tone).toBe('older');
     expect(artwork.paths.find((part) => part.value.path === newRoute.path)?.tone).toBe('newer');
   });
+
+  it.each(['growing', 'shrinking'])(
+    'preserves both frames and connected pins for %s operands',
+    (direction) => {
+      const shortBody = body(),
+        longBody = structuredClone(shortBody);
+      const block = longBody.sheets[0].elements.find((element) => element.id === '2')!;
+      if (block.kind !== 'block') throw new Error('Expected block');
+      block.operand = 'ADD_with_a_much_longer_instance_name_than_the_original';
+      const [oldBody, newBody] =
+        direction === 'growing' ? [shortBody, longBody] : [longBody, shortBody];
+      const oldLayout = buildFBDSheetLayout(oldBody.sheets[0]),
+        newLayout = buildFBDSheetLayout(newBody.sheets[0]);
+      const artwork = buildFBDDiffArtwork(
+        oldLayout,
+        newLayout,
+        diffFBD(oldBody, newBody).sheets[0]
+      );
+      const oldBlock = oldLayout.elements.find((element) => element.element.id === '2')!;
+      const newBlock = newLayout.elements.find((element) => element.element.id === '2')!;
+      expect(oldBlock.bounds.width).not.toBe(newBlock.bounds.width);
+      expect(
+        artwork.outlines
+          .filter((part) => part.value.element.id === '2')
+          .map((part) => ({ bounds: part.value.bounds, tone: part.tone }))
+      ).toEqual([
+        { bounds: oldBlock.bounds, tone: 'older' },
+        { bounds: newBlock.bounds, tone: 'newer' },
+      ]);
+      for (const [layout, tone] of [
+        [oldLayout, 'older'],
+        [newLayout, 'newer'],
+      ] as const) {
+        const wire = layout.connections.find((wire) => wire.connection.from.elementId === '2')!;
+        expect(artwork.paths).toContainEqual({
+          value: { path: wire.path, kind: wire.connection.kind },
+          tone,
+        });
+        expect(artwork.pins).toContainEqual({ value: wire.source, tone });
+        expect(
+          artwork.pins.some(
+            (pin) =>
+              pin.value.port.id === wire.destination.port.id &&
+              pin.value.point.x === wire.destination.point.x &&
+              pin.value.point.y === wire.destination.point.y
+          )
+        ).toBe(true);
+      }
+      expect(
+        artwork.labels
+          .filter((label) => label.elementId === '2' && label.text === 'ADD')
+          .map((label) => label.tone)
+      ).toEqual(['neutral']);
+      const rendered = document.createElement('div');
+      rendered.innerHTML = renderToStaticMarkup(
+        createElement(FBDDiffDiagram, { oldBody, newBody })
+      );
+      const svg = rendered.querySelector('.fbd-diff-artwork')!;
+      const children = [...svg.children];
+      const lastSurface = children.findLastIndex((child) =>
+        child.classList.contains('fbd-diff-element-surface')
+      );
+      for (const wire of svg.querySelectorAll('.fbd-diff-wire:not([data-tone="neutral"])')) {
+        expect(children.indexOf(wire)).toBeGreaterThan(lastSurface);
+      }
+    }
+  );
 
   it('shows deleted elements red and preserves full color in a separate-version view', () => {
     const oldBody = body(),

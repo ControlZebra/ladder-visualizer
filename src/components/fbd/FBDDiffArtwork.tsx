@@ -37,6 +37,19 @@ function ArtworkNode({ data }: NodeProps<FBDDiffCanvasNode>) {
     header: theme.rungNumberBg,
     canvas: theme.bgPrimary,
   };
+  const renderWire = ({ value, tone }: Artwork['paths'][number], index: number) => (
+    <path
+      key={`path-${index}`}
+      className={`fbd-diff-wire fbd-diff-${value.kind}`}
+      data-tone={tone}
+      d={value.path}
+      transform={strokeOffset(tone)}
+      fill="none"
+      stroke={color(tone, theme.wireColor)}
+      strokeWidth={1.5}
+      strokeDasharray={value.kind === 'attachment' ? '3 3' : undefined}
+    />
+  );
   return (
     <svg
       className="fbd-diff-artwork"
@@ -47,20 +60,8 @@ function ArtworkNode({ data }: NodeProps<FBDDiffCanvasNode>) {
       role="img"
       aria-label="FBD revision comparison"
     >
-      {artwork.paths.map(({ value, tone }, index) => (
-        <path
-          key={`path-${index}`}
-          className={`fbd-diff-wire fbd-diff-${value.kind}`}
-          data-tone={tone}
-          d={value.path}
-          transform={strokeOffset(tone)}
-          fill="none"
-          stroke={color(tone, theme.wireColor)}
-          strokeWidth={1.5}
-          strokeDasharray={value.kind === 'attachment' ? '3 3' : undefined}
-        />
-      ))}
-      {/* Paint all surfaces before outlines so newer fills cannot hide older strokes. */}
+      {artwork.paths.filter((part) => part.tone === 'neutral').map(renderWire)}
+      {/* Backgrounds cover neutral wires; changed routes and all outlines remain above fills. */}
       {artwork.outlines.map(({ value, tone }, index) => (
         <g
           key={`surface-${index}`}
@@ -70,6 +71,7 @@ function ArtworkNode({ data }: NodeProps<FBDDiffCanvasNode>) {
           <FBDFrameSurface layout={value} theme={theme} />
         </g>
       ))}
+      {artwork.paths.filter((part) => part.tone !== 'neutral').map(renderWire)}
       {artwork.outlines.map(({ value, tone }, index) => (
         <g
           key={`outline-${index}`}
