@@ -18,6 +18,26 @@ function programSource(localTags: string, version = '35.01') {
 }
 
 describe('schema-declared Program LocalTags', () => {
+  it.each(['33', '34', '35'])('retains text-only v%s decorated siblings in tags and local defaults', (version) => {
+    const values = '<DataValue>42</DataValue><Array DataType="DINT" Dimensions="1"><Element Index="[0]" Value="1" /></Array>';
+    const source = `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${version}.01" TargetName="Test" TargetType="Controller" ContainsContext="false"><Controller Use="Target" Name="Test"><Tags><Tag Name="X" TagType="Base" DataType="DINT"><Data Format="Decorated">${values}</Data></Tag></Tags><Programs><Program Name="P"><LocalTags><LocalTag Name="X" DataType="DINT"><DefaultData Format="Decorated">${values}</DefaultData></LocalTag></LocalTags></Program></Programs></Controller></RSLogix5000Content>`;
+    const result = parsePublicString(source, 'l5x');
+    const document = parsePublicDocumentString(source, 'l5x');
+    expect(result.status).toBe('complete');
+    expect(document.status).toBe('complete');
+    const expected = [
+      { kind: 'atomic' },
+      { kind: 'array', dataType: 'DINT', dimensions: [1], elements: [{ index: [0], value: '1', structures: [] }] },
+    ];
+    expect(result.data?.tags[0].data?.[0].values).toEqual(expected);
+    expect(result.data?.programs[0].localTags[0].defaultData?.[0].values).toEqual(expected);
+    expect(document.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0].defaultData?.[0].values)
+      .toEqual(expected);
+    const removed = parsePublicString(source.replaceAll('<DataValue>42</DataValue>', ''), 'l5x');
+    expect(removed.status).toBe('complete');
+    expect(diffControllers(result.data!, removed.data!).summary.tags.modified).toBe(2);
+  });
+
   it.each(['33', '34', '35'])('retains v%s local default order without any Structure node', (version) => {
     const array = '<Array DataType="DINT" Dimensions="1"><Element Index="[0]" Value="2" /></Array>';
     const atomic = '<DataValue DataType="DINT" Value="1" />';

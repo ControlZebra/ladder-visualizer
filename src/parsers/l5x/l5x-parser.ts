@@ -1201,10 +1201,10 @@ function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXm
         const kind = TAG_DATA_VALUE_KINDS[
           elementName as keyof typeof TAG_DATA_VALUE_KINDS
         ];
-        // Include empty siblings as well as populated values in source order.
-        const isEmptyElement = parsedChild === '';
-        if (kind && (isXmlNode(parsedChild) || isEmptyElement)) {
-          dataValues.push({ kind, value: isEmptyElement ? {} : parsedChild } as L5XOrderedTagDataValue);
+        // Attribute-free leaf nodes are strings, including empty and text-only values.
+        const isStringElement = typeof parsedChild === 'string';
+        if (kind && (isXmlNode(parsedChild) || isStringElement)) {
+          dataValues.push({ kind, value: isStringElement ? {} : parsedChild } as L5XOrderedTagDataValue);
         }
       }
 
