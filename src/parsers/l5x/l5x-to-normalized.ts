@@ -691,12 +691,13 @@ function normalizeTagData(data: L5XTagData): NormalizedTagData {
 }
 
 function normalizeAtomicValue(value: L5XDataValue): NormalizedAtomicTagValue {
+  const scalar = value['@_Value'] ?? extractNodeText(value);
   return {
     kind: 'atomic',
     ...(value['@_Name'] !== undefined ? { name: value['@_Name'] } : {}),
     ...(value['@_DataType'] !== undefined ? { dataType: value['@_DataType'] } : {}),
     ...(value['@_Radix'] !== undefined ? { radix: value['@_Radix'] } : {}),
-    ...(value['@_Value'] !== undefined ? { value: value['@_Value'] } : {}),
+    ...(scalar !== undefined ? { value: scalar } : {}),
     ...(value['@_ForceValue'] !== undefined ? { forceValue: value['@_ForceValue'] } : {}),
   };
 }

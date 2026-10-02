@@ -18,6 +18,37 @@ function programSource(localTags: string, version = '35.01') {
 }
 
 describe('schema-declared Program LocalTags', () => {
+  it.each(['33', '34', '35'])('preserves v%s atomic text defaults and detects value edits', (version) => {
+    for (const content of ['42', '<![CDATA[42]]>']) {
+      const source = read(`program-local-tags-v${version}`).replace(/<LocalTags>[\s\S]*?<\/LocalTags>/,
+        `<LocalTags><LocalTag Name="X" DataType="DINT"><DefaultData Format="Decorated"><DataValue>${content}</DataValue></DefaultData></LocalTag></LocalTags>`);
+      const before = parsePublicString(source, 'l5x');
+      const document = parsePublicDocumentString(source, 'l5x');
+      const after = parsePublicString(source.replace('42', '43'), 'l5x');
+      expect(before.status).toBe('complete');
+      expect(document.status).toBe('complete');
+      expect(after.status).toBe('complete');
+      expect(before.data?.programs[0].localTags[0].defaultData?.[0].values).toEqual([{ kind: 'atomic', value: '42' }]);
+      expect(document.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0].defaultData?.[0].values)
+        .toEqual([{ kind: 'atomic', value: '42' }]);
+      expect(after.data?.programs[0].localTags[0].defaultData?.[0].values).toEqual([{ kind: 'atomic', value: '43' }]);
+      const diff = diffControllers(before.data!, after.data!);
+      expect(diff.summary.tags.modified).toBe(1);
+      expect(diff.programs[0].localTagDiffs?.[0].propertyChanges).toContainEqual(
+        expect.objectContaining({ property: 'defaultData' }),
+      );
+    }
+  });
+
+  it('preserves decoded text, keeps attribute precedence, and leaves empty values empty', () => {
+    const source = programSource('<LocalTags><LocalTag Name="Text" DataType="STRING"><DefaultData Format="Decorated"><DataValue>A &amp; B</DataValue><DataValue Value="attribute">text</DataValue><DataValue /></DefaultData></LocalTag></LocalTags>');
+    const result = parsePublicString(source, 'l5x');
+    expect(result.status).toBe('complete');
+    expect(result.data?.programs[0].localTags[0].defaultData?.[0].values).toEqual([
+      { kind: 'atomic', value: 'A & B' }, { kind: 'atomic', value: 'attribute' }, { kind: 'atomic' },
+    ]);
+  });
+
   it.each(['33', '34', '35'])('retains text-only v%s decorated siblings in tags and local defaults', (version) => {
     const values = '<DataValue>42</DataValue><Array DataType="DINT" Dimensions="1"><Element Index="[0]" Value="1" /></Array>';
     const source = `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${version}.01" TargetName="Test" TargetType="Controller" ContainsContext="false"><Controller Use="Target" Name="Test"><Tags><Tag Name="X" TagType="Base" DataType="DINT"><Data Format="Decorated">${values}</Data></Tag></Tags><Programs><Program Name="P"><LocalTags><LocalTag Name="X" DataType="DINT"><DefaultData Format="Decorated">${values}</DefaultData></LocalTag></LocalTags></Program></Programs></Controller></RSLogix5000Content>`;
@@ -26,7 +57,7 @@ describe('schema-declared Program LocalTags', () => {
     expect(result.status).toBe('complete');
     expect(document.status).toBe('complete');
     const expected = [
-      { kind: 'atomic' },
+      { kind: 'atomic', value: '42' },
       { kind: 'array', dataType: 'DINT', dimensions: [1], elements: [{ index: [0], value: '1', structures: [] }] },
     ];
     expect(result.data?.tags[0].data?.[0].values).toEqual(expected);
@@ -36,6 +67,8 @@ describe('schema-declared Program LocalTags', () => {
     const removed = parsePublicString(source.replaceAll('<DataValue>42</DataValue>', ''), 'l5x');
     expect(removed.status).toBe('complete');
     expect(diffControllers(result.data!, removed.data!).summary.tags.modified).toBe(2);
+    const changed = parsePublicString(source.replaceAll('>42<', '>43<'), 'l5x');
+    expect(diffControllers(result.data!, changed.data!).summary.tags.modified).toBe(2);
   });
 
   it.each(['33', '34', '35'])('retains v%s local default order without any Structure node', (version) => {

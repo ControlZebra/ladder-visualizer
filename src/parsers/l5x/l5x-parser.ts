@@ -1204,7 +1204,10 @@ function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXm
         // Attribute-free leaf nodes are strings, including empty and text-only values.
         const isStringElement = typeof parsedChild === 'string';
         if (kind && (isXmlNode(parsedChild) || isStringElement)) {
-          dataValues.push({ kind, value: isStringElement ? {} : parsedChild } as L5XOrderedTagDataValue);
+          dataValues.push({
+            kind,
+            value: isStringElement ? (parsedChild ? { '#text': parsedChild } : {}) : parsedChild,
+          } as L5XOrderedTagDataValue);
         }
       }
 

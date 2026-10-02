@@ -482,6 +482,8 @@ export interface L5XElement {
 }
 
 export interface L5XDataValue {
+  '#text'?: string;
+  '#cdata'?: string;
   '@_Name'?: string;
   '@_DataType'?: string;
   '@_Radix'?: string;
