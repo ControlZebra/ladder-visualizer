@@ -15,6 +15,20 @@ function compare(before: string, after: string) {
 }
 
 describe('program local-tag comparison through the public API', () => {
+  it.each(['33', '34', '35'])('ignores v%s local default attribute order and detects value edits', (version) => {
+    const source = fixture(version).replace(/<LocalTags>[\s\S]*?<\/LocalTags>/,
+      '<LocalTags><LocalTag Name="LocalAlarm" DataType="ALARM_ANALOG"><DefaultData Format="Decorated"><AlarmAnalogParameters EnableIn="1" In="1.0" /></DefaultData></LocalTag></LocalTags>');
+    const reordered = source.replace('EnableIn="1" In="1.0"', 'In="1.0" EnableIn="1"');
+    const diff = compare(source, reordered);
+    expect(diff.programs).toEqual([]);
+    expect(diff.summary.totalChanges).toBe(0);
+    const edited = compare(source, reordered.replace('In="1.0"', 'In="2.0"'));
+    expect(edited.programs[0].localTagDiffs?.[0].propertyChanges).toContainEqual(
+      expect.objectContaining({ property: 'defaultData' }),
+    );
+    expect(edited.summary.tags.modified).toBe(1);
+  });
+
   it.each(['33', '34', '35'])('reports v%s local default edits and summary counts', (version) => {
     const source = fixture(version);
     const changed = source.replace('Value="7"', 'Value="8"').replace('<![CDATA[7]]>', '<![CDATA[8]]>');

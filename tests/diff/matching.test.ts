@@ -94,6 +94,23 @@ describe('matchByNumericKey', () => {
 });
 
 describe('valuesEqual', () => {
+  it('ignores object key order at every depth', () => {
+    expect(valuesEqual(
+      { data: [{ kind: 'axis', attributes: { a: '1', b: '2' } }] },
+      { data: [{ attributes: { b: '2', a: '1' }, kind: 'axis' }] },
+    )).toBe(true);
+  });
+
+  it('still detects array order, object keys, and value changes', () => {
+    expect(valuesEqual([{ a: 1 }, { b: 2 }], [{ b: 2 }, { a: 1 }])).toBe(false);
+    expect(valuesEqual({ a: 1 }, { b: 1 })).toBe(false);
+    expect(valuesEqual({ a: 1, b: 2 }, { b: 3, a: 1 })).toBe(false);
+  });
+
+  it('retains equality for omitted optional JSON fields', () => {
+    expect(valuesEqual({ a: 1, optional: undefined }, { a: 1 })).toBe(true);
+  });
+
   it('should return true for identical primitives', () => {
     expect(valuesEqual(1, 1)).toBe(true);
     expect(valuesEqual('hello', 'hello')).toBe(true);

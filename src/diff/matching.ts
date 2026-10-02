@@ -69,8 +69,7 @@ export function matchByNumericKey<T>(
 }
 
 /**
- * Compare two values for shallow equality.
- * Handles Date objects, primitives, and simple arrays/objects via JSON comparison.
+ * Compare normalized values, ignoring object key order while retaining array order.
  */
 export function valuesEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
@@ -82,17 +81,23 @@ export function valuesEqual(a: unknown, b: unknown): boolean {
     return a.getTime() === b.getTime();
   }
 
-  // For objects/arrays, use JSON serialization as a simple deep equality check.
+  // Canonicalize object keys during JSON comparison; array order stays meaningful.
   // This is sufficient for our normalized domain types (no circular refs, no functions).
   if (typeof a === 'object' && typeof b === 'object') {
     try {
-      return JSON.stringify(a) === JSON.stringify(b);
+      return JSON.stringify(a, sortObjectKeys) === JSON.stringify(b, sortObjectKeys);
     } catch {
       return false;
     }
   }
 
   return false;
+}
+
+function sortObjectKeys(_key: string, value: unknown): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(Object.keys(record).sort().map((key) => [key, record[key]]));
 }
 
 /**
