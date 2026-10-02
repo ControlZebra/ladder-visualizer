@@ -2,6 +2,21 @@ import { describe, it, expect } from 'vitest';
 import { matchByKey, matchByNumericKey, diffProperties, valuesEqual } from '../../src/diff/matching';
 
 describe('matchByKey', () => {
+  it('preserves multiplicity and new order while reserving exact duplicate matches', () => {
+    const oldItems = [{ name: 'X', value: 1 }, { name: 'Y', value: 9 }, { name: 'X', value: 2 }];
+    const newItems = [{ name: 'X', value: 3 }, { name: 'Y', value: 9 }, { name: 'X', value: 1 }];
+    expect(matchByKey(oldItems, newItems, (item) => item.name)).toEqual({
+      added: [], removed: [], matched: [
+        { oldItem: oldItems[2], newItem: newItems[0] },
+        { oldItem: oldItems[1], newItem: newItems[1] },
+        { oldItem: oldItems[0], newItem: newItems[2] },
+      ],
+    });
+    const repeated = { name: 'X', value: 1 };
+    expect(matchByKey([repeated, repeated], [repeated], (item) => item.name).removed).toEqual([repeated]);
+    expect(matchByKey([repeated], [repeated, repeated], (item) => item.name).added).toEqual([repeated]);
+  });
+
   it('should identify added items', () => {
     const oldItems = [{ name: 'A' }, { name: 'B' }];
     const newItems = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];

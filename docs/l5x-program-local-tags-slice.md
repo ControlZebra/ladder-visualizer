@@ -8,6 +8,7 @@
 - **Scalar precision:** Integer defaults outside JavaScript's safe integer range remain exact strings in `defaultValue`; safe integers and finite fractional values remain numbers. The shared conversion applies to L5K and decorated scalar defaults.
 - **Repeated metadata:** Repeated `Comments` containers contribute all comments in source order. Repeated `Description` text is joined with newlines in the scalar description field; metadata edits participate in comparison.
 - **Object comparison:** XML attribute order alone is not a default-data edit. Comparison ignores object key order while retaining array order and detecting value edits.
+- **Duplicate names and value order:** Comparison matches duplicate declarations one-to-one, pairing unchanged declarations before edits. Decorated defaults preserve interleaved, repeated, and empty supported children in source order; changing that sequence is a default-data edit.
 - **Unsupported policy:** Unsupported default-data encodings or nodes and unrepresentable dimensions remain in document fragments and produce precise partial diagnostics. AOI LocalTags, program parameters, and UI presentation are outside this slice.
 - **Tests and gates:** Schema-valid complete `program-local-tags-v33/v34/v35.L5X` fixtures, existing normalization fixtures, and focused absent, empty, singleton, repeated, collision, FBD, and unsupported-data tests. Run focused parser tests, `npm run test:schema`, `npm run test:conformance`, `npm run typecheck`, `npm run lint`, and `npm run test:run`.
 

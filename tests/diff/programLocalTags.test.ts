@@ -15,6 +15,25 @@ function compare(before: string, after: string) {
 }
 
 describe('program local-tag comparison through the public API', () => {
+  it.each(['33', '34', '35'])('matches duplicate v%s local names one-to-one', (version) => {
+    const first = '<LocalTag Name="X" DataType="DINT" />';
+    const second = '<LocalTag Name="X" DataType="BOOL" />';
+    const source = (locals: string) => fixture(version).replace(/<LocalTags>[\s\S]*?<\/LocalTags>/,
+      `<LocalTags>${locals}</LocalTags>`);
+    const original = source(first + second);
+    expect(compare(original, original).summary.totalChanges).toBe(0);
+    expect(compare(original, source(second + first)).summary.totalChanges).toBe(0);
+    expect(compare(original, source(second)).summary.tags).toEqual({ added: 0, removed: 1, modified: 0 });
+    expect(compare(source(second), original).summary.tags).toEqual({ added: 1, removed: 0, modified: 0 });
+    const changed = compare(original, source('<LocalTag Name="X" DataType="REAL" />' + first));
+    expect(changed.summary.tags).toEqual({ added: 0, removed: 0, modified: 1 });
+    expect(changed.programs[0].localTagDiffs?.[0]).toMatchObject({
+      oldTag: { dataType: 'BOOL' }, newTag: { dataType: 'REAL' },
+    });
+    expect(compare(source(first + first), source(first)).summary.tags.removed).toBe(1);
+    expect(compare(source(first), source(first + first)).summary.tags.added).toBe(1);
+  });
+
   it.each(['33', '34', '35'])('ignores v%s local default attribute order and detects value edits', (version) => {
     const source = fixture(version).replace(/<LocalTags>[\s\S]*?<\/LocalTags>/,
       '<LocalTags><LocalTag Name="LocalAlarm" DataType="ALARM_ANALOG"><DefaultData Format="Decorated"><AlarmAnalogParameters EnableIn="1" In="1.0" /></DefaultData></LocalTag></LocalTags>');

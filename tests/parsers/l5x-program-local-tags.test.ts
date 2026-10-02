@@ -18,6 +18,54 @@ function programSource(localTags: string, version = '35.01') {
 }
 
 describe('schema-declared Program LocalTags', () => {
+  it.each(['33', '34', '35'])('retains v%s local default order without any Structure node', (version) => {
+    const array = '<Array DataType="DINT" Dimensions="1"><Element Index="[0]" Value="2" /></Array>';
+    const atomic = '<DataValue DataType="DINT" Value="1" />';
+    const source = read(`program-local-tags-v${version}`).replace(/<LocalTags>[\s\S]*?<\/LocalTags>/,
+      `<LocalTags><LocalTag Name="X" DataType="DINT"><DefaultData Format="Decorated">${array}${atomic}</DefaultData></LocalTag></LocalTags>`);
+    expect(source).not.toContain('<Structure');
+    const before = parsePublicString(source, 'l5x');
+    const document = parsePublicDocumentString(source, 'l5x');
+    const after = parsePublicString(source.replace(array + atomic, atomic + array), 'l5x');
+    expect(before.status).toBe('complete');
+    expect(document.status).toBe('complete');
+    expect(after.status).toBe('complete');
+    const values = [
+      { kind: 'array', dataType: 'DINT', dimensions: [1], elements: [{ index: [0], value: '2', structures: [] }] },
+      { kind: 'atomic', dataType: 'DINT', value: '1' },
+    ];
+    expect(before.data?.programs[0].localTags[0].defaultData?.[0].values).toEqual(values);
+    expect(document.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0].defaultData?.[0].values)
+      .toEqual(values);
+    expect(diffControllers(before.data!, after.data!).summary.tags.modified).toBe(1);
+  });
+
+  it.each(['33', '34', '35'])('retains interleaved v%s local default values and detects order edits', (version) => {
+    const array = '<Array DataType="DINT" Dimensions="1"><Element Index="[0]" Value="2" /></Array>';
+    const atomic = '<DataValue DataType="DINT" Value="1" />';
+    const source = read(`program-local-tags-v${version}`).replace(/<LocalTags>[\s\S]*?<\/LocalTags>/,
+      `<LocalTags><LocalTag Name="X" DataType="DINT"><DefaultData Format="Decorated">${array}${atomic}<DataValue />${array}<Structure /><AlarmAnalogParameters /><AlarmDigitalParameters /><AlarmConfig /></DefaultData></LocalTag></LocalTags>`);
+    const controller = parsePublicString(source, 'l5x');
+    const document = parsePublicDocumentString(source, 'l5x');
+    expect(controller.status).toBe('complete');
+    expect(document.status).toBe('complete');
+    const local = controller.data!.programs[0].localTags[0];
+    const expectedArray = { kind: 'array', dataType: 'DINT', dimensions: [1], elements: [{ index: [0], value: '2', structures: [] }] };
+    expect(local.defaultData?.[0].values).toEqual([
+      expectedArray, { kind: 'atomic', dataType: 'DINT', value: '1' }, { kind: 'atomic' }, expectedArray,
+      { kind: 'structure', members: [] }, { kind: 'alarm', alarmType: 'analog', parameters: {} },
+      { kind: 'alarm', alarmType: 'digital', parameters: {} }, { kind: 'alarm', alarmType: 'config', parameters: {} },
+    ]);
+    expect(document.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0]).toEqual(local);
+    const changed = parsePublicString(source.replace(array + atomic, atomic + array), 'l5x');
+    expect(changed.status).toBe('complete');
+    const diff = diffControllers(controller.data!, changed.data!);
+    expect(diff.summary.tags.modified).toBe(1);
+    expect(diff.programs[0].localTagDiffs?.[0].propertyChanges).toEqual([
+      expect.objectContaining({ property: 'defaultData' }),
+    ]);
+  });
+
   it.each(['33', '34', '35'])('preserves repeated v%s metadata containers and detects edits', (version) => {
     const source = read(`program-local-tags-v${version}`)
       .replace('</Comments>', '</Comments><Comments /><Comments><Comment Operand="[0]"><![CDATA[Second comment]]></Comment><Comment Operand="[1]"><![CDATA[Third comment]]></Comment></Comments>')

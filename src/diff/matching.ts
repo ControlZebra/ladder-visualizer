@@ -17,42 +17,63 @@ export interface MatchResult<T> {
 /**
  * Match entities from two arrays using a string key function.
  * Preserves order from the new array for matched + added items.
+ * Duplicate keys match one-to-one, reserving unchanged pairs before edited pairs.
  */
 export function matchByKey<T>(
   oldItems: T[],
   newItems: T[],
   keyFn: (item: T) => string,
 ): MatchResult<T> {
-  const oldMap = new Map<string, T>();
-  for (const item of oldItems) {
-    oldMap.set(keyFn(item), item);
+  const oldMap = new Map<string, number[]>();
+  for (const [index, item] of oldItems.entries()) {
+    const key = keyFn(item);
+    const indices = oldMap.get(key) ?? [];
+    indices.push(index);
+    oldMap.set(key, indices);
   }
 
-  const newMap = new Map<string, T>();
-  for (const item of newItems) {
-    newMap.set(keyFn(item), item);
+  const newMap = new Map<string, number[]>();
+  for (const [index, item] of newItems.entries()) {
+    const key = keyFn(item);
+    const indices = newMap.get(key) ?? [];
+    indices.push(index);
+    newMap.set(key, indices);
+  }
+
+  const matches = new Map<number, number>();
+  for (const [key, newIndices] of newMap) {
+    const candidates = oldMap.get(key) ?? [];
+    const pending: number[] = [];
+    for (const newIndex of newIndices) {
+      const exactIndex = candidates.length === 1 && newIndices.length === 1
+        ? 0
+        : candidates.findIndex((oldIndex) => valuesEqual(oldItems[oldIndex], newItems[newIndex]));
+      if (exactIndex >= 0) {
+        matches.set(newIndex, candidates.splice(exactIndex, 1)[0]);
+      } else {
+        pending.push(newIndex);
+      }
+    }
+    for (const newIndex of pending) {
+      const oldIndex = candidates.shift();
+      if (oldIndex !== undefined) matches.set(newIndex, oldIndex);
+    }
   }
 
   const added: T[] = [];
   const matched: Array<{ oldItem: T; newItem: T }> = [];
 
-  for (const item of newItems) {
-    const key = keyFn(item);
-    const oldItem = oldMap.get(key);
-    if (oldItem !== undefined) {
-      matched.push({ oldItem, newItem: item });
+  for (const [index, item] of newItems.entries()) {
+    const oldIndex = matches.get(index);
+    if (oldIndex !== undefined) {
+      matched.push({ oldItem: oldItems[oldIndex], newItem: item });
     } else {
       added.push(item);
     }
   }
 
-  const removed: T[] = [];
-  for (const item of oldItems) {
-    const key = keyFn(item);
-    if (!newMap.has(key)) {
-      removed.push(item);
-    }
-  }
+  const matchedOldIndices = new Set(matches.values());
+  const removed = oldItems.filter((_item, index) => !matchedOldIndices.has(index));
 
   return { added, removed, matched };
 }
