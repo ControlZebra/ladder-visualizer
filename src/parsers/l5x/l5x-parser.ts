@@ -37,6 +37,7 @@ import {
 import { l5xToNormalized } from './l5x-to-normalized';
 import { l5xToDocument, L5XDocumentError, L5X_TARGET_TYPES } from './l5x-document';
 import { collectEncodedData, preserveEncodedLineEndings } from './l5x-encoded-data';
+import { parseSFCRoutineSources } from './l5x-sfc-source';
 import { finalizeController } from '../aoi-registration';
 import {
   checkParseExecution,
@@ -234,6 +235,8 @@ export class L5XParser extends BaseParser {
     try {
       const { controller, context } = finalizeController(l5xToNormalized(xml));
       const document = l5xToDocument(xml, controller, encodedData);
+      const sourceError = parseSFCRoutineSources(document, content, options);
+      if (sourceError) return createFailureResult([sourceError]);
       const tagWarnings = collectUnsupportedTagWarnings(xml);
       const taskWarnings = collectTaskWarnings(xml, controller);
       const programNumericWarnings = collectUnsupportedProgramNumericWarnings(xml);

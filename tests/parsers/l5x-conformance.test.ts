@@ -53,10 +53,12 @@ const sourceElements: Record<keyof L5XSourceCounts, string> = {
 };
 
 function countSourceEntities(source: string): L5XSourceCounts {
+  // Markup inside code, comments and processing instructions is not an entity.
+  const markup = source.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>/g, '');
   return Object.fromEntries(
     Object.entries(sourceElements).map(([key, element]) => [
       key,
-      source.match(new RegExp(`<${element}(?=[\\s/>])`, 'g'))?.length ?? 0,
+      markup.match(new RegExp(`<${element}(?=[\\s/>])`, 'g'))?.length ?? 0,
     ])
   ) as unknown as L5XSourceCounts;
 }
@@ -304,7 +306,7 @@ describe('L5X compatibility contract', () => {
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 9, failed: 0 },
-      'rockwell-full-project': { complete: 19, partial: 28, failed: 3 },
+      'rockwell-full-project': { complete: 19, partial: 31, failed: 3 },
     });
   });
 });

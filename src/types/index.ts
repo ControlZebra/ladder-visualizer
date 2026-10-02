@@ -22,6 +22,7 @@ export type {
   NormalizedProgramLossOfCommunicationCommand,
   NormalizedProgramExternalRequestAction,
   NormalizedRoutine,
+  NormalizedRoutineSource,
   NormalizedRung,
   NormalizedTag,
   NormalizedDataType,

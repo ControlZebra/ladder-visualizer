@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="33.01" TargetName="RawSourceFixture" TargetType="Controller" ContainsContext="false">
+  <Controller Use="Target" Name="RawSourceFixture">
+    <Programs>
+      <Program Name="First">
+        <Routines>
+          <Routine Name="Ladder" Type="RLL"><RLLContent><Rung Number="0" Type="N"><Text><![CDATA[XIC(Ready)OTE(Output);]]></Text></Rung></RLLContent></Routine>
+          <Routine Name="Sequence" Type='SFC'>
+          <Description><![CDATA[Raw sequence & nested code]]></Description>
+          <!-- Keep this comment, its spacing, and attribute order. -->
+          <SFCContent SheetSize="Letter" SheetOrientation="Portrait" StepName="Stage" TransitionName="Test" ActionName="Act" StopName="End" OnlineEditType="Original">
+            <Step ID="1" X="20" Y="20" Operand="Stage_1" InitialStep="true" ShowActions="true">
+              <Action ID="2" Operand="Act_1" Qualifier="NonStored"><Preset><STContent><Line Number="0"><![CDATA[Timer := 100;]]></Line></STContent></Preset><Body><STContent><Line Number="0"><![CDATA[Output := TRUE; // literal </Routine> and <Step />]]></Line><Line Number="1">Message := &apos;A &amp; B&apos;;</Line></STContent></Body></Action>
+              <Action ID="3" Operand="Act_2" Qualifier="Pulse"><Body><STContent /></Body></Action>
+              <LimitHigh><STContent><Line Number="0"><![CDATA[High := 200;]]></Line></STContent></LimitHigh>
+              <LimitLow><STContent><Line Number="0"><![CDATA[Low := 0;]]></Line></STContent></LimitLow>
+              <Preset><STContent><Line Number="0"><![CDATA[Preset := 100;]]></Line></STContent></Preset>
+            </Step>
+            <Step ID="4" X="20" Y="220" />
+            <Transition ID="5" X="20" Y="120"><Condition><STContent><Line Number="0"><![CDATA[Ready AND NOT Faulted]]></Line></STContent></Condition></Transition>
+            <Branch ID="6" Y="280" BranchType="Selection" BranchFlow="Diverge"><Leg ID="7" /><Leg ID="8" /></Branch>
+            <SbrRet ID="9" X="20" Y="320" In="Input" Ret="Result" />
+            <Stop ID="10" X="20" Y="420" Operand="End" />
+            <DirectedLink FromID="1" ToID="5" Show="true" />
+            <DirectedLink FromID="5" ToID="4" Show="false" />
+            <TextBox ID="11" X="80" Y="20" Width="160"><Text><![CDATA[Text is raw: <Routine> 🦓]]></Text></TextBox>
+            <Attachment FromID="11" ToID="1" />
+          </SFCContent>
+          <SFCContent SheetOrientation="Landscape" OnlineEditType="PendingEdits" />
+        </Routine>
+          <Routine Name="Empty" Type="SFC" />
+          <Routine Name="Text" Type="ST"><STContent><Line Number="0"><![CDATA[Value := 1;]]></Line></STContent></Routine>
+        </Routines>
+      </Program>
+      <Program Name="Second"><Routines><Routine Name="Sequence" Type="SFC"><SFCContent SheetOrientation="Portrait"><Step ID="99" X="0" Y="0" /></SFCContent></Routine></Routines></Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>
