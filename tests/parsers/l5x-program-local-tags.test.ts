@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createTagResolver, parseDocumentString, parseString } from '../../src/parsers';
-import { parseString as parsePublicString, parseDocumentString as parsePublicDocumentString } from '../../src';
+import {
+  diffControllers,
+  parseString as parsePublicString,
+  parseDocumentString as parsePublicDocumentString,
+} from '../../src';
 
 const read = (name: string) => readFileSync(join(__dirname, `../fixtures/l5x/${name}.L5X`), 'utf8');
 const programPath = '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]';
@@ -14,6 +18,34 @@ function programSource(localTags: string, version = '35.01') {
 }
 
 describe('schema-declared Program LocalTags', () => {
+  it.each(['33', '34', '35'])('preserves repeated v%s metadata containers and detects edits', (version) => {
+    const source = read(`program-local-tags-v${version}`)
+      .replace('</Comments>', '</Comments><Comments /><Comments><Comment Operand="[0]"><![CDATA[Second comment]]></Comment><Comment Operand="[1]"><![CDATA[Third comment]]></Comment></Comments>')
+      .replace('</Description>', '</Description><Description><![CDATA[Second description]]></Description>');
+    const controller = parsePublicString(source, 'l5x');
+    const document = parsePublicDocumentString(source, 'l5x');
+    expect(controller.status).toBe('complete');
+    expect(document.status).toBe('complete');
+    const local = controller.data?.programs[0].localTags[0];
+    expect(local?.description).toBe('Hidden local\nSecond description');
+    expect(local?.comments?.map((comment) => comment.text)).toEqual([
+      'Initial value', 'Second comment', 'Third comment',
+    ]);
+    expect(document.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0])
+      .toEqual(local);
+    for (const [text, property] of [
+      ['Second comment', 'comments'], ['Third comment', 'comments'], ['Second description', 'description'],
+    ]) {
+      const changed = parsePublicString(source.replace(text, 'Updated metadata'), 'l5x');
+      expect(changed.status).toBe('complete');
+      const diff = diffControllers(controller.data!, changed.data!);
+      expect(diff.programs[0].localTagDiffs?.[0].propertyChanges).toContainEqual(
+        expect.objectContaining({ property }),
+      );
+      expect(diff.summary.tags.modified).toBe(1);
+    }
+  });
+
   it.each(['33', '34', '35'])('preserves exact v%s LINT defaults through both public APIs', (version) => {
     const source = read(`program-local-tags-v${version}`)
       .replace('DataType="DINT"', 'DataType="LINT"')

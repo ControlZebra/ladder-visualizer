@@ -925,7 +925,9 @@ function normalizeProgramLocalTags(
     ...(extractText(tag.Description) !== undefined
       ? { description: extractText(tag.Description) }
       : {}),
-    comments: normalizeTagComments(tag.Comments?.Comment),
+    comments: normalizeTagComments(
+      ensureArray(tag.Comments).flatMap((container) => ensureArray(container.Comment))
+    ),
     ...(tag.DefaultData !== undefined
       ? { defaultData: ensureArray(tag.DefaultData).map(normalizeTagData) }
       : {}),

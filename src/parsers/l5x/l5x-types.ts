@@ -709,8 +709,8 @@ export interface L5XLocalTag {
   '@_Dimensions'?: string;
   '@_ExternalAccess'?: string;
   '@_Verified'?: string;
-  Comments?: L5XComments;
-  Description?: L5XDescription;
+  Comments?: L5XComments | L5XComments[];
+  Description?: L5XDescription | L5XDescription[];
   DefaultData?: L5XTagData | L5XTagData[];
 }
 
@@ -1086,8 +1086,12 @@ export function parseLocalTagDimensions(value: string | undefined): number[] | u
  * Extract text from Description element
  * Handles various formats that fast-xml-parser may produce
  */
-export function extractText(desc: L5XDescription | undefined): string | undefined {
+export function extractText(desc: L5XDescription | L5XDescription[] | undefined): string | undefined {
   if (desc === undefined) return undefined;
+  if (Array.isArray(desc)) {
+    const texts = desc.map(extractText).filter((text): text is string => text !== undefined);
+    return texts.length ? texts.join('\n') : undefined;
+  }
   if (typeof desc === 'string') return desc;
   // Check for CDATA content first
   if (desc['#cdata'] !== undefined) return desc['#cdata'];
