@@ -561,7 +561,7 @@ function createFBDTagOperandScope(
       })),
       ...ensureArray(localTags).map((tag) => ({
         name: tag['@_Name'],
-        data: ensureArray(tag.DefaultData),
+        data: ensureArray(tag.DefaultData).filter((data): data is L5XTagData => typeof data !== 'string'),
       })),
     ]
   );
@@ -573,7 +573,7 @@ function createFBDLocalTagOperandScope(
   return createFBDBlockOperandScope(
     ensureArray(tags).map((tag) => ({
       name: tag['@_Name'],
-      data: ensureArray(tag.DefaultData),
+      data: ensureArray(tag.DefaultData).filter((data): data is L5XTagData => typeof data !== 'string'),
     }))
   );
 }
@@ -637,23 +637,24 @@ function normalizeExternalAccess(access: string | undefined): ExternalAccess {
 }
 
 function extractTagValue(tag: L5XTag): unknown {
-  // For simple tags, try to extract the value from L5K format data
-  const dataArray = ensureArray(tag.Data);
-  const l5kData = dataArray.find((d) => d['@_Format'] === 'L5K');
-  const textData = l5kData ?? dataArray.find((d) => d['@_Format'] === 'String');
-  const textValue = extractNodeText(textData);
-  if (textValue !== undefined) {
-    const text = textValue.trim();
-    // Try to parse as number
-    const num = Number(text);
-    if (!isNaN(num)) return num;
-    // Return as string
-    return text;
+  const data = ensureArray(tag.Data);
+  // Studio exports can include both representations of a composite tag.
+  // Keep its L5K text as the tag's value shortcut; AOI defaults use the
+  // separate scalar-only rule in extractDefaultValue.
+  const hasDecoratedComposite = data.some((entry) =>
+    entry['@_Format'] === 'Decorated' &&
+    (entry.Array !== undefined || entry.Structure !== undefined)
+  );
+  if (hasDecoratedComposite) {
+    const l5kData = data.find((entry) => entry['@_Format'] === 'L5K');
+    const text = extractNodeText(l5kData)?.trim();
+    if (text) return parseScalarDefault(text);
   }
-  return undefined;
+  return extractDefaultValue(tag.Data);
 }
 
-function normalizeTagData(data: L5XTagData): NormalizedTagData {
+function normalizeTagData(data: L5XTagData | string): NormalizedTagData {
+  if (typeof data === 'string') return { text: data, values: [] };
   const text = extractNodeText(data);
   const length = data['@_Length'] === undefined ? undefined : Number(data['@_Length']);
   const orderedValues = data[L5X_TAG_DATA_VALUE_ORDER];
@@ -992,7 +993,7 @@ function normalizeProgramParameters(
       : {}),
     comments: normalizeTagComments(parameter.Comments?.Comment),
     ...(parameter.DefaultData !== undefined
-      ? { defaultData: normalizeTagData(parameter.DefaultData) }
+      ? { defaultData: normalizeTagData(ensureArray(parameter.DefaultData)[0]) }
       : {}),
   }));
 }
@@ -1178,15 +1179,7 @@ function normalizeRoutines(
   routines: L5XRoutines | undefined,
   fbdContext: FBDNormalizationContext
 ): NormalizedRoutine[] {
-  return [
-    ...ensureArray(routines?.Routine).map((routine) => normalizeRoutine(routine, fbdContext)),
-    ...ensureArray(routines?.EncodedData).map((encoded) => ({
-      name: encoded['@_Name'],
-      type: encoded['@_Type'] ?? ('Encrypted' as const),
-      description: extractText(encoded.Description),
-      rungs: [],
-    })),
-  ];
+  return ensureArray(routines?.Routine).map((routine) => normalizeRoutine(routine, fbdContext));
 }
 
 function normalizeRoutine(
@@ -2271,8 +2264,11 @@ function normalizeAOIParameter(param: L5XParameter): AOIParameter {
     dimensions: parseIntegerList(param['@_Dimensions']),
     required: parseBoolean(param['@_Required']),
     visible: parseBoolean(param['@_Visible']),
+    ...(param['@_Constant'] !== undefined ? { constant: parseOptionalBoolean(param['@_Constant']) } : {}),
     externalAccess: normalizeExternalAccess(param['@_ExternalAccess']),
     description: extractText(param.Description),
+    ...(param.Comments !== undefined ? { comments: normalizeTagComments(param.Comments.Comment) } : {}),
+    ...(param.DefaultData !== undefined ? { defaultData: ensureArray(param.DefaultData).map(normalizeTagData) } : {}),
     defaultValue: extractDefaultValue(param.DefaultData),
   };
 }
@@ -2289,37 +2285,38 @@ function normalizeAOILocalTag(tag: L5XLocalTag): AOILocalTag {
     radix: tag['@_Radix'],
     externalAccess: normalizeExternalAccess(tag['@_ExternalAccess']),
     description: extractText(tag.Description),
+    ...(tag.Comments !== undefined ? { comments: normalizeTagComments(ensureArray(tag.Comments).flatMap((comments) => ensureArray(comments.Comment))) } : {}),
+    ...(tag.DefaultData !== undefined ? { defaultData: ensureArray(tag.DefaultData).map(normalizeTagData) } : {}),
     defaultValue: extractDefaultValue(tag.DefaultData),
-    dimensions: tag['@_Dimensions'] ? parseInt(tag['@_Dimensions'], 0) : 0,
+    ...(tag['@_Dimensions'] !== undefined ? { dimensions: parseIntegerList(tag['@_Dimensions']) } : {}),
   };
 }
 
-function extractDefaultValue(defaultData: L5XTagData | L5XTagData[] | undefined): unknown {
+function extractDefaultValue(defaultData: L5XTagData | string | (L5XTagData | string)[] | undefined): unknown {
   if (!defaultData) return undefined;
 
-  // Handle array of DefaultData
   const dataArray = ensureArray(defaultData);
-  const l5kData = dataArray.find((d: { '@_Format'?: string }) => d['@_Format'] === 'L5K');
-  const text = (l5kData?.['#cdata'] ?? l5kData?.['#text'])?.trim();
-  if (text) {
-    return parseScalarDefault(text);
-  }
-
-  // Try decorated format
-  const decoratedData = dataArray.find(
-    (d: { '@_Format'?: string }) => d['@_Format'] === 'Decorated'
-  );
-  if (decoratedData && 'DataValue' in decoratedData && decoratedData.DataValue) {
-    const dataValue = decoratedData.DataValue as { '@_Value'?: string };
-    if (dataValue['@_Value']) {
-      return parseScalarDefault(dataValue['@_Value']);
+  // The decorated representation is authoritative. A composite value has no
+  // scalar shortcut; callers use defaultData for its typed recursive tree.
+  for (const data of dataArray.filter((entry): entry is L5XTagData => typeof entry !== 'string' && entry['@_Format'] === 'Decorated')) {
+    if (data.Array !== undefined || data.Structure !== undefined) return undefined;
+    const values = ensureArray(data.DataValue);
+    if (values.length === 1) {
+      const value = values[0]['@_Value'];
+      if (value !== undefined) return parseScalarDefault(value);
     }
   }
-
+  for (const format of ['L5K', 'String']) {
+    for (const data of dataArray.filter((entry): entry is L5XTagData => typeof entry !== 'string' && entry['@_Format'] === format)) {
+      const text = extractNodeText(data)?.trim();
+      if (text) return parseScalarDefault(text);
+    }
+  }
   return undefined;
 }
 
 function parseScalarDefault(value: string): number | string {
+  if (value === '') return value;
   const number = Number(value);
   // Keep large PLC integers exact instead of exposing a rounded scalar shortcut.
   if (!Number.isFinite(number) || (Number.isInteger(number) && !Number.isSafeInteger(number))) {

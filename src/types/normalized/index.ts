@@ -123,5 +123,5 @@ export type {
 
 export type {
   PlcDocument, PlcResource, PlcResourceData, PlcResourceRole, PlcExportTarget,
-  PlcVendorFragment, PlcSourceMapping, ParsedXmlValue,
+  PlcVendorFragment, PlcSourceMapping, ParsedXmlValue, PlcEncodedData,
 } from './document';

@@ -42,3 +42,4 @@ export { StructuredTextViewer, type StructuredTextViewerProps } from './Structur
 
 // Module Info Table
 export { ModuleInfoTable, type ModuleInfoTableProps } from './ModuleInfoTable';
+export { FBDDiffDiagram, type FBDDiffDiagramProps, type FBDDiffView } from './fbd';

@@ -103,7 +103,7 @@ describe('program local-tag comparison through the public API', () => {
 
   it('detects alternate default representation edits without a scalar change', () => {
     const source = fixture();
-    const diff = compare(source, source.replace('Value="7"', 'Value="8"'));
+    const diff = compare(source, source.replace('<![CDATA[7]]>', '<![CDATA[8]]>'));
     expect(diff.programs[0].localTagDiffs?.[0].propertyChanges).toEqual([
       expect.objectContaining({ property: 'defaultData' }),
     ]);

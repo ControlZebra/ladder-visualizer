@@ -129,41 +129,20 @@ describe('L5X normalization completeness', () => {
   });
 
   it.each(['33', '34', '35'])(
-    'marks preserved-only v%s constructs partial with precise diagnostics',
+    'normalizes v%s program locals and AOI defaults completely',
     (version) => {
       const source = fixture(version);
       const documentResult = parseDocumentString(source, 'l5x');
       const controllerResult = parseString(source, 'l5x');
 
       for (const result of [documentResult, controllerResult]) {
-        expect(result).toMatchObject({ success: true, status: 'partial' });
+        expect(result).toMatchObject({ success: true, status: 'complete' });
         expect(result.errors).toBeUndefined();
       }
 
-      expect(documentResult.warnings).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
-            location: { path: `${aoiPath}/Parameters[1]/Parameter[1]/DefaultData[1]` },
-          }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_AOI_LOCAL_TAG_DIMENSIONS',
-            location: { path: `${aoiPath}/LocalTags[1]/LocalTag[1]/@Dimensions` },
-          }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
-            location: { path: `${aoiPath}/LocalTags[1]/LocalTag[1]/DefaultData[1]` },
-          }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
-            location: { path: `${aoiPath}/LocalTags[1]/LocalTag[2]/DefaultData[1]` },
-          }),
-        ])
-      );
-
       expect(
         documentResult.warnings?.filter(({ code }) => code?.startsWith('UNNORMALIZED_L5X_'))
-      ).toHaveLength(4);
+      ).toHaveLength(0);
       expect(
         controllerResult.warnings?.filter(({ code }) => code?.startsWith('UNNORMALIZED_L5X_'))
       ).toEqual(

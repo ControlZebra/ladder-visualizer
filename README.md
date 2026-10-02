@@ -69,6 +69,39 @@ Run `npm run preview:fbd` to open the dedicated FBD previewer. It includes the
 topology and element-family fixtures, accessible sheet tabs, light/dark themes, grid
 and minimap toggles, viewport controls, and renderer diagnostics.
 
+Compare two normalized FBD revisions with `diffFBD(oldBody, newBody)` or read
+`routineDiff.fbdDiff` from `diffControllers()`. Render both revisions with:
+
+```tsx
+import { FBDDiffDiagram } from 'ladder-visualizer';
+
+<FBDDiffDiagram oldBody={olderRoutine.fbd} newBody={newerRoutine.fbd} height={700} />
+```
+
+The default overlay draws unchanged content once in normal theme colors. Changed
+fields show their older values in red and newer values in green; moved blocks are
+colored in full at their original positions. Automatic resizing retains both frame
+and pin positions, and changed wires draw above block backgrounds. Added/deleted elements and changed wire
+routes use the same green/red colors. Slightly offset strokes and collision-aware
+labels keep both versions visible. Side-by-side views remain fully red/green.
+A side-by-side switch,
+source sheet number selection, version metadata, pan/zoom controls, and explicit
+diagnostics are included. Missing or duplicate sheet numbers force separate views
+without guessing a match. Omit either body to display an added or removed routine.
+Import `ladder-visualizer/styles` as for the other viewers. `theme`, `width`,
+`height`, `initialView`, and `onDiagnostics` configure the component.
+
+Both FBD viewers use the internal `src/components/fbd/elements` library for
+reference and connector shapes, instruction frames, pins, field labels, and theme
+styles. The regular viewer adds React Flow handles; the comparison viewer adds
+revision matching, colors, and collision placement. The static SVG renderer also
+uses these shared elements. Add or change element artwork in that library so all
+viewers stay consistent.
+
+For a local comparison preview, run `npm run dev` and open
+`/tests/visual/fbd-diff.html` (add `?theme=dark` for dark mode). The preview uses
+controlled comparison deltas on the existing export-derived level-control fixture.
+
 Use `parseFile()` for browser file uploads and `parseBuffer()` for an
 `ArrayBuffer`. Parsers are registered automatically when importing from the
 package root.
@@ -90,7 +123,8 @@ L5X parsing rejects XML `DOCTYPE` declarations and custom entities. Built-in
 XML entities such as `&amp;` remain supported. The default resource guard accepts
 at most 10 MiB of UTF-8 source, 100,000 XML elements, and 64 nested elements.
 These defaults cover normal controller exports while preventing unbounded input
-work; the real example export in this repository is about 2.1 MiB.
+work. The repository includes a small, sanitized controller example for local
+development and integration testing.
 
 Pass controlled overrides for trusted inputs, and use standard cancellation or
 timeout controls at any public parsing entry point:
@@ -128,6 +162,8 @@ enables the built-in dark-mode variables.
 
 ## Development
 
+Development and CI use Node.js 24.
+
 ```bash
 npm install
 npm run dev        # start the demo application
@@ -152,6 +188,17 @@ examples/      small, representative controller exports
 tests/         unit and integration tests
 ```
 
+The example controller contains synthetic test logic and sanitized metadata. Do
+not commit production controller exports without first removing personal,
+network, project-serial, customer, and proprietary process information.
+
 ## License
 
-[MIT](LICENSE)
+Copyright (c) 2026 onwards ControlZebra.
+
+Ladder Visualizer is licensed under the [GNU Affero General Public License
+v3.0 or later](LICENSE) (`AGPL-3.0-or-later`). The corresponding source code
+is available in this repository.
+
+Third-party packages retain their own licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

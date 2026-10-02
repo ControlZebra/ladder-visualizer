@@ -46,6 +46,8 @@ import type {
   ModuleDiff,
 } from './types';
 
+import { diffFBD } from './diffFBD';
+
 import { matchByKey, matchByNumericKey, diffProperties, valuesEqual } from './matching';
 
 // ============================================================================
@@ -133,6 +135,7 @@ function diffPrograms(
         kind: 'added' as const,
         routineType: r.type,
         newRoutine: r,
+        fbdDiff: r.fbd ? diffFBD(undefined, r.fbd) : undefined,
         summary: r.type === 'RLL' ? { rungsAdded: r.rungs.length, rungsRemoved: 0, rungsModified: 0 } : undefined,
       })),
       tagDiffs: prog.tags.map((t) => ({
@@ -155,6 +158,7 @@ function diffPrograms(
         kind: 'removed' as const,
         routineType: r.type,
         oldRoutine: r,
+        fbdDiff: r.fbd ? diffFBD(r.fbd, undefined) : undefined,
         summary: r.type === 'RLL' ? { rungsAdded: 0, rungsRemoved: r.rungs.length, rungsModified: 0 } : undefined,
       })),
       tagDiffs: prog.tags.map((t) => ({
@@ -222,6 +226,7 @@ function diffRoutines(
       kind: 'added',
       routineType: routine.type,
       newRoutine: routine,
+      fbdDiff: routine.fbd ? diffFBD(undefined, routine.fbd) : undefined,
       summary: routine.type === 'RLL'
         ? { rungsAdded: routine.rungs.length, rungsRemoved: 0, rungsModified: 0 }
         : undefined,
@@ -234,6 +239,7 @@ function diffRoutines(
       kind: 'removed',
       routineType: routine.type,
       oldRoutine: routine,
+      fbdDiff: routine.fbd ? diffFBD(routine.fbd, undefined) : undefined,
       summary: routine.type === 'RLL'
         ? { rungsAdded: 0, rungsRemoved: routine.rungs.length, rungsModified: 0 }
         : undefined,
@@ -264,9 +270,10 @@ function diffRoutines(
       stDiff = diffStructuredText(oldItem.stContent, newItem.stContent);
     }
 
+    const fbdDiff = oldItem.fbd || newItem.fbd ? diffFBD(oldItem.fbd, newItem.fbd) : undefined;
     const hasRungChanges = rungDiffs !== undefined && rungDiffs.length > 0;
     const hasSTChanges = stDiff !== undefined && stDiff.oldText !== stDiff.newText;
-    const hasChanges = propertyChanges.length > 0 || hasRungChanges || hasSTChanges;
+    const hasChanges = propertyChanges.length > 0 || hasRungChanges || hasSTChanges || fbdDiff?.hasChanges;
 
     if (hasChanges) {
       diffs.push({
@@ -275,6 +282,7 @@ function diffRoutines(
         routineType: newItem.type,
         rungDiffs: hasRungChanges ? rungDiffs : undefined,
         stDiff: hasSTChanges ? stDiff : undefined,
+        fbdDiff: fbdDiff?.hasChanges ? fbdDiff : undefined,
         propertyChanges: propertyChanges.length > 0 ? propertyChanges : undefined,
         oldRoutine: oldItem,
         newRoutine: newItem,
@@ -573,6 +581,16 @@ const AOI_PROPS = [
   'revisionNote', 'helpText',
 ];
 
+const AOI_PARAMETER_PROPS = [
+  'tagType', 'dataType', 'usage', 'radix', 'dimensions', 'required', 'visible',
+  'constant', 'externalAccess', 'description', 'comments', 'defaultValue', 'defaultData',
+];
+
+const AOI_LOCAL_TAG_PROPS = [
+  'dataType', 'radix', 'dimensions', 'externalAccess', 'description', 'comments',
+  'defaultValue', 'defaultData',
+];
+
 function diffAOIs(
   oldAOIs: NormalizedAOI[],
   newAOIs: NormalizedAOI[],
@@ -586,11 +604,11 @@ function diffAOIs(
   const diffs: AOIDiff[] = [];
 
   for (const aoi of added) {
-    diffs.push({ name: aoi.name, kind: 'added', newAOI: aoi });
+    diffs.push({ name: aoi.name, kind: 'added', newAOI: aoi, routineDiffs: diffRoutines([], aoi.routines) });
   }
 
   for (const aoi of removed) {
-    diffs.push({ name: aoi.name, kind: 'removed', oldAOI: aoi });
+    diffs.push({ name: aoi.name, kind: 'removed', oldAOI: aoi, routineDiffs: diffRoutines(aoi.routines, []) });
   }
 
   for (const { oldItem, newItem } of matched) {
@@ -607,9 +625,20 @@ function diffAOIs(
       const pChanges = diffProperties(
         oldP as unknown as Record<string, unknown>,
         newP as unknown as Record<string, unknown>,
-        ['dataType', 'usage', 'required', 'visible', 'externalAccess', 'description', 'defaultValue'],
+        AOI_PARAMETER_PROPS,
       );
       if (pChanges.length > 0) paramModified++;
+    }
+
+    const localMatch = matchByKey(oldItem.localTags, newItem.localTags, (tag) => tag.name);
+    let localModified = 0;
+    for (const { oldItem: oldTag, newItem: newTag } of localMatch.matched) {
+      const localChanges = diffProperties(
+        oldTag as unknown as Record<string, unknown>,
+        newTag as unknown as Record<string, unknown>,
+        AOI_LOCAL_TAG_PROPS,
+      );
+      if (localChanges.length > 0) localModified++;
     }
 
     // Check routines within the AOI
@@ -620,12 +649,20 @@ function diffAOIs(
       removed: paramMatch.removed.length,
       modified: paramModified,
     };
+    const localTagSummary = {
+      added: localMatch.added.length,
+      removed: localMatch.removed.length,
+      modified: localModified,
+    };
 
     const hasChanges =
       propertyChanges.length > 0 ||
       paramSummary.added > 0 ||
       paramSummary.removed > 0 ||
       paramSummary.modified > 0 ||
+      localTagSummary.added > 0 ||
+      localTagSummary.removed > 0 ||
+      localTagSummary.modified > 0 ||
       routineDiffs.length > 0;
 
     if (hasChanges) {
@@ -635,7 +672,9 @@ function diffAOIs(
         propertyChanges: propertyChanges.length > 0 ? propertyChanges : undefined,
         oldAOI: oldItem,
         newAOI: newItem,
+        routineDiffs,
         parameterSummary: paramSummary,
+        localTagSummary,
       });
     }
   }

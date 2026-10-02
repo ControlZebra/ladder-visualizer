@@ -436,6 +436,9 @@ export type L5XOrderedTagDataValue =
   | { kind: 'alarmAnalog'; value: L5XAlarmParameters }
   | { kind: 'alarmConfig'; value: L5XAlarmConfig };
 
+/** A raw text-only DefaultData node has no attributes and parses as a string. */
+export type L5XDefaultData = L5XTagData | string;
+
 export interface L5XTagStructure {
   '@_Name'?: string;
   '@_DataType'?: string;
@@ -706,7 +709,7 @@ export interface L5XParameter {
   '@_Verified'?: string;
   Comments?: L5XComments;
   Description?: L5XDescription;
-  DefaultData?: L5XTagData;
+  DefaultData?: L5XDefaultData | L5XDefaultData[];
 }
 
 export interface L5XLocalTags {
@@ -725,7 +728,7 @@ export interface L5XLocalTag {
   '@_Verified'?: string;
   Comments?: L5XComments | L5XComments[];
   Description?: L5XDescription | L5XDescription[];
-  DefaultData?: L5XTagData | L5XTagData[];
+  DefaultData?: L5XDefaultData | L5XDefaultData[];
 }
 
 // ============================================

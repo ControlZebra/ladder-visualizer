@@ -31,9 +31,12 @@ import {
   type L5XTag,
   type L5XTagData,
   type L5XTagStructure,
+  type L5XArray,
+  type L5XArrayMember,
 } from './l5x-types';
 import { l5xToNormalized } from './l5x-to-normalized';
 import { l5xToDocument, L5XDocumentError, L5X_TARGET_TYPES } from './l5x-document';
+import { collectEncodedData, preserveEncodedLineEndings } from './l5x-encoded-data';
 import { finalizeController } from '../aoi-registration';
 import {
   checkParseExecution,
@@ -115,7 +118,12 @@ export class L5XParser extends BaseParser {
   constructor() {
     super();
     this.xmlParser = new XMLParser(XML_PARSER_OPTIONS);
-    this.orderedXmlParser = new XMLParser({ ...XML_PARSER_OPTIONS, preserveOrder: true });
+    this.orderedXmlParser = new XMLParser({
+      ...XML_PARSER_OPTIONS,
+      preserveOrder: true,
+      trimValues: false,
+      processEntities: false,
+    });
   }
 
   /**
@@ -181,13 +189,21 @@ export class L5XParser extends BaseParser {
 
     // Parse XML
     let xml: L5XContent;
+    let encodedData: ReturnType<typeof collectEncodedData> = [];
     try {
       xml = this.xmlParser.parse(content) as L5XContent;
-      if (/<(?:Structure|DefaultData|Data)(?=[\s>])/.test(content)) {
-        annotateDecoratedChildOrder(
-          xml as unknown as XmlNode,
-          this.orderedXmlParser.parse(content) as OrderedXmlNode[]
-        );
+      const hasDecoratedData = /<(?:Structure|DefaultData|Data)(?=[\s>])/.test(content);
+      const hasEncodedData = /<EncodedData(?=[\s>])/.test(content);
+      if (hasDecoratedData) {
+        // Decorated values need decoded text; encoded payloads retain raw entities.
+        const ordered = new XMLParser({ ...XML_PARSER_OPTIONS, preserveOrder: true })
+          .parse(content) as OrderedXmlNode[];
+        annotateDecoratedChildOrder(xml as unknown as XmlNode, ordered);
+      }
+      if (hasEncodedData) {
+        const orderedSource = preserveEncodedLineEndings(content);
+        const ordered = this.orderedXmlParser.parse(orderedSource.xml) as OrderedXmlNode[];
+        encodedData = collectEncodedData(ordered, orderedSource.restore);
       }
     } catch (error) {
       return createFailureResult([
@@ -217,7 +233,7 @@ export class L5XParser extends BaseParser {
     // Transform to normalized model
     try {
       const { controller, context } = finalizeController(l5xToNormalized(xml));
-      const document = l5xToDocument(xml, controller);
+      const document = l5xToDocument(xml, controller, encodedData);
       const tagWarnings = collectUnsupportedTagWarnings(xml);
       const taskWarnings = collectTaskWarnings(xml, controller);
       const programNumericWarnings = collectUnsupportedProgramNumericWarnings(xml);
@@ -584,10 +600,21 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
       const aoiPath = `${controllerPath}/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[${aoiIndex + 1}]`;
 
       ensureArray(aoi.Parameters?.Parameter).forEach((parameter, parameterIndex) => {
-        collectCompositeAOIDefaultWarnings(
+        const parameterPath = `${aoiPath}/Parameters[1]/Parameter[${parameterIndex + 1}]`;
+        const dimensions = parameter['@_Dimensions'];
+        if (dimensions !== undefined && !isFaithfullyNormalizedIntegerList(dimensions)) {
+          warnings.push(createParseWarning(
+            `AOI parameter ${parameter['@_Name'] ?? parameterIndex + 1} has dimensions that cannot be represented as safe integer extents.`,
+            {
+              code: 'UNNORMALIZED_L5X_AOI_PARAMETER_DIMENSIONS',
+              location: { path: `${parameterPath}/@Dimensions` },
+            }
+          ));
+        }
+        collectUnsupportedAOIDefaultWarnings(
           parameter.DefaultData,
           parameter['@_Name'] ?? String(parameterIndex + 1),
-          `${aoiPath}/Parameters[1]/Parameter[${parameterIndex + 1}]/DefaultData`,
+          `${parameterPath}/DefaultData`,
           warnings
         );
       });
@@ -595,10 +622,10 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
       ensureArray(aoi.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
         const tagPath = `${aoiPath}/LocalTags[1]/LocalTag[${tagIndex + 1}]`;
         const dimensions = tag['@_Dimensions'];
-        if (dimensions !== undefined && !isFaithfullyNormalizedAOILocalDimension(dimensions)) {
+        if (dimensions !== undefined && !isFaithfullyNormalizedIntegerList(dimensions)) {
           warnings.push(
             createParseWarning(
-              `AOI local tag ${tag['@_Name'] ?? tagIndex + 1} has dimensions that the scalar normalized field cannot represent faithfully.`,
+              `AOI local tag ${tag['@_Name'] ?? tagIndex + 1} has dimensions that cannot be represented as safe integer extents.`,
               {
                 code: 'UNNORMALIZED_L5X_AOI_LOCAL_TAG_DIMENSIONS',
                 location: { path: `${tagPath}/@Dimensions` },
@@ -606,7 +633,7 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
             )
           );
         }
-        collectCompositeAOIDefaultWarnings(
+        collectUnsupportedAOIDefaultWarnings(
           tag.DefaultData,
           tag['@_Name'] ?? String(tagIndex + 1),
           `${tagPath}/DefaultData`,
@@ -619,30 +646,109 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
   return warnings;
 }
 
-function collectCompositeAOIDefaultWarnings(
-  defaultData: L5XTagData | L5XTagData[] | undefined,
+function collectUnsupportedAOIDefaultWarnings(
+  defaultData: L5XTagData | string | (L5XTagData | string)[] | undefined,
   ownerName: string,
   path: string,
   warnings: ParseWarning[]
 ): void {
   ensureArray(defaultData).forEach((data, dataIndex) => {
-    if (data.Array === undefined && data.Structure === undefined) return;
-    warnings.push(
-      createParseWarning(
-        `AOI value ${ownerName} has a decorated array or structure default that is preserved but not exposed by the scalar normalized default field.`,
+    const dataPath = `${path}[${dataIndex + 1}]`;
+    const format = typeof data === 'string' ? undefined : data['@_Format'];
+    if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
+      warnings.push(createParseWarning(
+        format === undefined
+          ? `AOI value ${ownerName} has raw default data without a Format attribute. Its source text is retained but not decoded.`
+          : `AOI value ${ownerName} uses unsupported default-data encoding ${format}. Its source is retained.`,
+        {
+          code: 'UNSUPPORTED_L5X_AOI_DEFAULT_DATA',
+          location: { path: format === undefined ? dataPath : `${dataPath}/@Format` },
+        }
+      ));
+      return;
+    }
+    const supportedNodes = format === 'Decorated' || format === 'Alarm'
+      ? SUPPORTED_DECORATED_NODES
+      : new Set<string>();
+    for (const key of Object.keys(data)) {
+      if (key.startsWith('@_') || key.startsWith('#') || supportedNodes.has(key)) continue;
+      warnings.push(createParseWarning(
+        `AOI value ${ownerName} contains unsupported ${format} default-data node ${key}. Its source is retained.`,
+        {
+          code: 'UNSUPPORTED_L5X_AOI_DEFAULT_DATA',
+          location: { path: `${dataPath}/${key}[1]` },
+        }
+      ));
+    }
+    if (format === 'Decorated' || format === 'Alarm') {
+      if (typeof data === 'string') return;
+      ensureArray(data.Array).forEach((array, index) =>
+        collectUnnormalizedAOIArrayWarnings(array, `${dataPath}/Array[${index + 1}]`, ownerName, warnings)
+      );
+      ensureArray(data.Structure).forEach((structure, index) =>
+        collectUnnormalizedAOIStructureWarnings(structure, `${dataPath}/Structure[${index + 1}]`, ownerName, warnings)
+      );
+    }
+  });
+}
+
+function collectUnnormalizedAOIArrayWarnings(
+  array: L5XArray | L5XArrayMember,
+  path: string,
+  ownerName: string,
+  warnings: ParseWarning[]
+): void {
+  const dimensions = array['@_Dimensions'];
+  if (dimensions !== undefined && !isFaithfullyNormalizedIntegerList(dimensions)) {
+    warnings.push(createParseWarning(
+      `AOI value ${ownerName} has array dimensions that cannot be represented as safe integer extents.`,
+      { code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA', location: { path: `${path}/@Dimensions` } }
+    ));
+  }
+  ensureArray(array.Element).forEach((element, index) => {
+    const elementPath = `${path}/Element[${index + 1}]`;
+    const sourceIndex = element['@_Index'];
+    if (sourceIndex === undefined || !isFaithfullyNormalizedIntegerList(sourceIndex)) {
+      warnings.push(createParseWarning(
+        `AOI value ${ownerName} has a missing or unrepresentable array element index.`,
         {
           code: 'UNNORMALIZED_L5X_AOI_DEFAULT_DATA',
-          location: { path: `${path}[${dataIndex + 1}]` },
+          location: { path: sourceIndex === undefined ? elementPath : `${elementPath}/@Index` },
         }
+      ));
+    }
+    ensureArray(element.Structure).forEach((structure, structureIndex) =>
+      collectUnnormalizedAOIStructureWarnings(
+        structure,
+        `${elementPath}/Structure[${structureIndex + 1}]`,
+        ownerName,
+        warnings
       )
     );
   });
 }
 
-function isFaithfullyNormalizedAOILocalDimension(value: string): boolean {
-  if (!/^\d+$/.test(value.trim())) return false;
-  const dimension = Number(value);
-  return Number.isSafeInteger(dimension) && dimension >= 0;
+function collectUnnormalizedAOIStructureWarnings(
+  structure: L5XTagStructure,
+  path: string,
+  ownerName: string,
+  warnings: ParseWarning[]
+): void {
+  ensureArray(structure.ArrayMember).forEach((array, index) =>
+    collectUnnormalizedAOIArrayWarnings(array, `${path}/ArrayMember[${index + 1}]`, ownerName, warnings)
+  );
+  ensureArray(structure.StructureMember).forEach((member, index) =>
+    collectUnnormalizedAOIStructureWarnings(member, `${path}/StructureMember[${index + 1}]`, ownerName, warnings)
+  );
+}
+
+function isFaithfullyNormalizedIntegerList(value: string): boolean {
+  const trimmed = value.trim();
+  const unwrapped = trimmed.startsWith('[') && trimmed.endsWith(']')
+    ? trimmed.slice(1, -1)
+    : trimmed;
+  if (!/^\d+(?:[\s,]+\d+)*$/.test(unwrapped)) return false;
+  return unwrapped.split(/[\s,]+/).every((part) => Number.isSafeInteger(Number(part)));
 }
 
 const SUPPORTED_TAG_FORMATS = new Set(['L5K', 'String', 'Decorated', 'Alarm']);
@@ -662,7 +768,7 @@ function collectUnsupportedTagWarnings(xml: L5XContent): ParseWarning[] {
   function inspectTag(tag: L5XTag, tagPath: string): void {
     ensureArray(tag.Data).forEach((data, dataIndex) => {
       const dataPath = `${tagPath}/Data[${dataIndex + 1}]`;
-      const format = data['@_Format'];
+      const format = typeof data === 'string' ? undefined : data['@_Format'];
       if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
         warnings.push(createParseWarning(
           format === undefined
@@ -993,7 +1099,8 @@ function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarni
       ensureArray(program.Parameters?.Parameter).forEach((parameter, parameterIndex) => {
         if (!parameter.DefaultData) return;
         const dataPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/Parameters[1]/Parameter[${parameterIndex + 1}]/DefaultData[1]`;
-        const format = parameter.DefaultData['@_Format'];
+        const data = ensureArray(parameter.DefaultData)[0];
+        const format = typeof data === 'string' ? undefined : data['@_Format'];
         if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
           warnings.push(createParseWarning(
             format === undefined
@@ -1006,7 +1113,7 @@ function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarni
           ));
           return;
         }
-        for (const key of Object.keys(parameter.DefaultData)) {
+        for (const key of Object.keys(data)) {
           if (key.startsWith('@_') || key.startsWith('#') || SUPPORTED_PROGRAM_PARAMETER_DATA_NODES.has(key)) {
             continue;
           }
@@ -1042,7 +1149,7 @@ function collectUnsupportedProgramLocalTagWarnings(xml: L5XContent): ParseWarnin
         }
         ensureArray(tag.DefaultData).forEach((data, dataIndex) => {
           const dataPath = `${tagPath}/DefaultData[${dataIndex + 1}]`;
-          const format = data['@_Format'];
+          const format = typeof data === 'string' ? undefined : data['@_Format'];
           if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
             warnings.push(createParseWarning(
               `Program local tag ${tag['@_Name']} has unsupported default-data encoding. The source representation was preserved.`,

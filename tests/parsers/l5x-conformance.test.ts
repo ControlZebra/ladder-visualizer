@@ -32,6 +32,7 @@ const sourceElements: Record<keyof L5XSourceCounts, string> = {
   ports: 'Port',
   connections: 'Connection',
   arrays: 'Array',
+  encodedData: 'EncodedData',
   externalContents: 'ExternalContent',
   wallClockTimes: 'WallClockTime',
   scheduledPrograms: 'ScheduledProgram',
@@ -164,7 +165,9 @@ describe('L5X compatibility contract', () => {
 
   it('covers every required artifact family in every supported source version', () => {
     const artifactKinds = new Set(L5X_FIXTURES.map((fixture) => fixture.artifactKind));
-    const versions = new Set(L5X_FIXTURES.map((fixture) => fixture.studio5000Version));
+    const versions = new Set(L5X_FIXTURES
+      .filter((fixture) => /-v(33|34|35)\.L5X$/.test(fixture.file))
+      .map((fixture) => fixture.studio5000Version.slice(0, 2)));
     const coverage = new Set(L5X_FIXTURES.flatMap((fixture) => fixture.coverage));
 
     const requiredArtifactKinds = [
@@ -181,10 +184,10 @@ describe('L5X compatibility contract', () => {
     for (const kind of requiredArtifactKinds) {
       expect(artifactKinds).toContain(kind);
     }
-    expect(versions).toEqual(new Set(['33.00', '34.01', '35.01']));
+    expect(versions).toEqual(new Set(['33', '34', '35']));
     for (const version of versions) {
       const versionArtifacts = new Set(
-        L5X_FIXTURES.filter((fixture) => fixture.studio5000Version === version).map(
+        L5X_FIXTURES.filter((fixture) => fixture.studio5000Version.startsWith(version + '.')).map(
           (fixture) => fixture.artifactKind
         )
       );
@@ -194,7 +197,7 @@ describe('L5X compatibility contract', () => {
 
       const fullProjectFixture = L5X_FIXTURES.find(
         (fixture) =>
-          fixture.studio5000Version === version && fixture.coverage.includes('full-project export')
+          fixture.studio5000Version.startsWith(version + '.') && fixture.coverage.includes('full-project export')
       );
       expect(
         fullProjectFixture,
@@ -230,6 +233,7 @@ describe('L5X compatibility contract', () => {
       'produced tag',
       'consumed tag',
       'decorated array',
+      'AOI mixed decorated child order',
       'program parameter',
       'program local tag',
       'module connection',
@@ -295,12 +299,12 @@ describe('L5X compatibility contract', () => {
 
   it('reports status counts per profile without manufacturing an overall percentage', () => {
     expect(buildProfileStatusReport()).toEqual({
-      'rockwell-controller-rll': { complete: 19, partial: 0, failed: 0 },
+      'rockwell-controller-rll': { complete: 22, partial: 0, failed: 0 },
       'rockwell-program-rll': { complete: 9, partial: 2, failed: 0 },
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 9, failed: 0 },
-      'rockwell-full-project': { complete: 15, partial: 27, failed: 3 },
+      'rockwell-full-project': { complete: 19, partial: 28, failed: 3 },
     });
   });
 });

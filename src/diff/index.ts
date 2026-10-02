@@ -14,6 +14,8 @@
 
 // Core diff function
 export { diffControllers } from './diffControllers';
+export { diffEncodedData } from './diffEncodedData';
+export type { EncodedDataChange } from './diffEncodedData';
 
 // All diff types
 export type {
@@ -62,3 +64,6 @@ export {
 
 // Matching utilities (useful for custom diffing or testing)
 export { matchByKey, matchByNumericKey, diffProperties, valuesEqual } from './matching';
+
+export { diffFBD } from './diffFBD';
+export type { FBDDiff, FBDSheetDiff, FBDItemDiff, FBDPropertyChange, FBDChangeCategory, FBDDiffDiagnostic } from './diffFBD';
