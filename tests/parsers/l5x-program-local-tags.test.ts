@@ -19,12 +19,12 @@ function programSource(localTags: string, version = '35.01') {
 
 describe('schema-declared Program LocalTags', () => {
   it.each(['33', '34', '35'])('preserves v%s atomic text defaults and detects value edits', (version) => {
-    for (const content of ['42', '<![CDATA[42]]>']) {
+    for (const content of ['42', '<![CDATA[42]]>', '4<![CDATA[2]]>', '<![CDATA[4]]><![CDATA[2]]>']) {
       const source = read(`program-local-tags-v${version}`).replace(/<LocalTags>[\s\S]*?<\/LocalTags>/,
         `<LocalTags><LocalTag Name="X" DataType="DINT"><DefaultData Format="Decorated"><DataValue>${content}</DataValue></DefaultData></LocalTag></LocalTags>`);
       const before = parsePublicString(source, 'l5x');
       const document = parsePublicDocumentString(source, 'l5x');
-      const after = parsePublicString(source.replace('42', '43'), 'l5x');
+      const after = parsePublicString(source.replace(content, content.replace('2', '3')), 'l5x');
       expect(before.status).toBe('complete');
       expect(document.status).toBe('complete');
       expect(after.status).toBe('complete');

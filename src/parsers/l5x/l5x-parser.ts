@@ -1161,6 +1161,13 @@ function isXmlNode(value: unknown): value is XmlNode {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function orderedText(children: OrderedXmlNode[]): string {
+  return children.map((child) => {
+    if (typeof child['#text'] === 'string') return child['#text'];
+    return Array.isArray(child['#cdata']) ? orderedText(child['#cdata'] as OrderedXmlNode[]) : '';
+  }).join('');
+}
+
 /** Overlay source child order onto the grouped fast-xml-parser object tree. */
 function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXmlNode[]): void {
   function visit(
@@ -1204,9 +1211,15 @@ function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXm
         // Attribute-free leaf nodes are strings, including empty and text-only values.
         const isStringElement = typeof parsedChild === 'string';
         if (kind && (isXmlNode(parsedChild) || isStringElement)) {
+          const value = isStringElement ? {} : parsedChild;
+          if (kind === 'atomic' && Array.isArray(children)) {
+            const text = orderedText(children as OrderedXmlNode[]);
+            delete value['#cdata'];
+            if (text) value['#text'] = text;
+          }
           dataValues.push({
             kind,
-            value: isStringElement ? (parsedChild ? { '#text': parsedChild } : {}) : parsedChild,
+            value,
           } as L5XOrderedTagDataValue);
         }
       }
