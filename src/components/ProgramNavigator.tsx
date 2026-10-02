@@ -961,7 +961,7 @@ export function ProgramNavigator({
                         label={routine.name}
                         depth={3}
                         isSelected={isAOIRoutineSelected || activeSelectedItem === `aoi-routine-${aoi.name}-${originalIdx}`}
-                        onClick={routine.type === 'RLL' ? () => {
+                        onClick={routine.type === 'RLL' || routine.rawSource ? () => {
                           setSelectedItem(`aoi-routine-${aoi.name}-${originalIdx}`);
                           onAOIRoutineSelect?.(aoi, originalIdx, routine);
                         } : undefined}

@@ -39,6 +39,7 @@ export { AOILocalTagTable, type AOILocalTagTableProps } from './AOILocalTagTable
 
 // Structured Text Viewer
 export { StructuredTextViewer, type StructuredTextViewerProps } from './StructuredTextViewer';
+export { RawRoutineViewer, type RawRoutineViewerProps } from './RawRoutineViewer';
 
 // Module Info Table
 export { ModuleInfoTable, type ModuleInfoTableProps } from './ModuleInfoTable';
