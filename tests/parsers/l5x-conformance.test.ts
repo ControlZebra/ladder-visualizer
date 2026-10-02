@@ -70,6 +70,7 @@ function countNormalizedEntities(controller: NormalizedController): L5XNormalize
     dataTypes: controller.dataTypes.length,
     controllerTags: controller.tags.length,
     programTags: controller.programs.reduce((count, program) => count + program.tags.length, 0),
+    programLocalTags: controller.programs.reduce((count, program) => count + program.localTags.length, 0),
     programs: controller.programs.length,
     programParameters: controller.programs.reduce(
       (count, program) => count + (program.parameters?.length ?? 0),
@@ -299,11 +300,11 @@ describe('L5X compatibility contract', () => {
   it('reports status counts per profile without manufacturing an overall percentage', () => {
     expect(buildProfileStatusReport()).toEqual({
       'rockwell-controller-rll': { complete: 22, partial: 0, failed: 0 },
-      'rockwell-program-rll': { complete: 6, partial: 2, failed: 0 },
+      'rockwell-program-rll': { complete: 9, partial: 2, failed: 0 },
       'rockwell-routine-rll': { complete: 3, partial: 3, failed: 0 },
       'rockwell-rung-rll': { complete: 3, partial: 0, failed: 0 },
       'rockwell-tags': { complete: 16, partial: 9, failed: 0 },
-      'rockwell-full-project': { complete: 13, partial: 31, failed: 3 },
+      'rockwell-full-project': { complete: 19, partial: 28, failed: 3 },
     });
   });
 });

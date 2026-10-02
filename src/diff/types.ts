@@ -14,6 +14,7 @@ import type {
   NormalizedRoutine,
   NormalizedRung,
   NormalizedTag,
+  NormalizedProgramLocalTag,
   NormalizedDataType,
   NormalizedDataTypeMember,
   NormalizedAOI,
@@ -143,6 +144,8 @@ export interface ProgramDiff {
   routineDiffs: RoutineDiff[];
   /** Tag diffs for program-scoped tags. */
   tagDiffs: TagDiff[];
+  /** Diffs for local declarations, kept separate from same-name ordinary tags. */
+  localTagDiffs?: ProgramLocalTagDiff[];
   /** Property-level changes (description, mainRoutineName, disabled). */
   propertyChanges?: PropertyChange[];
 }
@@ -163,6 +166,15 @@ export interface TagDiff {
   oldTag?: NormalizedTag;
   /** The new tag (for added or modified). */
   newTag?: NormalizedTag;
+}
+
+/** A diff entry for a program-owned local declaration. */
+export interface ProgramLocalTagDiff {
+  name: string;
+  kind: ChangeKind;
+  propertyChanges?: PropertyChange[];
+  oldTag?: NormalizedProgramLocalTag;
+  newTag?: NormalizedProgramLocalTag;
 }
 
 // ============================================================================

@@ -26,6 +26,7 @@ export type {
 export type {
   NormalizedProgram,
   NormalizedProgramParameter,
+  NormalizedProgramLocalTag,
   ProgramParameterUsage,
   NormalizedProgramType,
   NormalizedProgramInitialState,

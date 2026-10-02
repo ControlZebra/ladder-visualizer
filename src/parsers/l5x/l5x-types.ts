@@ -485,6 +485,8 @@ export interface L5XElement {
 }
 
 export interface L5XDataValue {
+  '#text'?: string;
+  '#cdata'?: string;
   '@_Name'?: string;
   '@_DataType'?: string;
   '@_Radix'?: string;
@@ -717,11 +719,15 @@ export interface L5XLocalTags {
 export interface L5XLocalTag {
   '@_Name': string;
   '@_DataType': string;
+  '@_UId'?: string;
+  '@_ParentUId'?: string;
+  '@_DataTypeUId'?: string;
   '@_Radix'?: string;
   '@_Dimensions'?: string;
   '@_ExternalAccess'?: string;
-  Comments?: L5XComments;
-  Description?: L5XDescription;
+  '@_Verified'?: string;
+  Comments?: L5XComments | L5XComments[];
+  Description?: L5XDescription | L5XDescription[];
   DefaultData?: L5XDefaultData | L5XDefaultData[];
 }
 
@@ -1082,12 +1088,27 @@ export function ensureArray<T>(value: T | T[] | undefined): T[] {
   return Array.isArray(value) ? value : [value];
 }
 
+/** Parse an optional LocalTag dimension list only when every extent is representable. */
+export function parseLocalTagDimensions(value: string | undefined): number[] | undefined {
+  if (value === undefined) return undefined;
+  const source = value.trim();
+  if (!/^(?:\d+(?:[\s,]+\d+)*|\[\d+(?:[\s,]+\d+)*\])$/.test(source)) return undefined;
+  const dimensions = source.replace(/^\[/, '').replace(/\]$/, '').split(/[\s,]+/).map(Number);
+  return dimensions.every((dimension) => Number.isSafeInteger(dimension))
+    ? dimensions
+    : undefined;
+}
+
 /**
  * Extract text from Description element
  * Handles various formats that fast-xml-parser may produce
  */
-export function extractText(desc: L5XDescription | undefined): string | undefined {
+export function extractText(desc: L5XDescription | L5XDescription[] | undefined): string | undefined {
   if (desc === undefined) return undefined;
+  if (Array.isArray(desc)) {
+    const texts = desc.map(extractText).filter((text): text is string => text !== undefined);
+    return texts.length ? texts.join('\n') : undefined;
+  }
   if (typeof desc === 'string') return desc;
   // Check for CDATA content first
   if (desc['#cdata'] !== undefined) return desc['#cdata'];

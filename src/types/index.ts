@@ -14,6 +14,7 @@ export type {
   ParsedXmlValue,
   NormalizedProgram,
   NormalizedProgramParameter,
+  NormalizedProgramLocalTag,
   ProgramParameterUsage,
   NormalizedProgramType,
   NormalizedProgramInitialState,

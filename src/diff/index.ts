@@ -28,6 +28,7 @@ export type {
   RoutineDiff,
   ProgramDiff,
   TagDiff,
+  ProgramLocalTagDiff,
   DataTypeMemberDiff,
   DataTypeDiff,
   AOIDiff,

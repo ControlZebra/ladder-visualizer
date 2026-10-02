@@ -129,33 +129,20 @@ describe('L5X normalization completeness', () => {
   });
 
   it.each(['33', '34', '35'])(
-    'marks preserved-only v%s constructs partial with precise diagnostics',
+    'normalizes v%s program locals and AOI defaults completely',
     (version) => {
       const source = fixture(version);
       const documentResult = parseDocumentString(source, 'l5x');
       const controllerResult = parseString(source, 'l5x');
 
       for (const result of [documentResult, controllerResult]) {
-        expect(result).toMatchObject({ success: true, status: 'partial' });
+        expect(result).toMatchObject({ success: true, status: 'complete' });
         expect(result.errors).toBeUndefined();
       }
 
-      expect(documentResult.warnings).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG',
-            location: { path: `${programPath}/LocalTags[1]/LocalTag[1]` },
-          }),
-          expect.objectContaining({
-            code: 'UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG',
-            location: { path: `${programPath}/LocalTags[1]/LocalTag[2]` },
-          }),
-        ])
-      );
-
       expect(
         documentResult.warnings?.filter(({ code }) => code?.startsWith('UNNORMALIZED_L5X_'))
-      ).toHaveLength(2);
+      ).toHaveLength(0);
       expect(
         controllerResult.warnings?.filter(({ code }) => code?.startsWith('UNNORMALIZED_L5X_'))
       ).toEqual(
@@ -196,7 +183,12 @@ describe('L5X normalization completeness', () => {
         revisionNote: 'Normalized revision note',
         helpText: 'Normalized help text',
       });
-      expect(program?.data).not.toHaveProperty('localTags');
+      expect(program?.data).toMatchObject({
+        localTags: [
+          expect.objectContaining({ name: 'Hidden', defaultValue: 7 }),
+          expect.objectContaining({ name: 'HiddenAgain' }),
+        ],
+      });
       expect(
         result.data?.fragments.filter(
           ({ path, reason }) =>

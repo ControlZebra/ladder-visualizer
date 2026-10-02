@@ -53,6 +53,7 @@ import {
   L5X_TAG_DATA_VALUE_ORDER,
   parseBoolean,
   parseInt,
+  parseLocalTagDimensions,
 } from './l5x-types';
 import type {
   NormalizedController,
@@ -61,6 +62,7 @@ import type {
   NormalizedTag,
   NormalizedProgram,
   NormalizedProgramParameter,
+  NormalizedProgramLocalTag,
   ProgramParameterUsage,
   NormalizedRoutine,
   NormalizedRung,
@@ -455,6 +457,11 @@ function buildDataTypeCatalog(
       observeReference(parameter.dataType, `Programs/${program.name}/Parameters/${parameter.name}`)
     );
     program.tags.forEach((tag) => scanTag(tag, `Programs/${program.name}/Tags/${tag.name}`));
+    program.localTags.forEach((tag) => {
+      const provenance = `Programs/${program.name}/LocalTags/${tag.name}`;
+      observeReference(tag.dataType, provenance);
+      scanTagData(tag.defaultData, provenance);
+    });
   }
   for (const aoi of aois) {
     aoi.parameters.forEach((parameter) =>
@@ -542,12 +549,21 @@ function createFBDBlockOperandScope(
   return scope;
 }
 
-function createFBDTagOperandScope(tags: L5XTag | L5XTag[] | undefined): FBDBlockOperandScope {
+function createFBDTagOperandScope(
+  tags: L5XTag | L5XTag[] | undefined,
+  localTags?: L5XLocalTag | L5XLocalTag[]
+): FBDBlockOperandScope {
   return createFBDBlockOperandScope(
-    ensureArray(tags).map((tag) => ({
-      name: tag['@_Name'],
-      data: ensureArray(tag.Data),
-    }))
+    [
+      ...ensureArray(tags).map((tag) => ({
+        name: tag['@_Name'],
+        data: ensureArray(tag.Data),
+      })),
+      ...ensureArray(localTags).map((tag) => ({
+        name: tag['@_Name'],
+        data: ensureArray(tag.DefaultData).filter((data): data is L5XTagData => typeof data !== 'string'),
+      })),
+    ]
   );
 }
 
@@ -676,12 +692,13 @@ function normalizeTagData(data: L5XTagData | string): NormalizedTagData {
 }
 
 function normalizeAtomicValue(value: L5XDataValue): NormalizedAtomicTagValue {
+  const scalar = value['@_Value'] ?? extractNodeText(value);
   return {
     kind: 'atomic',
     ...(value['@_Name'] !== undefined ? { name: value['@_Name'] } : {}),
     ...(value['@_DataType'] !== undefined ? { dataType: value['@_DataType'] } : {}),
     ...(value['@_Radix'] !== undefined ? { radix: value['@_Radix'] } : {}),
-    ...(value['@_Value'] !== undefined ? { value: value['@_Value'] } : {}),
+    ...(scalar !== undefined ? { value: scalar } : {}),
     ...(value['@_ForceValue'] !== undefined ? { forceValue: value['@_ForceValue'] } : {}),
   };
 }
@@ -858,7 +875,7 @@ function normalizeProgram(
   const programFBDContext: FBDNormalizationContext = {
     ...fbdContext,
     blockOperandScopes: [
-      createFBDTagOperandScope(program.Tags?.Tag),
+      createFBDTagOperandScope(program.Tags?.Tag, program.LocalTags?.LocalTag),
       ...fbdContext.blockOperandScopes,
     ],
   };
@@ -869,6 +886,7 @@ function normalizeProgram(
     parentUid: program['@_ParentUId'],
     useAsFolder: parseOptionalBoolean(program['@_UseAsFolder']),
     tags: normalizeProgramTags(program.Tags?.Tag, programName),
+    localTags: normalizeProgramLocalTags(program.LocalTags?.LocalTag, programName),
     routines: normalizeRoutines(program.Routines, programFBDContext),
     parameters: normalizeProgramParameters(program.Parameters?.Parameter, programName),
     programType: program['@_Type'],
@@ -894,6 +912,43 @@ function normalizeProgram(
       program['@_SynchronizeRedundancyDataAfterExecution']
     ),
   };
+}
+
+function normalizeProgramLocalTags(
+  tags: L5XLocalTag | L5XLocalTag[] | undefined,
+  programName: string
+): NormalizedProgramLocalTag[] {
+  return ensureArray(tags).map((tag) => ({
+    name: tag['@_Name'],
+    dataType: tag['@_DataType'],
+    scope: 'Program',
+    programName,
+    ...(tag['@_UId'] !== undefined ? { uid: tag['@_UId'] } : {}),
+    ...(tag['@_ParentUId'] !== undefined ? { parentUid: tag['@_ParentUId'] } : {}),
+    ...(tag['@_DataTypeUId'] !== undefined ? { dataTypeUid: tag['@_DataTypeUId'] } : {}),
+    ...(parseLocalTagDimensions(tag['@_Dimensions']) !== undefined
+      ? { dimensions: parseLocalTagDimensions(tag['@_Dimensions']) }
+      : {}),
+    ...(tag['@_Radix'] !== undefined ? { radix: tag['@_Radix'] } : {}),
+    ...(tag['@_ExternalAccess'] !== undefined
+      ? { externalAccess: normalizeOptionalExternalAccess(tag['@_ExternalAccess']) }
+      : {}),
+    ...(tag['@_Verified'] !== undefined
+      ? { verified: parseOptionalBoolean(tag['@_Verified']) }
+      : {}),
+    ...(extractText(tag.Description) !== undefined
+      ? { description: extractText(tag.Description) }
+      : {}),
+    comments: normalizeTagComments(
+      ensureArray(tag.Comments).flatMap((container) => ensureArray(container.Comment))
+    ),
+    ...(tag.DefaultData !== undefined
+      ? { defaultData: ensureArray(tag.DefaultData).map(normalizeTagData) }
+      : {}),
+    ...(extractDefaultValue(tag.DefaultData) !== undefined
+      ? { defaultValue: extractDefaultValue(tag.DefaultData) }
+      : {}),
+  }));
 }
 
 function normalizeProgramParameters(
@@ -2230,7 +2285,7 @@ function normalizeAOILocalTag(tag: L5XLocalTag): AOILocalTag {
     radix: tag['@_Radix'],
     externalAccess: normalizeExternalAccess(tag['@_ExternalAccess']),
     description: extractText(tag.Description),
-    ...(tag.Comments !== undefined ? { comments: normalizeTagComments(tag.Comments.Comment) } : {}),
+    ...(tag.Comments !== undefined ? { comments: normalizeTagComments(ensureArray(tag.Comments).flatMap((comments) => ensureArray(comments.Comment))) } : {}),
     ...(tag.DefaultData !== undefined ? { defaultData: ensureArray(tag.DefaultData).map(normalizeTagData) } : {}),
     defaultValue: extractDefaultValue(tag.DefaultData),
     ...(tag['@_Dimensions'] !== undefined ? { dimensions: parseIntegerList(tag['@_Dimensions']) } : {}),
@@ -2263,7 +2318,11 @@ function extractDefaultValue(defaultData: L5XTagData | string | (L5XTagData | st
 function parseScalarDefault(value: string): number | string {
   if (value === '') return value;
   const number = Number(value);
-  return Number.isFinite(number) ? number : value;
+  // Keep large PLC integers exact instead of exposing a rounded scalar shortcut.
+  if (!Number.isFinite(number) || (Number.isInteger(number) && !Number.isSafeInteger(number))) {
+    return value;
+  }
+  return number;
 }
 
 // ============================================

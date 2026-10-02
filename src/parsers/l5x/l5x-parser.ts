@@ -21,6 +21,7 @@ import {
 } from '../parse-error';
 import {
   ensureArray,
+  parseLocalTagDimensions,
   L5X_STRUCTURE_MEMBER_ORDER,
   L5X_TAG_DATA_VALUE_ORDER,
   type L5XContent,
@@ -193,13 +194,16 @@ export class L5XParser extends BaseParser {
       xml = this.xmlParser.parse(content) as L5XContent;
       const hasDecoratedData = /<(?:Structure|DefaultData|Data)(?=[\s>])/.test(content);
       const hasEncodedData = /<EncodedData(?=[\s>])/.test(content);
-      if (hasDecoratedData || hasEncodedData) {
-        const orderedSource = hasEncodedData
-          ? preserveEncodedLineEndings(content)
-          : { xml: content, restore: (value: string) => value };
+      if (hasDecoratedData) {
+        // Decorated values need decoded text; encoded payloads retain raw entities.
+        const ordered = new XMLParser({ ...XML_PARSER_OPTIONS, preserveOrder: true })
+          .parse(content) as OrderedXmlNode[];
+        annotateDecoratedChildOrder(xml as unknown as XmlNode, ordered);
+      }
+      if (hasEncodedData) {
+        const orderedSource = preserveEncodedLineEndings(content);
         const ordered = this.orderedXmlParser.parse(orderedSource.xml) as OrderedXmlNode[];
-        if (hasDecoratedData) annotateDecoratedChildOrder(xml as unknown as XmlNode, ordered);
-        if (hasEncodedData) encodedData = collectEncodedData(ordered, orderedSource.restore);
+        encodedData = collectEncodedData(ordered, orderedSource.restore);
       }
     } catch (error) {
       return createFailureResult([
@@ -234,6 +238,7 @@ export class L5XParser extends BaseParser {
       const taskWarnings = collectTaskWarnings(xml, controller);
       const programNumericWarnings = collectUnsupportedProgramNumericWarnings(xml);
       const programParameterWarnings = collectUnsupportedProgramParameterWarnings(xml);
+      const programLocalTagWarnings = collectUnsupportedProgramLocalTagWarnings(xml);
       const programHierarchyWarnings = collectProgramHierarchyWarnings(xml, controller);
       const equipmentSequenceWarnings = collectUnsupportedEquipmentSequenceWarnings(xml);
       const trendNumericWarnings = collectUnsupportedTrendNumericWarnings(xml);
@@ -251,6 +256,7 @@ export class L5XParser extends BaseParser {
         taskWarnings.length ||
         programNumericWarnings.length ||
         programParameterWarnings.length ||
+        programLocalTagWarnings.length ||
         programHierarchyWarnings.length ||
         equipmentSequenceWarnings.length ||
         trendNumericWarnings.length ||
@@ -274,6 +280,7 @@ export class L5XParser extends BaseParser {
         ...taskWarnings,
         ...programNumericWarnings,
         ...programParameterWarnings,
+        ...programLocalTagWarnings,
         ...programHierarchyWarnings,
         ...equipmentSequenceWarnings,
         ...trendNumericWarnings,
@@ -588,21 +595,6 @@ function collectNormalizationCoverageWarnings(xml: L5XContent): ParseWarning[] {
   const controller = xml.RSLogix5000Content.Controller;
   const controllerPath = '/RSLogix5000Content/Controller[1]';
 
-  ensureArray(controller.Programs?.Program).forEach((program, programIndex) => {
-    const localTagsPath = `${controllerPath}/Programs[1]/Program[${programIndex + 1}]/LocalTags[1]`;
-    ensureArray(program.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
-      warnings.push(
-        createParseWarning(
-          `Program local tag ${tag['@_Name'] ?? tagIndex + 1} is preserved but is not exposed by the normalized program model.`,
-          {
-            code: 'UNNORMALIZED_L5X_PROGRAM_LOCAL_TAG',
-            location: { path: `${localTagsPath}/LocalTag[${tagIndex + 1}]` },
-          }
-        )
-      );
-    });
-  });
-
   ensureArray(controller.AddOnInstructionDefinitions?.AddOnInstructionDefinition).forEach(
     (aoi, aoiIndex) => {
       const aoiPath = `${controllerPath}/AddOnInstructionDefinitions[1]/AddOnInstructionDefinition[${aoiIndex + 1}]`;
@@ -776,7 +768,7 @@ function collectUnsupportedTagWarnings(xml: L5XContent): ParseWarning[] {
   function inspectTag(tag: L5XTag, tagPath: string): void {
     ensureArray(tag.Data).forEach((data, dataIndex) => {
       const dataPath = `${tagPath}/Data[${dataIndex + 1}]`;
-      const format = data['@_Format'];
+      const format = typeof data === 'string' ? undefined : data['@_Format'];
       if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
         warnings.push(createParseWarning(
           format === undefined
@@ -1139,6 +1131,54 @@ function collectUnsupportedProgramParameterWarnings(xml: L5XContent): ParseWarni
   return warnings;
 }
 
+function collectUnsupportedProgramLocalTagWarnings(xml: L5XContent): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  ensureArray(xml.RSLogix5000Content.Controller.Programs?.Program).forEach(
+    (program, programIndex) => {
+      ensureArray(program.LocalTags?.LocalTag).forEach((tag, tagIndex) => {
+        const tagPath = `/RSLogix5000Content/Controller[1]/Programs[1]/Program[${programIndex + 1}]/LocalTags[1]/LocalTag[${tagIndex + 1}]`;
+        const dimensions = tag['@_Dimensions'];
+        if (dimensions !== undefined && parseLocalTagDimensions(dimensions) === undefined) {
+          warnings.push(createParseWarning(
+            `Program local tag ${tag['@_Name']} has dimensions that cannot be represented safely. The source representation was preserved.`,
+            {
+              code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DIMENSIONS',
+              location: { path: `${tagPath}/@Dimensions` },
+            }
+          ));
+        }
+        ensureArray(tag.DefaultData).forEach((data, dataIndex) => {
+          const dataPath = `${tagPath}/DefaultData[${dataIndex + 1}]`;
+          const format = typeof data === 'string' ? undefined : data['@_Format'];
+          if (format === undefined || !SUPPORTED_TAG_FORMATS.has(format)) {
+            warnings.push(createParseWarning(
+              `Program local tag ${tag['@_Name']} has unsupported default-data encoding. The source representation was preserved.`,
+              {
+                code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
+                location: { path: format === undefined ? dataPath : `${dataPath}/@Format` },
+              }
+            ));
+            return;
+          }
+          for (const key of Object.keys(data)) {
+            if (key.startsWith('@_') || key.startsWith('#') || SUPPORTED_PROGRAM_PARAMETER_DATA_NODES.has(key)) {
+              continue;
+            }
+            warnings.push(createParseWarning(
+              `Program local tag ${tag['@_Name']} has unsupported default-data node ${key}. The source representation was preserved.`,
+              {
+                code: 'UNSUPPORTED_L5X_PROGRAM_LOCAL_TAG_DATA',
+                location: { path: `${dataPath}/${key}[1]` },
+              }
+            ));
+          }
+        });
+      });
+    }
+  );
+  return warnings;
+}
+
 function collectUnsupportedTrendNumericWarnings(xml: L5XContent): ParseWarning[] {
   const warnings: ParseWarning[] = [];
   ensureArray(xml.RSLogix5000Content.Controller.Trends?.Trend).forEach((trend, trendIndex) => {
@@ -1228,6 +1268,13 @@ function isXmlNode(value: unknown): value is XmlNode {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function orderedText(children: OrderedXmlNode[]): string {
+  return children.map((child) => {
+    if (typeof child['#text'] === 'string') return child['#text'];
+    return Array.isArray(child['#cdata']) ? orderedText(child['#cdata'] as OrderedXmlNode[]) : '';
+  }).join('');
+}
+
 /** Overlay source child order onto the grouped fast-xml-parser object tree. */
 function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXmlNode[]): void {
   function visit(
@@ -1249,11 +1296,20 @@ function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXm
       const occurrence = occurrences.get(elementName) ?? 0;
       occurrences.set(elementName, occurrence + 1);
       const groupedChild = parsedParent[elementName];
-      const parsedChild = Array.isArray(groupedChild)
+      let parsedChild = Array.isArray(groupedChild)
         ? groupedChild[occurrence]
         : occurrence === 0
           ? groupedChild
           : undefined;
+
+      if ((elementName === 'DataValue' || elementName === 'DataValueMember')
+        && (typeof parsedChild === 'string' || isXmlNode(parsedChild)) && Array.isArray(children)) {
+        const value: XmlNode = typeof parsedChild === 'string' ? {} : parsedChild;
+        const text = orderedText(children as OrderedXmlNode[]);
+        delete value['#cdata'];
+        if (text) value['#text'] = text;
+        parsedChild = value;
+      }
 
       if (parentElement === 'Structure' || parentElement === 'StructureMember') {
         const kind = STRUCTURE_MEMBER_KINDS[
@@ -1268,8 +1324,14 @@ function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXm
         const kind = TAG_DATA_VALUE_KINDS[
           elementName as keyof typeof TAG_DATA_VALUE_KINDS
         ];
-        if (kind && isXmlNode(parsedChild)) {
-          dataValues.push({ kind, value: parsedChild } as L5XOrderedTagDataValue);
+        // Attribute-free leaf nodes are strings, including empty and text-only values.
+        const isStringElement = typeof parsedChild === 'string';
+        if (kind && (isXmlNode(parsedChild) || isStringElement)) {
+          const value = isStringElement ? {} : parsedChild;
+          dataValues.push({
+            kind,
+            value,
+          } as L5XOrderedTagDataValue);
         }
       }
 

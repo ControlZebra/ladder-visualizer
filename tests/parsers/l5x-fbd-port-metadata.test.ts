@@ -61,6 +61,7 @@ const validTag = structureTag('BLOCK_01', validMembers);
 function blockProgram(options: {
   blocks: string;
   programTags?: string;
+  programLocalTags?: string;
   controllerTags?: string;
   softwareRevision?: string;
 }): string {
@@ -71,6 +72,7 @@ function blockProgram(options: {
     <Programs>
       <Program Name="GenericBlocks">
         ${options.programTags ? `<Tags>${options.programTags}</Tags>` : ''}
+        ${options.programLocalTags ? `<LocalTags>${options.programLocalTags}</LocalTags>` : ''}
         <Routines><Routine Name="Logic" Type="FBD"><FBDContent SheetSize="Tabloid - 11 x 17 in" SheetOrientation="Landscape"><Sheet Number="1">${options.blocks}</Sheet></FBDContent></Routine></Routines>
       </Program>
     </Programs>
@@ -362,6 +364,51 @@ describe('generic FBD Block port inference', () => {
         { id: 'InB', direction: 'input', order: 1 },
         { id: 'OutB', direction: 'output', order: 0 },
       ],
+    });
+  });
+
+  it('resolves a Block operand from a Program LocalTag default structure', () => {
+    const local = `<LocalTag Name="BLOCK_01" DataType="FBD_TEST"><DefaultData Format="Decorated"><Structure DataType="FBD_TEST">${validMembers.join('')}</Structure></DefaultData></LocalTag>`;
+    const { result, body } = parsedElements(blockProgram({
+      programLocalTags: local,
+      blocks: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA" />',
+    }));
+    expect(result.status).toBe('complete');
+    expect(body?.sheets[0]?.elements[0]).toMatchObject({
+      kind: 'block',
+      ports: [
+        { id: 'InA', direction: 'input' },
+        { id: 'OutA', direction: 'output' },
+      ],
+    });
+  });
+
+  it('reports same-name Program Tag and LocalTag operands as ambiguous', () => {
+    const local = `<LocalTag Name="BLOCK_01" DataType="FBD_TEST"><DefaultData Format="Decorated"><Structure DataType="FBD_TEST">${validMembers.join('')}</Structure></DefaultData></LocalTag>`;
+    const { result, body } = parsedElements(blockProgram({
+      programTags: validTag,
+      programLocalTags: local,
+      blocks: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="InA OutA" />',
+    }));
+    expect(result.status).toBe('partial');
+    expect(body?.sheets[0]?.elements[0]).toMatchObject({ kind: 'placeholder', sourceKind: 'Block' });
+    expect(body?.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'FBD_AMBIGUOUS_BLOCK_OPERAND',
+    }));
+  });
+
+  it('keeps a Program LocalTag nearer than a same-name Controller Tag', () => {
+    const localMembers = [member('EnableIn'), member('LocalInput'), member('EnableOut'), member('LocalOutput')];
+    const local = `<LocalTag Name="BLOCK_01" DataType="FBD_TEST"><DefaultData Format="Decorated"><Structure DataType="FBD_TEST">${localMembers.join('')}</Structure></DefaultData></LocalTag>`;
+    const { result, body } = parsedElements(blockProgram({
+      controllerTags: validTag,
+      programLocalTags: local,
+      blocks: '<Block Type="TEST" ID="1" X="20" Y="20" Operand="BLOCK_01" VisiblePins="LocalInput LocalOutput" />',
+    }));
+    expect(result.status).toBe('complete');
+    expect(body?.sheets[0]?.elements[0]).toMatchObject({
+      kind: 'block',
+      ports: [{ id: 'LocalInput' }, { id: 'LocalOutput' }],
     });
   });
 

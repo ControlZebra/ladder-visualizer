@@ -2,6 +2,21 @@ import { describe, it, expect } from 'vitest';
 import { matchByKey, matchByNumericKey, diffProperties, valuesEqual } from '../../src/diff/matching';
 
 describe('matchByKey', () => {
+  it('preserves multiplicity and new order while reserving exact duplicate matches', () => {
+    const oldItems = [{ name: 'X', value: 1 }, { name: 'Y', value: 9 }, { name: 'X', value: 2 }];
+    const newItems = [{ name: 'X', value: 3 }, { name: 'Y', value: 9 }, { name: 'X', value: 1 }];
+    expect(matchByKey(oldItems, newItems, (item) => item.name)).toEqual({
+      added: [], removed: [], matched: [
+        { oldItem: oldItems[2], newItem: newItems[0] },
+        { oldItem: oldItems[1], newItem: newItems[1] },
+        { oldItem: oldItems[0], newItem: newItems[2] },
+      ],
+    });
+    const repeated = { name: 'X', value: 1 };
+    expect(matchByKey([repeated, repeated], [repeated], (item) => item.name).removed).toEqual([repeated]);
+    expect(matchByKey([repeated], [repeated, repeated], (item) => item.name).added).toEqual([repeated]);
+  });
+
   it('should identify added items', () => {
     const oldItems = [{ name: 'A' }, { name: 'B' }];
     const newItems = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
@@ -94,6 +109,23 @@ describe('matchByNumericKey', () => {
 });
 
 describe('valuesEqual', () => {
+  it('ignores object key order at every depth', () => {
+    expect(valuesEqual(
+      { data: [{ kind: 'axis', attributes: { a: '1', b: '2' } }] },
+      { data: [{ attributes: { b: '2', a: '1' }, kind: 'axis' }] },
+    )).toBe(true);
+  });
+
+  it('still detects array order, object keys, and value changes', () => {
+    expect(valuesEqual([{ a: 1 }, { b: 2 }], [{ b: 2 }, { a: 1 }])).toBe(false);
+    expect(valuesEqual({ a: 1 }, { b: 1 })).toBe(false);
+    expect(valuesEqual({ a: 1, b: 2 }, { b: 3, a: 1 })).toBe(false);
+  });
+
+  it('retains equality for omitted optional JSON fields', () => {
+    expect(valuesEqual({ a: 1, optional: undefined }, { a: 1 })).toBe(true);
+  });
+
   it('should return true for identical primitives', () => {
     expect(valuesEqual(1, 1)).toBe(true);
     expect(valuesEqual('hello', 'hello')).toBe(true);

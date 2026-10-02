@@ -22,6 +22,7 @@ import type {
   NormalizedRoutine,
   NormalizedRung,
   NormalizedTag,
+  NormalizedProgramLocalTag,
   NormalizedDataType,
   NormalizedDataTypeMember,
   NormalizedAOI,
@@ -38,6 +39,7 @@ import type {
   RungDiff,
   STDiff,
   TagDiff,
+  ProgramLocalTagDiff,
   DataTypeDiff,
   DataTypeMemberDiff,
   AOIDiff,
@@ -124,6 +126,7 @@ function diffPrograms(
 
   // Added programs
   for (const prog of added) {
+    const localTagDiffs = diffProgramLocalTags([], prog.localTags ?? []);
     diffs.push({
       name: prog.name,
       kind: 'added',
@@ -140,11 +143,13 @@ function diffPrograms(
         kind: 'added' as const,
         newTag: t,
       })),
+      ...(localTagDiffs.length > 0 ? { localTagDiffs } : {}),
     });
   }
 
   // Removed programs
   for (const prog of removed) {
+    const localTagDiffs = diffProgramLocalTags(prog.localTags ?? [], []);
     diffs.push({
       name: prog.name,
       kind: 'removed',
@@ -161,6 +166,7 @@ function diffPrograms(
         kind: 'removed' as const,
         oldTag: t,
       })),
+      ...(localTagDiffs.length > 0 ? { localTagDiffs } : {}),
     });
   }
 
@@ -168,6 +174,7 @@ function diffPrograms(
   for (const { oldItem, newItem } of matched) {
     const routineDiffs = diffRoutines(oldItem.routines, newItem.routines);
     const tagDiffs = diffTags(oldItem.tags, newItem.tags);
+    const localTagDiffs = diffProgramLocalTags(oldItem.localTags ?? [], newItem.localTags ?? []);
     const propertyChanges = diffProperties(
       oldItem as unknown as Record<string, unknown>,
       newItem as unknown as Record<string, unknown>,
@@ -177,6 +184,7 @@ function diffPrograms(
     const hasChanges =
       routineDiffs.length > 0 ||
       tagDiffs.length > 0 ||
+      localTagDiffs.length > 0 ||
       propertyChanges.length > 0;
 
     if (hasChanges) {
@@ -185,6 +193,7 @@ function diffPrograms(
         kind: 'modified',
         routineDiffs,
         tagDiffs,
+        ...(localTagDiffs.length > 0 ? { localTagDiffs } : {}),
         propertyChanges,
       });
     }
@@ -411,6 +420,44 @@ function diffTags(
     }
   }
 
+  return diffs;
+}
+
+// ============================================================================
+// Program Local Tags
+// ============================================================================
+
+const PROGRAM_LOCAL_TAG_PROPS = [
+  'uid', 'parentUid', 'dataTypeUid', 'dataType', 'scope', 'programName',
+  'dimensions', 'radix', 'externalAccess', 'verified', 'description',
+  'comments', 'defaultData', 'defaultValue',
+];
+
+function diffProgramLocalTags(
+  oldTags: NormalizedProgramLocalTag[],
+  newTags: NormalizedProgramLocalTag[],
+): ProgramLocalTagDiff[] {
+  const { added, removed, matched } = matchByKey(oldTags, newTags, (tag) => tag.name);
+  const diffs: ProgramLocalTagDiff[] = [
+    ...added.map((tag) => ({ name: tag.name, kind: 'added' as const, newTag: tag })),
+    ...removed.map((tag) => ({ name: tag.name, kind: 'removed' as const, oldTag: tag })),
+  ];
+  for (const { oldItem, newItem } of matched) {
+    const propertyChanges = diffProperties(
+      oldItem as unknown as Record<string, unknown>,
+      newItem as unknown as Record<string, unknown>,
+      PROGRAM_LOCAL_TAG_PROPS,
+    );
+    if (propertyChanges.length > 0) {
+      diffs.push({
+        name: oldItem.name,
+        kind: 'modified',
+        propertyChanges,
+        oldTag: oldItem,
+        newTag: newItem,
+      });
+    }
+  }
   return diffs;
 }
 
@@ -736,7 +783,7 @@ function computeSummary(
   const rungCounts = countChanges(allRungDiffs);
 
   // Also count program-scoped tags
-  const programTagDiffs = programs.flatMap((p) => p.tagDiffs);
+  const programTagDiffs = programs.flatMap((p) => [...p.tagDiffs, ...(p.localTagDiffs ?? [])]);
   tagCounts.added += programTagDiffs.filter((t) => t.kind === 'added').length;
   tagCounts.removed += programTagDiffs.filter((t) => t.kind === 'removed').length;
   tagCounts.modified += programTagDiffs.filter((t) => t.kind === 'modified').length;
