@@ -1189,11 +1189,20 @@ function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXm
       const occurrence = occurrences.get(elementName) ?? 0;
       occurrences.set(elementName, occurrence + 1);
       const groupedChild = parsedParent[elementName];
-      const parsedChild = Array.isArray(groupedChild)
+      let parsedChild = Array.isArray(groupedChild)
         ? groupedChild[occurrence]
         : occurrence === 0
           ? groupedChild
           : undefined;
+
+      if ((elementName === 'DataValue' || elementName === 'DataValueMember')
+        && (typeof parsedChild === 'string' || isXmlNode(parsedChild)) && Array.isArray(children)) {
+        const value: XmlNode = typeof parsedChild === 'string' ? {} : parsedChild;
+        const text = orderedText(children as OrderedXmlNode[]);
+        delete value['#cdata'];
+        if (text) value['#text'] = text;
+        parsedChild = value;
+      }
 
       if (parentElement === 'Structure' || parentElement === 'StructureMember') {
         const kind = STRUCTURE_MEMBER_KINDS[
@@ -1212,11 +1221,6 @@ function annotateDecoratedChildOrder(parsedRoot: XmlNode, orderedRoot: OrderedXm
         const isStringElement = typeof parsedChild === 'string';
         if (kind && (isXmlNode(parsedChild) || isStringElement)) {
           const value = isStringElement ? {} : parsedChild;
-          if (kind === 'atomic' && Array.isArray(children)) {
-            const text = orderedText(children as OrderedXmlNode[]);
-            delete value['#cdata'];
-            if (text) value['#text'] = text;
-          }
           dataValues.push({
             kind,
             value,

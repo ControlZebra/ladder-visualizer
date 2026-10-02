@@ -40,6 +40,19 @@ describe('schema-declared Program LocalTags', () => {
     }
   });
 
+  it.each(['42', '4<![CDATA[2]]>', '<![CDATA[4]]><![CDATA[2]]>'])('preserves atomic structure member text: %s', (content) => {
+    const source = programSource(`<LocalTags><LocalTag Name="Text" DataType="UDT"><DefaultData Format="Decorated"><Structure><DataValueMember>${content}</DataValueMember></Structure></DefaultData></LocalTag></LocalTags>`);
+    const result = parsePublicString(source, 'l5x');
+    const document = parsePublicDocumentString(source, 'l5x');
+    const expected = [{ kind: 'structure', members: [{ kind: 'atomic', value: '42' }] }];
+    expect(result.status).toBe('complete');
+    expect(document.status).toBe('complete');
+    expect(result.data?.programs[0].localTags[0].defaultData?.[0].values).toEqual(expected);
+    expect(document.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0].defaultData?.[0].values).toEqual(expected);
+    const after = parsePublicString(source.replace(content, content.replace('4', '5')), 'l5x');
+    expect(diffControllers(result.data!, after.data!).summary.tags.modified).toBe(1);
+  });
+
   it('preserves decoded text, keeps attribute precedence, and leaves empty values empty', () => {
     const source = programSource('<LocalTags><LocalTag Name="Text" DataType="STRING"><DefaultData Format="Decorated"><DataValue>A &amp; B</DataValue><DataValue Value="attribute">text</DataValue><DataValue /></DefaultData></LocalTag></LocalTags>');
     const result = parsePublicString(source, 'l5x');
