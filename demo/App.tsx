@@ -11,6 +11,7 @@ import {
   AOIParameterTable,
   AOILocalTagTable,
   StructuredTextViewer,
+  RawRoutineViewer,
   ModuleInfoTable,
   DataTypeTable,
   buildInlineDiffModel,
@@ -850,7 +851,7 @@ export default function App() {
           const isRLLRoutine = routine.type === 'RLL';
           const isFBDRoutine = routine.type === 'FBD' && Boolean(routine.fbd);
           
-          if (!isSTRoutine && !isRLLRoutine && !isFBDRoutine) {
+          if (!isSTRoutine && !isRLLRoutine && !isFBDRoutine && !routine.rawSource) {
             return (
               <div key={`aoi-routine-${tabData.aoiName}-${tabData.routineIndex}`} style={containerStyle}>
                 <div style={styles.emptyState}>
@@ -881,6 +882,8 @@ export default function App() {
                     height="100%"
                     showControls
                   />
+                ) : routine.rawSource && !isRLLRoutine ? (
+                  <RawRoutineViewer routine={routine} style={{ width: '100%', height: '100%' }} />
                 ) : (
                   <VirtualizedLadderDiagram
                     routine={routine}
@@ -904,7 +907,7 @@ export default function App() {
           const isRLLRoutine = routine.type === 'RLL';
           const isFBDRoutine = routine.type === 'FBD' && Boolean(routine.fbd);
           
-          if (!isSTRoutine && !isRLLRoutine && !isFBDRoutine) {
+          if (!isSTRoutine && !isRLLRoutine && !isFBDRoutine && !routine.rawSource) {
             return (
               <div key={`routine-${tabData.programIndex}-${tabData.routineIndex}`} style={containerStyle}>
                 <div style={styles.emptyState}>
@@ -956,6 +959,8 @@ export default function App() {
                     height="100%"
                     showControls
                   />
+                ) : routine.rawSource && !isRLLRoutine ? (
+                  <RawRoutineViewer routine={routine} style={{ width: '100%', height: '100%' }} />
                 ) : (
                   <VirtualizedLadderDiagram
                     routine={routine}

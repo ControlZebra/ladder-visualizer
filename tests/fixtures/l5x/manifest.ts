@@ -1,4 +1,4 @@
-export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.15.0';
+export const L5X_COMPATIBILITY_MATRIX_VERSION = '1.16.0';
 
 export const L5X_PROFILE_IDS = [
   'rockwell-controller-rll',
@@ -1517,6 +1517,24 @@ export const L5X_FIXTURES: readonly L5XFixture[] = [
       'deterministic serialization',
     ],
   },
+  ...([33, 34, 35] as const).map((major): L5XFixture => ({
+    id: `sfc-raw-v${major}`,
+    file: `sfc-raw-v${major}.L5X`,
+    studio5000Version: `${major}.01`,
+    targetType: 'Controller',
+    artifactKind: 'unsupported-language',
+    profiles: ['rockwell-full-project'],
+    expectedParseStatus: 'partial',
+    sourceCounts: {
+      ...emptySourceCounts,
+      controllers: 1, programs: 2, routines: 5, rungs: 1, sfcSteps: 3, stLines: 8,
+    },
+    currentParser: {
+      success: true,
+      normalizedCounts: { ...emptyNormalizedCounts, programs: 2, routines: 5, rungs: 1, stLines: 1 },
+    },
+    coverage: ['unsupported SFC body', 'complete SFC routine raw XML', 'SFC source ownership', 'repeated SFC bodies', 'SFC nested Structured Text'],
+  })),
   {
     id: 'sfc-v35',
     file: 'sfc-v35.L5X',

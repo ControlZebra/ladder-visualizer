@@ -117,6 +117,30 @@ Low-level `l5xToNormalized()` and `jsonToNormalized()` callers can use
 `finalizeController(controller)` to obtain the matching context and replace
 provisional rung categories before rendering.
 
+## SFC raw routines
+
+SFC routines retain their complete original `<Routine>` XML in `rawSource` when
+parsed through the public L5X APIs. Select a routine in the demo to inspect its
+source, or use the reusable component in your application:
+
+```tsx
+import { parseString, RawRoutineViewer } from 'ladder-visualizer';
+
+const result = parseString(l5xSource, 'l5x');
+const routine = result.data?.programs[0]?.routines.find(item => item.type === 'SFC');
+if (routine?.rawSource) {
+  return <RawRoutineViewer routine={routine} style={{ height: 480 }} />;
+}
+```
+
+The source retains comments, CDATA, nested code, whitespace and line endings.
+`rawSource.sourcePath` identifies the routine's owner; `startOffset` and
+`endOffset` delimit its exact XML in the decoded input string (UTF-16 indexes,
+exclusive end). `RawRoutineViewer` uses the same theme variables as
+`StructuredTextViewer` and accepts `showLineNumbers`, `fontSize`, `className`,
+and `style`. SFC semantic normalization and rich charts remain incomplete,
+so raw access does not change a partial parse into a complete one.
+
 ## L5X input safety
 
 L5X parsing rejects XML `DOCTYPE` declarations and custom entities. Built-in

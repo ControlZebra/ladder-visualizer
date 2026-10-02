@@ -231,9 +231,20 @@ export interface NormalizedFBDBody {
   diagnostics: NormalizedFBDDiagnostic[];
 }
 
-/**
- * Normalized routine - vendor-agnostic representation
- */
+/** Original source representation for a routine that supports raw inspection. */
+export interface NormalizedRoutineSource {
+  format: 'xml';
+  /** Complete original routine element, without reserialization or trimming. */
+  text: string;
+  /** One-based element occurrence path in the source document. */
+  sourcePath: string;
+  /** UTF-16 string index in the decoded input, inclusive. */
+  startOffset: number;
+  /** UTF-16 string index in the decoded input, exclusive. */
+  endOffset: number;
+}
+
+/** Normalized routine - vendor-agnostic representation. */
 export interface NormalizedRoutine {
   /** Routine name */
   name: string;
@@ -245,6 +256,8 @@ export interface NormalizedRoutine {
   stContent?: STLine[];
   /** Canonical Function Block Diagram content (for FBD type). */
   fbd?: NormalizedFBDBody;
+  /** Original source for raw inspection; currently supplied for L5X SFC routines. */
+  rawSource?: NormalizedRoutineSource;
   /** Description/comment for the routine */
   description?: string;
 }

@@ -1,6 +1,6 @@
 # L5X compatibility contract
 
-Compatibility matrix version: **1.15.0**
+Compatibility matrix version: **1.16.0**
 
 This document defines the narrow, testable claims Ladder Visualizer may make about Rockwell L5X input. A profile is a promise about named constructs and export shapes. It is not a percentage derived from the number of entities that happened to survive normalization.
 
@@ -8,7 +8,7 @@ The executable source of truth is [`tests/fixtures/l5x/manifest.ts`](../tests/fi
 
 ## Compatibility profiles
 
-| Profile                   | Version 1.15.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
+| Profile                   | Version 1.16.0 status | Included contract                                                                                     | Known boundaries                                                                                                  |
 | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `rockwell-controller-rll` | Supported            | Controller identity/communication metadata, UDT headers, controller and program tags, program hierarchy, Equipment Phase metadata, tasks and schedules, trends and quick-watch lists, AOIs, modules, RLL routines/rungs, and Program/AOI Structured Text source lines | Rockwell-specific controller configuration and SFC-based equipment sequences are preserved rather than normalized |
 | `rockwell-program-rll`    | Supported            | Program target exports with identity/hierarchy attributes, parameters, program state, program tags, RLL routines, and Structured Text source lines | A parent omitted from a component export is not treated as invalid; resource IDs are document-local |
@@ -75,6 +75,33 @@ Explicit resource `Use` takes precedence over the immediate collection's `Use`. 
 `fragments` retains unmodeled elements, protected/encoded content, and source representations that extend or overlap existing normalized fields. Each fragment has a path, parsed subtree, and reason (`unmodeled`, `protected`, or `source-representation`). Attributes use `@_`; text and CDATA use `#text` and `#cdata`. `mappings` accounts for source leaves represented by typed fields. Tests require every parsed leaf to be mapped or preserved. This is parsed-subtree preservation, without a byte-perfect XML or comment guarantee. Normalized decorated structures retain heterogeneous member declaration order. Opaque trend templates are retained as source representations.
 
 A successful result means a usable document was returned, not that all content was normalized. `PRESERVED_L5X_CONTENT` identifies results with retained fragments. Standard tag metadata outside the normalized contract, explicitly preserved Rockwell controller configuration, recovered FBD placeholders, and SFC bodies can make a result partial. Encoded wrappers and their additional source children remain protected fragments and make the result partial.
+
+### SFC raw source boundary
+
+High-level L5X parsing exposes `NormalizedRoutine.rawSource` for each SFC routine,
+including program-owned and AOI-owned resources and standalone Routine exports.
+Its `text` is the complete original `<Routine>` element, including all SFC bodies,
+online-edit representations, descriptions, comments, CDATA, nested actions,
+conditions, presets, limits, and embedded Structured Text. Extraction preserves
+attribute spelling/order, XML escapes, whitespace, and original line endings.
+`sourcePath` identifies the owning routine by one-based element occurrence;
+`startOffset` and `endOffset` are UTF-16 indexes into the decoded input, with an
+exclusive end. Slicing that input with those offsets yields `text` exactly.
+The XML-object-only `l5xToNormalized()` mapper cannot recover original source text.
+
+The `sfc-raw-v33`, `sfc-raw-v34`, and `sfc-raw-v35` fixtures validate against the
+pinned matching schemas. They cover empty/single/repeated bodies, repeated actions,
+all SFC child families, nested code, and routines with equal names under different
+programs. Focused transport tests exercise v17/v32 envelopes; the v17 exports
+`SFC_GearChange.L5X`, `SFC_Motion_Example.L5X`, and `Equipment_Phase_Sequencer.L5X`
+in AB-samples at `4aa89ad31a25f6a7dcff7e5094494841d9fc37ca` provide earlier
+real-export shape evidence. The new fixtures are synthetic schema-based inputs.
+
+`RawRoutineViewer` renders this source as read-only text with optional line numbers
+and the existing Structured Text theme variables. The library demo selects this
+fallback for SFC routines. Raw inspection does not normalize SFC semantics: source
+fragments and partial-status diagnostics remain, with no rich SFC chart, step/action
+navigation, protected-content decoding, or ControlZebra integration in this slice.
 
 ### FBD compatibility boundary
 

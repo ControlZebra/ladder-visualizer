@@ -851,7 +851,7 @@ export interface L5XRoutine {
   RLLContent?: L5XRLLContent | L5XRLLContent[];
   STContent?: L5XSTContent | L5XSTContent[];
   FBDContent?: L5XFBDContent | L5XFBDContent[];
-  SFCContent?: L5XSFCContent;
+  SFCContent?: L5XSFCContent | L5XSFCContent[];
 }
 
 export type L5XRoutineType = 'RLL' | 'ST' | 'FBD' | 'SFC' | 'Typeless' | 'External' | 'Encrypted';
@@ -1030,12 +1030,20 @@ export interface L5XFBDAttachment {
  * SFC (Sequential Function Chart) content
  */
 export interface L5XSFCContent {
+  '@_Use'?: L5XUse;
   '@_SheetSize'?: string;
   '@_SheetOrientation'?: string;
+  '@_StepName'?: string;
+  '@_TransitionName'?: string;
+  '@_ActionName'?: string;
+  '@_StopName'?: string;
+  '@_OnlineEditType'?: L5XOnlineEditType;
   Step?: unknown | unknown[];
   Transition?: unknown | unknown[];
   Branch?: unknown | unknown[];
+  SbrRet?: unknown | unknown[];
   Stop?: unknown | unknown[];
+  DirectedLink?: unknown | unknown[];
   TextBox?: unknown | unknown[];
   Attachment?: unknown | unknown[];
 }

@@ -60,6 +60,7 @@ export type {
 // Routine
 export type {
   NormalizedRoutine,
+  NormalizedRoutineSource,
   NormalizedRoutineType,
   STLine,
   NormalizedFBDOrientation,
