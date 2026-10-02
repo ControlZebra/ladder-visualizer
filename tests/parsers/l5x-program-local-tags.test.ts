@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createTagResolver, parseDocumentString, parseString } from '../../src/parsers';
+import { parseString as parsePublicString, parseDocumentString as parsePublicDocumentString } from '../../src';
 
 const read = (name: string) => readFileSync(join(__dirname, `../fixtures/l5x/${name}.L5X`), 'utf8');
 const programPath = '/RSLogix5000Content/Controller[1]/Programs[1]/Program[1]';
@@ -13,6 +14,40 @@ function programSource(localTags: string, version = '35.01') {
 }
 
 describe('schema-declared Program LocalTags', () => {
+  it.each(['33', '34', '35'])('preserves exact v%s LINT defaults through both public APIs', (version) => {
+    const source = read(`program-local-tags-v${version}`)
+      .replace('DataType="DINT"', 'DataType="LINT"')
+      .replace('<![CDATA[7]]>', '<![CDATA[9007199254740993]]>')
+      .replace('DataType="DINT" Radix="Decimal" Value="7"',
+        'DataType="LINT" Radix="Decimal" Value="9007199254740993"');
+    const controller = parsePublicString(source, 'l5x');
+    const document = parsePublicDocumentString(source, 'l5x');
+    expect(controller.status).toBe('complete');
+    expect(document.status).toBe('complete');
+    expect(controller.data?.programs[0].localTags[0].defaultValue).toBe('9007199254740993');
+    expect(document.data?.resources.find((resource) => resource.kind === 'program')?.data.localTags[0].defaultValue)
+      .toBe('9007199254740993');
+  });
+
+  it.each([
+    ['9007199254740991', 9007199254740991, 'LINT'],
+    ['-9007199254740991', -9007199254740991, 'LINT'],
+    ['9223372036854775807', '9223372036854775807', 'LINT'],
+    ['-9223372036854775808', '-9223372036854775808', 'LINT'],
+    ['12.5', 12.5, 'REAL'],
+  ] as const)('keeps scalar %s exact in either default representation', (value, expected, dataType) => {
+    for (const defaults of [
+      `<DefaultData Format="L5K"><![CDATA[${value}]]></DefaultData>`,
+      `<DefaultData Format="Decorated"><DataValue DataType="${dataType}" Value="${value}" /></DefaultData>`,
+    ]) {
+      const result = parsePublicString(programSource(
+        `<LocalTags><LocalTag Name="Counter" DataType="${dataType}">${defaults}</LocalTag></LocalTags>`
+      ), 'l5x');
+      expect(result.status).toBe('complete');
+      expect(result.data?.programs[0].localTags[0].defaultValue).toBe(expected);
+    }
+  });
+
   it.each(['33', '34', '35'])('fully normalizes the v%s standalone Program fixture', (version) => {
     const source = read(`program-local-tags-v${version}`);
     const controller = parseString(source, 'l5x');

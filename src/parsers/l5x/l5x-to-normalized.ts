@@ -2287,10 +2287,7 @@ function extractDefaultValue(defaultData: L5XTagData | L5XTagData[] | undefined)
   const l5kData = dataArray.find((d: { '@_Format'?: string }) => d['@_Format'] === 'L5K');
   const text = (l5kData?.['#cdata'] ?? l5kData?.['#text'])?.trim();
   if (text) {
-    // Try to parse as number
-    const num = Number(text);
-    if (!isNaN(num)) return num;
-    return text;
+    return parseScalarDefault(text);
   }
 
   // Try decorated format
@@ -2300,14 +2297,20 @@ function extractDefaultValue(defaultData: L5XTagData | L5XTagData[] | undefined)
   if (decoratedData && 'DataValue' in decoratedData && decoratedData.DataValue) {
     const dataValue = decoratedData.DataValue as { '@_Value'?: string };
     if (dataValue['@_Value']) {
-      const val = dataValue['@_Value'];
-      const num = Number(val);
-      if (!isNaN(num)) return num;
-      return val;
+      return parseScalarDefault(dataValue['@_Value']);
     }
   }
 
   return undefined;
+}
+
+function parseScalarDefault(value: string): number | string {
+  const number = Number(value);
+  // Keep large PLC integers exact instead of exposing a rounded scalar shortcut.
+  if (!Number.isFinite(number) || (Number.isInteger(number) && !Number.isSafeInteger(number))) {
+    return value;
+  }
+  return number;
 }
 
 // ============================================
